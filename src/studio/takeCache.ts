@@ -18,7 +18,7 @@ export interface CachedTake {
   createdAt: number;
 }
 
-const DB = "batatis-studio";
+const DB = "lemo";
 const STORE = "takes";
 
 let opening: Promise<IDBDatabase> | null = null;

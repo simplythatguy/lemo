@@ -8,12 +8,17 @@ import { thumbnail } from "./thumb";
 
 export { STAGE_W, STAGE_H, type Stage } from "./stage";
 
+/** Everything about `deck` the stage paints (not the transcript or timings): a stage only needs rebuilding when this changes. */
+export function stageKey(deck: Deck): string {
+  return JSON.stringify([deck.title, deck.logo ?? null, deck.team, deck.groups.map((g) => g.slides)]);
+}
+
 /** Paints `deck` into `canvas` (backing store 1920×1080, CSS-scaled by the caller) on its own rAF loop. */
 export function createStage(canvas: HTMLCanvasElement, deck: Deck): Stage {
   return makeStage(canvas, deck);
 }
 
-/** Loads fonts, images and clips (as blob URLs, for exact seeking). Call before recording or exporting. */
+/** Loads fonts, images (slide pages, the logo) and clips (as blob URLs, for exact seeking). Call before recording or exporting. */
 export function preload(deck: Deck, onProgress?: (fraction: number) => void): Promise<void> {
   return preloadAssets(deck, onProgress);
 }
@@ -34,7 +39,7 @@ export function exportVideo(opts: {
   return renderVideo(opts);
 }
 
-/** Paints slide `slide` of group `group` into `canvas`, scaled to its backing size. Each slide is painted once per deck and cached. */
+/** Paints slide `slide` of group `group` into `canvas`, scaled to its backing size. Each distinct slide is painted once and cached. */
 export async function renderThumb(canvas: HTMLCanvasElement, deck: Deck, group: number, slide: number): Promise<void> {
   const still = await thumbnail(deck, group, slide);
   const ctx = canvas.getContext("2d");

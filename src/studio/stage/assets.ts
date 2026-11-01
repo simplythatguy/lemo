@@ -9,11 +9,17 @@ const images = new Map<string, Promise<HTMLImageElement>>();
 const decoded = new Map<string, HTMLImageElement>();
 const clips = new Map<string, Promise<string>>();
 let fonts: Promise<void> | null = null;
+let fontsLoaded = false;
 
 export function loadFonts(): Promise<void> {
-  fonts ??= Promise.all(WEIGHTS.map((w) => document.fonts.load(`${w} 60px ${FAMILY}`, "Batatis 0123456789 $“”·–"))).then(() => {});
+  fonts ??= Promise.all(WEIGHTS.map((w) => document.fonts.load(`${w} 60px ${FAMILY}`, "Aa 0123456789 $“”·–…"))).then(() => {
+    fontsLoaded = true;
+  });
   return fonts;
 }
+
+/** True once loadFonts has resolved, so a new stage can paint its first frame without waiting a tick. */
+export const fontsReady = () => fontsLoaded;
 
 export function loadImage(src: string): Promise<HTMLImageElement> {
   let p = images.get(src);
@@ -32,10 +38,16 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   return p;
 }
 
+const failedAt = new Map<string, number>();
+/** A still that failed to load is tried again after this long, not on every frame. */
+const RETRY_MS = 5000;
+
 /** The decoded still, or undefined while it loads (starting the load if nobody has). */
 export function image(src: string): HTMLImageElement | undefined {
   const img = decoded.get(src);
-  if (!img) void loadImage(src).catch(() => {});
+  if (!img && !images.has(src) && performance.now() - (failedAt.get(src) ?? -Infinity) > RETRY_MS) {
+    void loadImage(src).catch(() => failedAt.set(src, performance.now()));
+  }
   return img;
 }
 
@@ -83,9 +95,10 @@ export function clipUrl(src: string): Promise<string> {
 
 export function deckSources(deck: Deck): { images: string[]; clips: string[] } {
   const imgs = new Set<string>(), vids = new Set<string>();
+  if (deck.logo) imgs.add(deck.logo);
   for (const g of deck.groups)
     for (const s of g.slides) {
-      if (s.kind === "image") imgs.add(s.src);
+      if (s.kind === "page" || s.kind === "image") imgs.add(s.src);
       if (s.kind === "compare") imgs.add(s.left.src).add(s.right.src);
       if (s.kind === "clip") vids.add(s.src);
     }
@@ -94,7 +107,8 @@ export function deckSources(deck: Deck): { images: string[]; clips: string[] } {
 
 export async function preload(deck: Deck, onProgress?: (fraction: number) => void): Promise<void> {
   const { images: imgs, clips: vids } = deckSources(deck);
-  const jobs: Promise<unknown>[] = [loadFonts(), ...imgs.map(loadImage), ...vids.map(clipUrl)];
+  // A missing image paints as white rather than stopping the whole render.
+  const jobs: Promise<unknown>[] = [loadFonts(), ...imgs.map((src) => loadImage(src).catch(() => undefined)), ...vids.map(clipUrl)];
   let done = 0;
   onProgress?.(0);
   await Promise.all(jobs.map((j) => j.then(() => onProgress?.(++done / jobs.length))));

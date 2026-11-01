@@ -1,4 +1,4 @@
-// Demo Studio contract shared by setup (upload, groups, transcript), the room (recording) and the stage (painting,
+// Lemo contract shared by setup (upload, groups, transcript), the room (recording) and the stage (painting,
 // export). The deck lives on the server with its room (RoomState.deck), so everyone in the room sees the same one. Slides are painted on a 1920×1080 canvas as stills: the only motion is the
 // transition between slides, the app clips, the presenter's camera and the logo cards.
 

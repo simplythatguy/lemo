@@ -12,7 +12,8 @@ const THUMB_H = (THUMB_W * STAGE_H) / STAGE_W;
 /** A clip that has not shown a frame by then is painted as its empty frame. */
 const CLIP_WAIT_MS = 4000;
 
-const cache = new WeakMap<Deck, Map<string, Promise<HTMLCanvasElement>>>();
+/** Keyed by what the slide paints, so a deck edited elsewhere (a transcript, another group) keeps its stills. */
+const cache = new Map<string, Promise<HTMLCanvasElement>>();
 
 /** The clip's first frame, or undefined when the file is missing or will not decode. */
 function firstFrame(slide: Extract<Slide, { kind: "clip" }>): Promise<HTMLVideoElement | undefined> {
@@ -39,8 +40,7 @@ function firstFrame(slide: Extract<Slide, { kind: "clip" }>): Promise<HTMLVideoE
   );
 }
 
-async function paintThumb(deck: Deck, group: number, index: number): Promise<HTMLCanvasElement> {
-  const slide = deck.groups[group]?.slides[index];
+async function paintThumb(deck: Deck, slide: Slide | undefined): Promise<HTMLCanvasElement> {
   const full = document.createElement("canvas");
   full.width = STAGE_W;
   full.height = STAGE_H;
@@ -49,11 +49,12 @@ async function paintThumb(deck: Deck, group: number, index: number): Promise<HTM
   ctx.fillRect(0, 0, STAGE_W, STAGE_H);
   if (slide) {
     await loadFonts();
-    if (slide.kind === "image") await loadImage(slide.src).catch(() => undefined);
+    if (slide.kind === "page" || slide.kind === "image") await loadImage(slide.src).catch(() => undefined);
+    if (slide.kind === "logo" && deck.logo) await loadImage(deck.logo).catch(() => undefined);
     if (slide.kind === "compare") await Promise.all([slide.left.src, slide.right.src].map((s) => loadImage(s).catch(() => undefined)));
     const video = slide.kind === "clip" ? await firstFrame(slide) : undefined;
     if (hasTitle(slide)) paintTitle(ctx, slide.title);
-    paintSlide(ctx, slide, { video });
+    paintSlide(ctx, slide, { video, brand: { title: deck.title, logo: deck.logo } });
     if (video) video.removeAttribute("src");
   }
   const small = document.createElement("canvas");
@@ -65,15 +66,14 @@ async function paintThumb(deck: Deck, group: number, index: number): Promise<HTM
   return small;
 }
 
-export function thumbnail(deck: Deck, group: number, slide: number): Promise<HTMLCanvasElement> {
-  let byDeck = cache.get(deck);
-  if (!byDeck) cache.set(deck, (byDeck = new Map()));
-  const key = `${group}:${slide}`;
-  let p = byDeck.get(key);
+export function thumbnail(deck: Deck, group: number, index: number): Promise<HTMLCanvasElement> {
+  const slide = deck.groups[group]?.slides[index];
+  const key = slide?.kind === "logo" ? JSON.stringify([slide, deck.title, deck.logo]) : JSON.stringify(slide ?? null);
+  let p = cache.get(key);
   if (!p) {
-    p = paintThumb(deck, group, slide);
-    byDeck.set(key, p);
-    p.catch(() => byDeck.delete(key));
+    p = paintThumb(deck, slide);
+    cache.set(key, p);
+    p.catch(() => cache.delete(key));
   }
   return p;
 }

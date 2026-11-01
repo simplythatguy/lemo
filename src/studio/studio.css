@@ -1,5 +1,5 @@
-/* Demo Studio in the app's Mercury look (docs/design-system-calm.md): white page, hairlines, regular-weight titles,
-   grey pills with one indigo primary, colour only to identify. Tokens come from calm.css; classes are studio-only. */
+/* Lemo's recording room: white page, hairlines, regular-weight titles, neutral controls with one near-black primary,
+   colour only to identify. Tokens and buttons come from base.css; classes here are studio-only. */
 
 .st-page,
 .st-room {
@@ -29,21 +29,48 @@
   padding: 32px 24px;
 }
 
+/* The app's mark: a link home. */
 .st-brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   margin: 0;
+  border-radius: 8px;
   font: 500 15px/1 var(--cf-font);
   letter-spacing: -0.005em;
   color: var(--cf-text);
+  text-decoration: none;
   white-space: nowrap;
 }
 
-.st-brand .cf-mark {
+.st-mark {
   width: 22px;
   height: 22px;
   flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--cf-accent);
+}
+
+/* The project's mark: its logo, or its first letter on ink. */
+.st-pmark {
+  flex-shrink: 0;
+  border-radius: 24%;
+  object-fit: contain;
+}
+
+.st-pmark.is-letter {
+  display: inline-grid;
+  place-items: center;
+  background: var(--cf-text);
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+}
+
+.st-quiet {
+  margin: 0;
+  font-size: 14px;
+  color: var(--cf-text-3);
 }
 
 .st-title {
@@ -68,29 +95,49 @@
   gap: 24px;
 }
 
-.st-signin {
+.st-join-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  font: 400 28px/1.2 var(--cf-font);
+  letter-spacing: -0.015em;
+  color: var(--cf-text);
+}
+
+.st-join-title > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A room without slides: the mark and one way forward. */
+.st-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
+  gap: 32px;
 }
 
-.st-signin .cf-btn {
-  text-decoration: none;
-}
-
-.st-join .st-brand,
-.st-signin .st-brand {
+.st-empty .st-brand {
   gap: 12px;
   font-size: 28px;
   font-weight: 400;
   letter-spacing: -0.015em;
 }
 
-.st-join .st-brand .cf-mark,
-.st-signin .st-brand .cf-mark {
+.st-empty .st-brand .st-mark {
   width: 28px;
   height: 28px;
+  border-radius: 9px;
+}
+
+.st-empty .st-join-actions {
+  justify-content: center;
+}
+
+.st-empty .cf-btn {
+  text-decoration: none;
 }
 
 .st-cam {
@@ -210,6 +257,11 @@
   transition: border-color 150ms var(--cf-ease), box-shadow 150ms var(--cf-ease);
 }
 
+/* Team names are suggested as you type; the browser's list arrow stays out of the line. */
+.st-field input::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
 .st-page .st-field input:focus-visible,
 .st-page .st-code-join input:focus-visible {
   outline: none;
@@ -301,8 +353,38 @@
   min-width: 0;
 }
 
-.st-top > .st-brand {
+/* Where you are: the app's mark (home), the project, and the way back to its slides. */
+.st-where {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  max-width: 34%;
+}
+
+.st-deck-title {
+  min-width: 0;
+  font: 500 15px/1.2 var(--cf-font);
+  letter-spacing: -0.005em;
+  color: var(--cf-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.st-edit-slides {
   flex: none;
+  margin-left: -4px;
+  color: var(--cf-text-3);
+}
+
+.st-edit-slides svg {
+  color: var(--cf-text-4);
+}
+
+.st-edit-slides.is-hidden {
+  visibility: hidden;
 }
 
 .st-corner {
@@ -327,14 +409,6 @@
   color: var(--cf-text-4);
 }
 
-.st-total-of {
-  color: var(--cf-text-4);
-}
-
-.st-total.is-over,
-.st-total.is-over .st-total-of {
-  color: var(--cf-blocking-ink);
-}
 
 /* Cameras */
 
@@ -610,6 +684,14 @@
   color: var(--cf-text-2);
 }
 
+/* Nobody records this group yet: the same empty circle the filmstrip shows. */
+.st-who-chip.is-none {
+  width: 18px;
+  height: 18px;
+  background: none;
+  border: 1.25px dashed var(--cf-text-4);
+}
+
 .st-steps {
   display: flex;
   align-items: center;
@@ -705,14 +787,50 @@
   padding: 12px 0 16px;
 }
 
-.st-script-title {
+.st-script-head {
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 0 0 12px;
+  min-width: 0;
+}
+
+.st-script-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font: 400 20px/1.3 var(--cf-font);
   letter-spacing: -0.01em;
   color: var(--cf-text);
+}
+
+.st-script-title > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-script-head .st-error {
+  flex: none;
+  font-size: 12.5px;
+}
+
+.st-script-edit {
+  margin-right: -6px;
+  color: var(--cf-text-3);
+}
+
+.st-script-edit.is-on {
+  color: var(--cf-text);
+}
+
+.st-script-edit:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .st-script-dot {
@@ -782,6 +900,39 @@
   color: var(--cf-text);
 }
 
+/* Editing: each slide's words in a plain field, one hairline under it. */
+.st-seg-edit {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  padding: 6px 12px;
+}
+
+.st-seg-edit textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(1.6em * 2 + 12px);
+  field-sizing: content;
+  padding: 4px 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--cf-line);
+  border-radius: 0;
+  background: transparent;
+  resize: none;
+  font: 400 clamp(16px, 0.9vw, 17px)/1.6 var(--cf-font);
+  color: var(--cf-text);
+  outline: none;
+  transition: border-color 150ms var(--cf-ease);
+}
+
+.st-room .st-seg-edit textarea:focus-visible {
+  outline: none;
+}
+
+.st-seg-edit textarea:focus {
+  border-bottom-color: var(--cf-focus);
+}
+
 .st-seg-n {
   padding-top: 4px;
   font-size: 12.5px;
@@ -790,7 +941,40 @@
   color: var(--cf-text-4);
 }
 
-.st-seg.is-now .st-seg-n {
+.st-seg.is-now /* Editing: each slide's words in a plain field, one hairline under it. */
+.st-seg-edit {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+  padding: 6px 12px;
+}
+
+.st-seg-edit textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(1.6em * 2 + 12px);
+  field-sizing: content;
+  padding: 4px 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--cf-line);
+  border-radius: 0;
+  background: transparent;
+  resize: none;
+  font: 400 clamp(16px, 0.9vw, 17px)/1.6 var(--cf-font);
+  color: var(--cf-text);
+  outline: none;
+  transition: border-color 150ms var(--cf-ease);
+}
+
+.st-room .st-seg-edit textarea:focus-visible {
+  outline: none;
+}
+
+.st-seg-edit textarea:focus {
+  border-bottom-color: var(--cf-focus);
+}
+
+.st-seg-n {
   font-weight: 500;
   color: var(--cf-text);
 }

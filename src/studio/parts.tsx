@@ -20,14 +20,12 @@ export const initials = (name: string) => {
 
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 
-export const roomLink = (code: string) => {
-  const url = new URL(location.href);
-  url.search = "";
-  url.searchParams.set("room", code);
-  const deck = new URLSearchParams(location.search).get("deck");
-  if (deck) url.searchParams.set("deck", deck);
-  return url.toString();
-};
+export const roomLink = (code: string) => `${location.origin}/r/${code}`;
+export const editLink = (code: string) => `/r/${code}/edit`;
+
+/** A file-name-safe form of `s`: "My Big Demo!" → "my-big-demo". */
+export const slug = (s: string) =>
+  s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "demo";
 
 export function CopyLink({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
@@ -50,12 +48,23 @@ export function CopyLink({ code }: { code: string }) {
   );
 }
 
-/** The app's mark and the screen's name, as the room's top-left corner shows them. */
-export function Brand({ as: Tag = "h1" }: { as?: "h1" | "span" }) {
+/** The app's mark, a link home to every demo this device knows. `named` adds the product name beside it. */
+export function Brand({ named = false }: { named?: boolean }) {
   return (
-    <Tag className="st-brand">
-      <span className="cf-mark" aria-hidden="true" />
-      Studio
-    </Tag>
+    <a className="st-brand" href="/" aria-label="Lemo" title="My demos">
+      <span className="st-mark" aria-hidden="true" />
+      {named && <span aria-hidden="true">Lemo</span>}
+    </a>
+  );
+}
+
+/** The project's mark: its logo, or its first letter on an ink square without one. */
+export function ProjectMark({ title, logo, size = 28 }: { title: string; logo?: string; size?: number }) {
+  const [broken, setBroken] = useState<string | null>(null);
+  const letter = Array.from(title.trim())[0]?.toUpperCase() ?? "";
+  return logo && broken !== logo ? (
+    <img className="st-pmark" src={logo} alt="" width={size} height={size} onError={() => setBroken(logo)} />
+  ) : (
+    <span className="st-pmark is-letter" style={{ width: size, height: size, fontSize: size * 0.5 }} aria-hidden="true">{letter}</span>
   );
 }

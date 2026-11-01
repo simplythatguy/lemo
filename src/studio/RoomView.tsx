@@ -5,19 +5,20 @@ import { startRecording, type Recording } from "./recorder";
 import { Render, takeMedia } from "./Render";
 import { roomApi } from "./room";
 import { SavedVideos } from "./SavedVideos";
-import { createStage, exportVideo, preload, type Stage } from "./stage";
+import { createStage, exportVideo, preload, stageKey, type Stage } from "./stage";
 import { Cams } from "./Cams";
 import { Filmstrip, groupColor } from "./Filmstrip";
-import { Brand, CopyLink, firstName, initials, type Camera } from "./parts";
+import { Brand, CopyLink, editLink, firstName, initials, slug, type Camera } from "./parts";
 import { usePeers } from "./peers";
 import { clock, deckMs, targetMs } from "./timing";
-import { liveLeft, newerLive, VIDEO_LIMIT_MS, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RoomState, type TakeInfo, type TakeMedia } from "./types";
+import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RoomState, type TakeInfo, type TakeMedia } from "./types";
 import { uploads, useUploads } from "./uploads";
 
 type Phase =
   | { k: "idle" }
   | { k: "countdown"; n: number }
-  | { k: "recording"; startedAt: number; slide: number }
+  /** `target` is the group's length when the take started: an edit elsewhere never moves a running clock. */
+  | { k: "recording"; startedAt: number; slide: number; target: number }
   | { k: "review"; media: TakeMedia };
 
 const busy = (p: Phase) => p.k !== "idle";
@@ -54,6 +55,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const [phase, setPhase] = useState<Phase>({ k: "idle" });
   const [rendering, setRendering] = useState(false);
   const [mutedAll, setMutedAll] = useState(false);
+  const [editing, setEditing] = useState(false);
   const progress = useUploads();
   const peers = usePeers({ room: room.code, me: me.id, people: room.people, stream: camera.stream });
   const peerVideos = useRef<Record<string, HTMLVideoElement | null>>({});
@@ -89,28 +91,13 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
     ? deck.groups.findIndex((g) => g.id === live.groupId)
     : -1;
   const follow = followIndex >= 0 ? live : null;
-  const index = followIndex >= 0 ? followIndex : selected;
+  // The deck can lose groups while the room is open (edited on /r/CODE/edit).
+  const index = followIndex >= 0 ? followIndex : Math.min(selected, deck.groups.length - 1);
   const presenter = busy(phase) ? me.id : follow ? follow.presenterId : rendering ? null : room.assignments[deck.groups[index].id] ?? null;
 
   const missing = deck.groups.filter((g) => !complete(room.takes[g.id]) || progress[g.id] !== undefined);
   const total = deckMs(deck);
   const assign = (gi: number, personId: string | null) => void roomApi.assign(room.code, deck.groups[gi].id, personId).then(apply);
-  // Each laptop claims its own speaker slot once: the slot is where its person first joined, remembered per
-  // room, so leaving and rejoining keeps the same groups. Only free groups are claimed, and only on joining,
-  // so a group someone set to Nobody stays that way.
-  const claimed = useRef(false);
-  useEffect(() => {
-    if (claimed.current || !room.people.some((p) => p.id === me.id)) return;
-    claimed.current = true;
-    const key = `batatis.studio.slot.${room.code}.${me.name.toLowerCase()}`;
-    const stored = Number(localStorage.getItem(key));
-    const slot = Number.isInteger(stored) && localStorage.getItem(key) !== null ? stored : room.people.findIndex((p) => p.id === me.id);
-    localStorage.setItem(key, String(slot));
-    const mine = deck.groups.filter((g) => g.speaker === slot && !room.assignments[g.id]);
-    void (async () => {
-      for (const g of mine) apply(await roomApi.assign(room.code, g.id, me.id));
-    })().catch(() => undefined);
-  }, [apply, deck.groups, me.id, me.name, room.assignments, room.code, room.people]);
   const remove = (id: string) => void roomApi.leave(room.code, id).then((next) => {
     apply(next);
     if (id === me.id) onLeave();
@@ -119,7 +106,20 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   return (
     <div className="st-room">
       <header className="st-top">
-      <Brand as="span" />
+      <div className="st-where">
+        <Brand />
+        <span className="st-deck-title" title={deck.title}>{deck.title}</span>
+        {/* Hidden, not removed, while a take runs here: leaving would end it, and the header must not shift. */}
+        <a
+          className={`cf-btn is-ghost is-sm st-edit-slides${busy(phase) ? " is-hidden" : ""}`}
+          href={editLink(room.code)}
+          title="Edit slides"
+          aria-hidden={busy(phase) || undefined}
+          tabIndex={busy(phase) ? -1 : undefined}
+        >
+          <Icon name="slides" size={15} />Edit slides
+        </a>
+      </div>
       <Cams
         people={room.people}
         me={me}
@@ -136,8 +136,8 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
       <div className="st-corner">
         <CopyLink code={room.code} />
         <SavedVideos deck={deck} room={room} upload={progress} />
-        <span className={`st-total${total > VIDEO_LIMIT_MS ? " is-over" : ""}`} title="Planned length with intro and outro" aria-label={`Planned length ${clock(total)} of ${clock(VIDEO_LIMIT_MS)}`}>
-          <Icon name="clock" size={14} />{clock(total)}<span className="st-total-of">/ {clock(VIDEO_LIMIT_MS)}</span>
+        <span className="st-total" title="Planned length with intro and outro" aria-label={`Planned length ${clock(total)}`}>
+          <Icon name="clock" size={14} />{clock(total)}
         </span>
         {!rendering && (
           <button
@@ -175,6 +175,9 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           broadcast={publish}
           onShown={setShown}
           onAssign={(personId) => assign(index, personId)}
+          editing={editing}
+          setEditing={setEditing}
+          apply={apply}
         />
       )}
 
@@ -201,17 +204,21 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
 /** The canvas the stage paints. `onStage` hands the live Stage to the parent. */
 export function StageCanvas({ deck, onStage, children }: { deck: Deck; onStage(stage: Stage | null): void; children?: React.ReactNode }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  // Rebuilt only when what it paints changes: a transcript edit leaves the stage (and the take on it) alone.
+  const key = stageKey(deck);
+  const latest = useRef(deck);
+  latest.current = deck;
   useEffect(() => {
     const c = canvas.current!;
     c.width = 1920;
     c.height = 1080;
-    const stage = createStage(c, deck);
+    const stage = createStage(c, latest.current);
     onStage(stage);
     return () => {
       onStage(null);
       stage.destroy();
     };
-  }, [deck, onStage]);
+  }, [key, onStage]);
   return (
     <div className="st-stage">
       <canvas ref={canvas} />
@@ -220,7 +227,7 @@ export function StageCanvas({ deck, onStage, children }: { deck: Deck; onStage(s
   );
 }
 
-function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign }: {
+function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -238,9 +245,16 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   /** The slide on stage, for the filmstrip. */
   onShown(slide: number): void;
   onAssign(personId: string): void;
+  /** The transcript is open for editing (kept across groups). */
+  editing: boolean;
+  setEditing(on: boolean): void;
+  apply(next: RoomState): void;
 }) {
   const group = deck.groups[index];
-  const target = targetMs(group);
+  const script = useScriptDraft(room.code, deck, group, apply);
+  // The planned length follows the words as they are typed; a running take keeps the length it started with.
+  const planned = targetMs({ ...group, script: script.draft });
+  const target = phase.k === "recording" ? phase.target : planned;
   const last = group.slides.length - 1;
   const [stage, setStage] = useState<Stage | null>(null);
   const [replaySlide, setReplaySlide] = useState(0);
@@ -276,7 +290,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `batatis-${group.id}.${mime.includes("mp4") ? "mp4" : "webm"}`;
+      a.download = `${slug(deck.title)}-${slug(group.name)}.${mime.includes("mp4") ? "mp4" : "webm"}`;
       a.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } finally {
@@ -310,17 +324,19 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
 
   const finish = useCallback(async (auto: boolean) => {
     const r = rec.current;
-    if (!r || phaseRef.current.k !== "recording") return;
+    const p = phaseRef.current;
+    if (!r || p.k !== "recording") return;
     rec.current = null;
     clearTimers();
-    const durationMs = auto ? target : Math.min(target, Math.round(performance.now() - r.startedAt));
+    const durationMs = auto ? p.target : Math.min(p.target, Math.round(performance.now() - r.startedAt));
     const { blob, mime } = await r.stop();
     setPhase({ k: "review", media: { blob, mime, cues: cues.current, durationMs } });
-  }, [setPhase, target]);
+  }, [setPhase]);
 
   const start = useCallback(() => {
-    if (!mine || following || !camera.stream || !stage || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
+    if (!mine || following || !camera.stream || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     const token = ++attempt.current;
+    const length = planned;
     (document.activeElement as HTMLElement | null)?.blur?.();
     stage.setCamera(camera.live, initials(me.name));
     stage.show(index, 0, { instant: true });
@@ -337,12 +353,12 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
           rec.current = r;
           cues.current = [{ slide: 0, atMs: 0 }];
           stage.show(index, 0, { instant: true });
-          setPhase({ k: "recording", startedAt: r.startedAt, slide: 0 });
-          timers.current.push(window.setTimeout(() => void finish(true), target - (performance.now() - r.startedAt)));
+          setPhase({ k: "recording", startedAt: r.startedAt, slide: 0, target: length });
+          timers.current.push(window.setTimeout(() => void finish(true), length - (performance.now() - r.startedAt)));
         }, () => setPhase({ k: "idle" }));
       }, 3000),
     );
-  }, [camera.live, camera.stream, finish, following, index, me.name, mine, setPhase, stage, target]);
+  }, [camera.live, camera.stream, finish, following, index, last, me.name, mine, planned, setPhase, stage]);
 
   const cancel = useCallback(() => {
     attempt.current++;
@@ -487,6 +503,14 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   const fill = phase.k === "review" ? elapsed / phase.media.durationMs : live ? 1 - left / span : 0;
   const ending = live && left <= 10_000;
 
+  // The transcript can be edited only while nothing is being recorded here or followed from a teammate.
+  const canEdit = phase.k === "idle" && !follow;
+  const writing = editing && canEdit;
+  const stopWriting = script.stop;
+  useEffect(() => {
+    if (!writing) stopWriting();
+  }, [writing, stopWriting]);
+
   return (
     <>
       <aside className="st-ctl" aria-label="Recording">
@@ -501,13 +525,15 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
           {phase.k === "idle" && (follow ? (
             <span className="st-who-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Recording"}</span>
           ) : mine ? (
-            <button type="button" className={`cf-btn is-lg st-rec${take ? "" : " is-primary"}`} onClick={start} disabled={!camera.stream || !stage}>
+            <button type="button" className={`cf-btn is-lg st-rec${take ? "" : " is-primary"}`} onClick={start} disabled={!camera.stream || !stage || last < 0}>
               <span className="st-dot" />{take ? "Retake" : "Record"}<kbd className="cf-kbd">R</kbd>
             </button>
           ) : assignee ? (
             <span className="st-blocked"><span className="st-who-chip">{initials(assignee.name)}</span>{firstName(assignee.name)} records this</span>
           ) : (
-            <button type="button" className="cf-btn is-lg" onClick={() => onAssign(me.id)}>Record this one</button>
+            <button type="button" className="cf-btn is-lg" onClick={() => onAssign(me.id)}>
+              <span className="st-who-chip is-none" aria-hidden="true" />Assign to me
+            </button>
           ))}
           {phase.k === "idle" && !follow && canSave && (
             <button type="button" className="cf-btn is-lg" onClick={() => void saveVideo()} disabled={saving !== null}>
@@ -564,22 +590,40 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
       </div>
 
       <section className="st-script-col" aria-label={group.name}>
-        <h1 className="st-script-title">
-          <span className="st-script-dot" style={{ background: groupColor(index) }} aria-hidden="true" />
-          {group.name}
-        </h1>
-        <Transcript
-          group={group}
-          current={current}
-          onPick={phase.k === "idle" && !follow ? setPreview : undefined}
-          picked={phase.k === "idle" && !follow ? preview : null}
-        />
+        <header className="st-script-head">
+          <h1 className="st-script-title">
+            <span className="st-script-dot" style={{ background: groupColor(index) }} aria-hidden="true" />
+            <span>{group.name}</span>
+          </h1>
+          {script.failed && <span className="st-error" role="alert">Not saved</span>}
+          <button
+            type="button"
+            className={`cf-icon-btn is-sm is-plain st-script-edit${writing ? " is-on" : ""}`}
+            onClick={() => setEditing(!editing)}
+            disabled={!canEdit}
+            aria-pressed={writing}
+            aria-label={writing ? "Done editing" : "Edit transcript"}
+            title={writing ? "Done" : "Edit transcript"}
+          >
+            <Icon name={writing ? "check" : "pencil"} size={15} stroke={writing ? 2.2 : 1.8} />
+          </button>
+        </header>
+        {writing ? (
+          <ScriptEditor slides={Math.max(group.slides.length, script.draft.length)} draft={script.draft} at={preview} onChange={script.change} onFocus={(i) => { script.focus(true); setPreview(i); }} onBlur={() => script.focus(false)} />
+        ) : (
+          <Transcript
+            script={script.draft}
+            current={current}
+            onPick={phase.k === "idle" && !follow ? setPreview : undefined}
+            picked={phase.k === "idle" && !follow ? preview : null}
+          />
+        )}
       </section>
     </>
   );
 }
 
-function Transcript({ group, current, picked, onPick }: { group: Group; current: number | null; picked: number | null; onPick?: (slide: number) => void }) {
+function Transcript({ script, current, picked, onPick }: { script: string[]; current: number | null; picked: number | null; onPick?: (slide: number) => void }) {
   const list = useRef<HTMLOListElement>(null);
   const refs = useRef<(HTMLElement | null)[]>([]);
   // The segment being spoken sits at the top with the next ones under it. Only the list scrolls,
@@ -588,9 +632,9 @@ function Transcript({ group, current, picked, onPick }: { group: Group; current:
     const el = current !== null ? refs.current[current] : null;
     if (el && list.current) list.current.scrollTo({ top: Math.max(0, el.offsetTop - 18), behavior: "smooth" });
   }, [current]);
-  const last = group.script.length - 1;
+  const last = script.length - 1;
   const at = current ?? picked ?? -1;
-  const items = useMemo(() => group.script.map((text, i) => ({ text, i })), [group.script]);
+  const items = useMemo(() => script.map((text, i) => ({ text, i })), [script]);
   return (
     <ol ref={list} className={`st-script${current !== null ? " is-following" : ""}`} aria-label="Transcript">
       {items.map(({ text, i }) => (
@@ -606,6 +650,117 @@ function Transcript({ group, current, picked, onPick }: { group: Group; current:
               )}
             </span>
           </button>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Debounce for transcript saves: one PUT per pause in typing. */
+const SAVE_MS = 600;
+const RETRY_SAVE_MS = 3000;
+
+/**
+ * The group's transcript as this device shows it. Edits go to the room with the whole deck (last write wins), a pause
+ * after the last key. The room's copy flows in whenever this device is not typing and has nothing unsaved, so a poll
+ * never overwrites words mid-sentence.
+ */
+function useScriptDraft(code: string, deck: Deck, group: Group, apply: (next: RoomState) => void) {
+  const pad = (script: string[]) => Array.from({ length: Math.max(group.slides.length, script.length) }, (_, i) => script[i] ?? "");
+  const [draft, setDraft] = useState(() => pad(group.script));
+  const [failed, setFailed] = useState(false);
+  const deckRef = useRef(deck);
+  deckRef.current = deck;
+  const groupRef = useRef(group);
+  groupRef.current = group;
+  const pending = useRef<string[] | null>(null);
+  const inflight = useRef(false);
+  const focused = useRef(false);
+  const timer = useRef(0);
+
+  const idle = () => !focused.current && !pending.current && !inflight.current;
+  const sync = useCallback(() => {
+    if (!idle()) return;
+    const g = groupRef.current;
+    setDraft(Array.from({ length: Math.max(g.slides.length, g.script.length) }, (_, i) => g.script[i] ?? ""));
+  }, []);
+
+  useEffect(() => sync(), [group.script, group.slides.length, sync]);
+
+  const flush = useCallback(async () => {
+    window.clearTimeout(timer.current);
+    const script = pending.current;
+    if (!script || inflight.current) return;
+    pending.current = null;
+    inflight.current = true;
+    const d = deckRef.current;
+    const id = groupRef.current.id;
+    let ok = false;
+    try {
+      apply(await roomApi.putDeck(code, { ...d, groups: d.groups.map((g) => (g.id === id ? { ...g, script } : g)) }));
+      ok = true;
+    } catch {
+      pending.current ??= script;
+    } finally {
+      inflight.current = false;
+    }
+    setFailed(!ok);
+    if (pending.current) timer.current = window.setTimeout(() => void flush(), ok ? SAVE_MS : RETRY_SAVE_MS);
+    else sync();
+  }, [apply, code, sync]);
+
+  const change = useCallback((i: number, text: string) => {
+    setDraft((cur) => {
+      const next = cur.slice();
+      next[i] = text;
+      pending.current = next;
+      return next;
+    });
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => void flush(), SAVE_MS);
+  }, [flush]);
+
+  const focus = useCallback((on: boolean) => {
+    focused.current = on;
+    if (!on) {
+      void flush();
+      sync();
+    }
+  }, [flush, sync]);
+
+  /** Editing ended (Done, a take starting, the group changing): save now and follow the room again. */
+  const stop = useCallback(() => focus(false), [focus]);
+
+  // Leaving the group never drops the last words typed.
+  useEffect(() => () => void flush(), [flush]);
+
+  return { draft, failed, change, focus, stop };
+}
+
+/** Each slide's words as a plain text field, numbered like the transcript. */
+function ScriptEditor({ slides, draft, at, onChange, onFocus, onBlur }: {
+  slides: number;
+  draft: string[];
+  at: number;
+  onChange(i: number, text: string): void;
+  onFocus(i: number): void;
+  onBlur(): void;
+}) {
+  return (
+    <ol className="st-script is-editing" aria-label="Transcript">
+      {Array.from({ length: slides }, (_, i) => (
+        <li key={i} className={`st-seg${i === at ? " is-now" : ""}`}>
+          <label className="st-seg-edit">
+            <span className="st-seg-n" aria-label={`Slide ${i + 1}`}>{i + 1}</span>
+            <textarea
+              value={draft[i] ?? ""}
+              rows={2}
+              spellCheck
+              onChange={(e) => onChange(i, e.target.value)}
+              onFocus={() => onFocus(i)}
+              onBlur={onBlur}
+            />
+          </label>
         </li>
       ))}
     </ol>

@@ -1,4 +1,4 @@
-// Canvas primitives for the stage: palette, type, framed media with a cached soft shadow, marks and the Batatis mark.
+// Canvas primitives for the stage: palette, type, framed media with a cached soft shadow, marks and the project's mark.
 
 import type { Mark, Rect } from "../types";
 
@@ -25,7 +25,8 @@ export const L = {
   margin: 96,
   titleBaseline: 150,
   frame: { x: 96, y: 210, w: 1344, h: 840 } as Rect,
-  camera: { x: 1480, y: 620, w: 344, h: 430 } as Rect,
+  /** The presenter's tile, inset equally from the right and bottom edges so it sits cleanly over a full-bleed page. */
+  camera: { x: 1920 - 48 - 344, y: 1080 - 48 - 430, w: 344, h: 430 } as Rect,
   radius: 28,
 } as const;
 
@@ -171,19 +172,32 @@ export function drawMark(ctx: Ctx, mark: Mark, r: Rect) {
 }
 
 /**
- * The Batatis mark, as the app draws it: a soft, slightly irregular rounded square with the brand's radial fill.
- * `size` is the box edge.
+ * The project's mark in a rounded square of edge `size` centred on (cx, cy): its logo contain-fitted into the square,
+ * or, without one (or while it loads), the title's first letter in white on an ink square.
  */
-export function drawMarkBlob(ctx: Ctx, cx: number, cy: number, size: number) {
+export function drawProjectMark(ctx: Ctx, cx: number, cy: number, size: number, title: string, logo?: HTMLImageElement) {
   if (size <= 0.5) return;
-  const k = size / 24;
-  const x = cx - size / 2, y = cy - size / 2;
-  const g = ctx.createRadialGradient(x + size * 0.35, y + size * 0.3, 0, x + size * 0.35, y + size * 0.3, size * 0.955);
-  g.addColorStop(0, "#9aa6ff");
-  g.addColorStop(0.55, "#5266eb");
-  g.addColorStop(1, "#3a49b8");
-  ctx.beginPath();
-  ctx.roundRect(x, y, size, size, [8 * k, 12 * k, 9 * k, 13 * k]);
-  ctx.fillStyle = g;
-  ctx.fill();
+  const r: Rect = { x: cx - size / 2, y: cy - size / 2, w: size, h: size };
+  const radius = size * 0.24;
+  ctx.save();
+  roundRectPath(ctx, r, radius);
+  if (logo && logo.naturalWidth) {
+    ctx.clip();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    const d = containRect(logo.naturalWidth, logo.naturalHeight, r);
+    ctx.drawImage(logo, d.x, d.y, d.w, d.h);
+  } else {
+    ctx.fillStyle = C.ink;
+    ctx.fill();
+    const letter = Array.from(title.trim())[0]?.toUpperCase() ?? "";
+    if (letter) {
+      font(ctx, 600, size * 0.52, -0.02);
+      ctx.fillStyle = C.white;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(letter, cx, cy + size * 0.02);
+    }
+  }
+  ctx.restore();
 }

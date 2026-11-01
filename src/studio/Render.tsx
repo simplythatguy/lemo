@@ -1,6 +1,7 @@
 // Make the video: fetch every take this device lacks, then render intro + takes + outro in real time.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
+import { slug } from "./parts";
 import { roomApi } from "./room";
 import { exportVideo, preload } from "./stage";
 import { takeCache } from "./takeCache";
@@ -75,12 +76,14 @@ const inspect = (url: string) =>
 export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; onClose(): void }) {
   const [state, setState] = useState<State>({ k: "working", label: "Loading", fraction: 0 });
   const canvas = useRef<HTMLCanvasElement>(null);
-  // The takes as they were when the render started; later polls do not restart it.
+  // The deck and takes as they were when the render started; later polls and edits do not restart it.
   const takes = useRef(room.takes);
+  const started = useRef(deck);
 
   useEffect(() => {
     const ctl = new AbortController();
     let url = "";
+    const deck = started.current;
     void (async () => {
       try {
         const infos = deck.groups.map((g) => takes.current[g.id]);
@@ -116,7 +119,7 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
       ctl.abort();
       if (url) URL.revokeObjectURL(url);
     };
-  }, [deck, room.code]);
+  }, [room.code]);
 
   const ext = state.k === "done" && state.mime.includes("mp4") ? "mp4" : "webm";
 
@@ -132,7 +135,7 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
         <>
           <video className="st-result" src={state.url} poster={state.poster || undefined} controls playsInline />
           <div className="st-bar">
-            <a className="cf-btn is-primary is-lg" href={state.url} download={`batatis-demo.${ext}`}>
+            <a className="cf-btn is-primary is-lg" href={state.url} download={`${slug(deck.title)}-demo.${ext}`}>
               <Icon name="download" size={16} />Download
             </a>
             <span className="st-timer">{clock(state.ms)}</span>

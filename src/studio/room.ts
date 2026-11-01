@@ -15,7 +15,6 @@ export class RoomError extends Error {
   }
 }
 
-export const signedOut = (e: unknown) => e instanceof RoomError && e.status === 401;
 
 async function send(method: string, path: string, init: { json?: unknown; body?: BodyInit; type?: string; signal?: AbortSignal } = {}): Promise<Response> {
   let res: Response;
@@ -81,9 +80,9 @@ export const roomApi = {
     (await send("GET", `${base(code)}/takes/${enc(takeId)}/chunks/${i}`, { signal })).blob(),
 };
 
-export type RoomStatus = { kind: "loading" } | { kind: "ready" } | { kind: "signed-out" } | { kind: "missing" } | { kind: "offline" };
+export type RoomStatus = { kind: "loading" } | { kind: "ready" } | { kind: "missing" } | { kind: "offline" };
 
-/** Polls GET /studio/rooms/{code} every 2 s, every second while someone records. `apply` takes the RoomState a
+/** Polls GET /api/rooms/{code} every 2 s, every second while someone records. `apply` takes the RoomState a
  *  mutation returned. `live` is the poll's take in progress, stamped with when this device heard it. */
 export function useRoom(code: string | null) {
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -110,8 +109,7 @@ export function useRoom(code: string | null) {
       setStatus({ kind: "ready" });
     } catch (e) {
       if (signal?.aborted) return;
-      if (e instanceof RoomError && e.status === 401) setStatus({ kind: "signed-out" });
-      else if (e instanceof RoomError && e.status === 404) setStatus({ kind: "missing" });
+      if (e instanceof RoomError && e.status === 404) setStatus({ kind: "missing" });
       else setStatus({ kind: "offline" });
     }
   }, [apply, code]);
@@ -146,7 +144,7 @@ export interface Seat {
   micId?: string;
 }
 
-const seatKey = (code: string) => `demo_app.seat.${code}`;
+const seatKey = (code: string) => `lemo.seat.${code}`;
 
 export function loadSeat(code: string): Seat {
   try {
@@ -166,7 +164,7 @@ export const saveLastSeat = (seat: Seat) => saveSeat("last", { name: seat.name, 
 
 /** Rooms this device created or joined, newest first: the home list. */
 export interface KnownRoom { code: string; seenAt: number }
-const ROOMS_KEY = "demo_app.rooms";
+const ROOMS_KEY = "lemo.rooms";
 
 export function knownRooms(): KnownRoom[] {
   try {

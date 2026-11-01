@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { groupColor } from "./Filmstrip";
 import { Icon } from "./icons";
-import { initials } from "./parts";
+import { initials, slug } from "./parts";
 import { takeMedia } from "./Render";
-import { createStage, exportVideo, preload } from "./stage";
+import { createStage, exportVideo, preload, stageKey } from "./stage";
 import { clock, targetMs } from "./timing";
 import type { Cue, Deck, RoomState, TakeInfo, TakeMedia } from "./types";
 import "./savedVideos.css";
@@ -81,7 +81,8 @@ export function SavedVideos({ deck, room, upload }: {
     });
     set(0);
     // One group alone: no intro or outro.
-    void download(deck, room.code, [take], `batatis-${take.groupId}`, false, set).catch(() => undefined).finally(() => set(null));
+    const group = deck.groups.find((g) => g.id === take.groupId);
+    void download(deck, room.code, [take], `${slug(deck.title)}-${slug(group?.name ?? take.groupId)}`, false, set).catch(() => undefined).finally(() => set(null));
   };
 
   // Every saved group joined in deck order, with the intro and outro: the video so far, sound included.
@@ -89,7 +90,7 @@ export function SavedVideos({ deck, room, upload }: {
   const saveAll = () => {
     if (all !== null || !saved.length) return;
     setAll(0);
-    void download(deck, room.code, saved.map((g) => room.takes[g.id]), "batatis-demo", true, setAll)
+    void download(deck, room.code, saved.map((g) => room.takes[g.id]), `${slug(deck.title)}-demo`, true, setAll)
       .catch(() => undefined).finally(() => setAll(null));
   };
 
@@ -213,9 +214,13 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   // The room poll hands over a fresh take object every 2 s; only a different take restarts the player.
   const current = useRef(take);
   current.current = take;
+  const latestDeck = useRef(deck);
+  latestDeck.current = deck;
+  const painted = stageKey(deck);
 
   useEffect(() => {
     const take = current.current;
+    const deck = latestDeck.current;
     const ctl = new AbortController();
     const c = canvas.current!;
     c.width = 1920;
@@ -266,7 +271,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
       stage.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deck, index, length, room, take.id]);
+  }, [painted, index, length, room, take.id]);
 
   const toggle = () => {
     const v = video.current;

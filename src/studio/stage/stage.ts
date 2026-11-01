@@ -1,8 +1,8 @@
 // The stage's scene machine: the slide on screen, the one it is dissolving from, the camera tile, and the rAF loop.
-// Slides are stills. The only motion is the dissolve between slides, app clips playing, the camera, and the logo cards.
+// Slides are stills. The only motion is the dissolve between slides, clips playing, the camera, and the logo cards.
 
 import type { Deck, Rect, Slide } from "../types";
-import { clipUrl, loadFonts } from "./assets";
+import { clipUrl, fontsReady as fontsLoaded, loadFonts } from "./assets";
 import { C, L, coverSource, font, frame, text, type Ctx } from "./draw";
 import { clamp01, inOutSine, outCubic } from "./ease";
 import { hasTitle, paintCard, paintSlide, paintTitle } from "./slides";
@@ -118,8 +118,9 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
   buffer.width = STAGE_W;
   buffer.height = STAGE_H;
   const bctx = buffer.getContext("2d", { alpha: false })!;
-  let fontsReady = false;
-  void loadFonts().then(() => (fontsReady = true));
+  let fontsReady = fontsLoaded();
+  if (!fontsReady) void loadFonts().then(() => (fontsReady = true));
+  const brand = { title: deck.title, logo: deck.logo };
 
   const clips = new Map<string, Clip>();
   deck.groups.forEach((g, gi) =>
@@ -153,11 +154,11 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
 
   function paintLayer(c: Ctx, l: Layer, now: number, withTitle = true) {
     const content = l.content;
-    if (content.kind === "card") return paintCard(c, content.card, now - l.at, deck.team);
+    if (content.kind === "card") return paintCard(c, content.card, now - l.at, deck);
     l.clip?.tick();
     const title = titleOf(content);
     if (title && withTitle) paintTitle(c, title);
-    paintSlide(c, content.slide, { video: l.clip?.el });
+    paintSlide(c, content.slide, { video: l.clip?.el, brand });
   }
 
   /** A changed title never double-exposes: the old one fades out over the first half, the new one rises in over the second. */

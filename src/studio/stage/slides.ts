@@ -1,17 +1,21 @@
 // One painter per slide kind. Slides are stills: every painter draws its slide fully formed, with no clock.
 // Only the intro and outro cards take elapsed time, for their logo reveal. The stage owns transitions.
 
-import type { Bar, Mark, Panel, Rect, Slide } from "../types";
+import type { Bar, Deck, Mark, Panel, Rect, Slide } from "../types";
 import { image, inkBounds } from "./assets";
-import { C, L, containRect, drawMark, drawMarkBlob, font, frame, measure, text, wrap, type Ctx } from "./draw";
+import { C, L, containRect, drawMark, drawProjectMark, font, frame, measure, text, wrap, type Ctx } from "./draw";
 import { outCubic, outQuint, span } from "./ease";
+
+/** What the logo cards show of the project: its name and logo. */
+export type Brand = Pick<Deck, "title" | "logo">;
 
 export interface Env {
   /** The clip's video element, when the slide is a clip. */
   video?: HTMLVideoElement;
+  brand: Brand;
 }
 
-export type Titled = Exclude<Slide, { kind: "statement" } | { kind: "logo" }>;
+export type Titled = Exclude<Slide, { kind: "page" } | { kind: "statement" } | { kind: "logo" }>;
 export const hasTitle = (s: Slide): s is Titled & { title: string } => "title" in s && !!s.title;
 
 /** Inter's cap height, as a fraction of the font size. */
@@ -19,8 +23,9 @@ const CAP = 0.727;
 
 export function paintSlide(ctx: Ctx, s: Slide, env: Env) {
   switch (s.kind) {
+    case "page": return paintPage(ctx, s.src);
     case "statement": return paintStatement(ctx, s);
-    case "logo": return paintLogo(ctx, s.line);
+    case "logo": return paintLogo(ctx, env.brand, s.line);
     case "clip": return paintClip(ctx, env.video);
     case "image": return paintImage(ctx, s);
     case "compare": return paintCompare(ctx, s.left, s.right);
@@ -39,6 +44,20 @@ export function paintTitle(ctx: Ctx, title: string, rise = 0) {
 
 /** Lines of `size` type stacked from `top` (the first line's cap top); returns each baseline. */
 const baselines = (n: number, top: number, size: number, lh: number) => Array.from({ length: n }, (_, i) => top + size * CAP + i * lh);
+
+// ── page: an uploaded slide, full bleed ─────────────────────────────────────
+
+function paintPage(ctx: Ctx, src: string) {
+  const img = image(src);
+  if (!img || !img.naturalWidth) return;
+  // Uploaded pages are 1920×1080 already; any other shape is fitted whole on white rather than cropped.
+  const r = containRect(img.naturalWidth, img.naturalHeight, { x: 0, y: 0, w: 1920, h: 1080 });
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, r.x, r.y, r.w, r.h);
+  ctx.restore();
+}
 
 // ── statement ────────────────────────────────────────────────────────────────
 
@@ -98,55 +117,125 @@ function segments(line: string, r: [number, number] | null): [string, boolean][]
 
 // ── logo: the slide (still) and the intro and outro cards (the only animated slides) ─────────
 
-const LOCKUP = { mark: 118, gap: 30, size: 112, cy: 500 };
+const LOCKUP = { size: 112, minOne: 64, minTwo: 36, cy: 500, maxW: 1600 };
+const NAMES = { size: 32, min: 24, lh: 46, gap: 92, maxW: 1600 };
 
-/** The mark and name side by side, centred on the canvas. `mark` and `word` are 0..1 reveal progress. */
-function lockup(ctx: Ctx, cy: number, mark = 1, word = 1) {
-  font(ctx, 600, LOCKUP.size, -0.035);
-  const w = measure(ctx, "Batatis");
-  const left = 960 - (LOCKUP.mark + LOCKUP.gap + w) / 2;
+interface Fit { size: number; lines: string[]; mark: number; gap: number; textW: number; width: number; height: number }
+
+const fits = new Map<string, Fit>();
+
+/** The lockup's type size, lines and mark: one line shrinking to `minOne`, then two lines shrinking to `minTwo`. */
+function fitLockup(ctx: Ctx, title: string): Fit {
+  const hit = fits.get(title);
+  if (hit) return hit;
+  const make = (size: number, lines: string[], mark: number): Fit => {
+    font(ctx, 600, size, -0.035);
+    const textW = Math.max(0, ...lines.map((l) => measure(ctx, l)));
+    const gap = textW ? Math.round(Math.max(28, size * 0.27)) : 0;
+    const height = size * CAP + (lines.length - 1) * size * 1.08;
+    return { size, lines, mark, gap, textW, width: mark + gap + textW, height: Math.max(mark, height) };
+  };
+  let fit: Fit | null = null;
+  const t = title.trim();
+  for (let size = LOCKUP.size; size >= LOCKUP.minOne && !fit; size -= 2) {
+    const f = make(size, [t], Math.round(size * 1.05));
+    if (f.width <= LOCKUP.maxW) fit = f;
+  }
+  for (let size = LOCKUP.minOne; size >= LOCKUP.minTwo && !fit; size -= 2) {
+    const mark = Math.round(size * 1.7);
+    font(ctx, 600, size, -0.035);
+    const lines = wrap(ctx, t, LOCKUP.maxW - mark - 28);
+    if (lines.length <= 2) fit = make(size, lines, mark);
+  }
+  if (!fit) {
+    // Still too long at the smallest size: two lines, the second cut short.
+    const size = LOCKUP.minTwo, mark = Math.round(size * 1.7), maxW = LOCKUP.maxW - mark - 28;
+    font(ctx, 600, size, -0.035);
+    const [first, ...rest] = wrap(ctx, t, maxW);
+    let second = rest.join(" ");
+    while (second && measure(ctx, `${second}…`) > maxW) second = second.slice(0, -1);
+    fit = make(size, [first, `${second.trimEnd()}…`], mark);
+  }
+  fits.set(title, fit);
+  return fit;
+}
+
+/** The project's mark and name side by side, centred on the canvas. `mark` and `word` are 0..1 reveal progress. */
+function lockup(ctx: Ctx, brand: Brand, cy: number, mark = 1, word = 1) {
+  const f = fitLockup(ctx, brand.title);
+  const left = 960 - f.width / 2;
   if (mark > 0) {
     ctx.save();
     ctx.globalAlpha *= outCubic(Math.min(1, mark * 1.6));
-    drawMarkBlob(ctx, left + LOCKUP.mark / 2, cy, LOCKUP.mark * (0.9 + 0.1 * outQuint(mark)));
+    drawProjectMark(ctx, left + f.mark / 2, cy, f.mark * (0.9 + 0.1 * outQuint(mark)), brand.title, brand.logo ? image(brand.logo) : undefined);
     ctx.restore();
   }
-  if (word > 0) {
+  if (word > 0 && f.textW) {
     ctx.save();
     ctx.globalAlpha *= outCubic(word);
-    font(ctx, 600, LOCKUP.size, -0.035);
-    text(ctx, "Batatis", left + LOCKUP.mark + LOCKUP.gap + 16 * (1 - outQuint(word)), cy + (LOCKUP.size * CAP) / 2, C.ink);
+    font(ctx, 600, f.size, -0.035);
+    const lh = f.size * 1.08;
+    const top = cy - (f.size * CAP + (f.lines.length - 1) * lh) / 2;
+    const x = left + f.mark + f.gap + 16 * (1 - outQuint(word));
+    f.lines.forEach((line, i) => text(ctx, line, x, top + f.size * CAP + i * lh, C.ink));
     ctx.restore();
+  }
+  return f;
+}
+
+function paintLogo(ctx: Ctx, brand: Brand, line?: string) {
+  const f = lockup(ctx, brand, line ? LOCKUP.cy - 40 : LOCKUP.cy);
+  if (line) {
+    font(ctx, 500, 44, -0.015);
+    text(ctx, line, 960, LOCKUP.cy - 40 + f.height / 2 + 90, C.grey, "center");
   }
 }
 
-function paintLogo(ctx: Ctx, line?: string) {
-  lockup(ctx, line ? LOCKUP.cy - 40 : LOCKUP.cy);
-  if (line) {
-    font(ctx, 500, 44, -0.015);
-    text(ctx, line, 960, LOCKUP.cy + 130, C.grey, "center");
+const SEP = "  ·  ";
+
+/** The team as rows of "Ana  ·  Ben  ·  Cy", each row within NAMES.maxW: the type shrinks first, then the names wrap. */
+function nameRows(ctx: Ctx, names: string[]): { size: number; rows: string[][] } {
+  let size = NAMES.size;
+  const lineW = (row: string[]) => measure(ctx, row.join(SEP));
+  for (; size > NAMES.min; size -= 2) {
+    font(ctx, 500, size, -0.005);
+    if (lineW(names) <= NAMES.maxW) return { size, rows: [names] };
   }
+  font(ctx, 500, size, -0.005);
+  const rows: string[][] = [[]];
+  for (const n of names) {
+    const row = rows[rows.length - 1];
+    if (row.length && lineW([...row, n]) > NAMES.maxW) rows.push([n]);
+    else row.push(n);
+  }
+  return { size, rows };
 }
 
 /** Intro: the mark settles in place, the name follows it in, then the team fades in. Outro: mark and name only. */
-export function paintCard(ctx: Ctx, which: "intro" | "outro", t: number, team: string[]) {
-  const names = which === "intro" ? team : [];
-  const cy = names.length ? LOCKUP.cy - 30 : LOCKUP.cy;
-  lockup(ctx, cy, span(t, 0, 1100), span(t, 420, 1000));
-  if (!names.length) return;
-  font(ctx, 500, 32, -0.005);
-  const sep = "  ·  ";
-  const widths = names.map((n) => measure(ctx, n));
-  const sepW = measure(ctx, sep);
-  let x = 960 - (widths.reduce((a, b) => a + b, 0) + sepW * (names.length - 1)) / 2;
-  const y = cy + 150;
-  names.forEach((n, i) => {
-    ctx.save();
-    ctx.globalAlpha *= outCubic(span(t, 1350 + i * 170, 700));
-    text(ctx, n, x, y, C.grey);
-    if (i < names.length - 1) text(ctx, sep, x + widths[i], y, C.faint);
-    ctx.restore();
-    x += widths[i] + sepW;
+export function paintCard(ctx: Ctx, which: "intro" | "outro", t: number, deck: Brand & Pick<Deck, "team">) {
+  const names = which === "intro" ? deck.team.map((n) => n.trim()).filter(Boolean) : [];
+  const f = fitLockup(ctx, deck.title);
+  const { size, rows } = names.length ? nameRows(ctx, names) : { size: NAMES.size, rows: [] };
+  const below = rows.length ? NAMES.gap + (rows.length - 1) * NAMES.lh : 0;
+  // The lockup and the names, centred together on the canvas.
+  const cy = LOCKUP.cy - below / 2 + (rows.length ? 16 : 0);
+  lockup(ctx, deck, cy, span(t, 0, 1100), span(t, 420, 1000));
+  if (!rows.length) return;
+  font(ctx, 500, size, -0.005);
+  const sepW = measure(ctx, SEP);
+  let k = 0;
+  rows.forEach((row, ri) => {
+    const widths = row.map((n) => measure(ctx, n));
+    let x = 960 - (widths.reduce((a, b) => a + b, 0) + sepW * (row.length - 1)) / 2;
+    const y = cy + f.height / 2 + NAMES.gap + ri * NAMES.lh;
+    row.forEach((n, i) => {
+      ctx.save();
+      ctx.globalAlpha *= outCubic(span(t, 1350 + k++ * 170, 700));
+      text(ctx, n, x, y, C.grey);
+      if (i < row.length - 1) text(ctx, SEP, x + widths[i], y, C.faint);
+      ctx.restore();
+      x += widths[i] + sepW;
+    });
   });
 }
 

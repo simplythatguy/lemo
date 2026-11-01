@@ -1,31 +1,21 @@
-// /studio: the team records the pitch one slide group at a time. Join → room (record, review, keep) → render.
+// /r/CODE: the team records the presentation one slide group at a time. Join → room (record, review, keep) → render.
+// The deck lives on the server with the room; /r/CODE/edit sets it up.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deck as pitchDeck } from "./deck";
 import { Icon } from "./icons";
 import type { Camera } from "./parts";
-import { Brand, CopyLink, initials } from "./parts";
+import { Brand, CopyLink, editLink, initials, ProjectMark } from "./parts";
 import { listDevices, liveVideo, openCamera, stopStream } from "./recorder";
-import { accountName, lastSeat, loadSeat, roomApi, RoomError, saveLastSeat, saveSeat, signedOut, TEAM_ROOM, useRoom, validCode, type Seat } from "./room";
+import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, saveSeat, useRoom, type Seat } from "./room";
 import { Room } from "./RoomView";
 import type { Deck } from "./types";
+import "./studio.css";
 
-const STUDIO_RETURN = "batatis.studio.return";
-
-// ?deck=test swaps in the short test deck, when it is part of the build.
-const testDecks = import.meta.glob<{ testDeck: Deck }>("./testDeck.ts");
-
-async function loadDeck(): Promise<Deck> {
-  if (new URLSearchParams(location.search).get("deck") === "test") {
-    const load = Object.values(testDecks)[0];
-    if (load) return (await load()).testDeck;
-  }
-  return pitchDeck;
-}
-
-/** ?room=CODE opens that room; without one, everybody lands in the same team room. */
-function roomFromUrl(): string {
-  const code = new URLSearchParams(location.search).get("room")?.trim().toUpperCase() ?? "";
-  return validCode(code) ? code : TEAM_ROOM;
+/** The room's deck, as the same object until its content changes: the poll hands over a fresh copy every 2 s. */
+function useStableDeck(deck: Deck | null | undefined): Deck | null {
+  const kept = useRef<{ json: string; deck: Deck | null }>({ json: "null", deck: null });
+  const json = JSON.stringify(deck ?? null);
+  if (json !== kept.current.json) kept.current = { json, deck: deck ?? null };
+  return kept.current.deck;
 }
 
 let liveEl: HTMLVideoElement | null = null;
@@ -66,18 +56,16 @@ function useCamera(camId: string | undefined, micId: string | undefined): Camera
   return { stream, live, error, ...devices, retry: () => setAttempt((n) => n + 1) };
 }
 
-export function Studio() {
-  const [deck, setDeck] = useState<Deck | null>(null);
-  const [account, setAccount] = useState<{ signedIn: boolean; name: string } | null>(null);
-  const [code] = useState(roomFromUrl);
+export function Studio({ code }: { code: string }) {
   const [seat, setSeat] = useState<Seat>(() => ({ ...lastSeat(), ...loadSeat(code) }));
-  const { room, live, status, apply } = useRoom(account?.signedIn ? code : null);
+  const { room, live, status, apply } = useRoom(code);
+  const deck = useStableDeck(room?.deck);
   const camera = useCamera(seat.camId, seat.micId);
 
+  const loaded = !!room;
   useEffect(() => {
-    void loadDeck().then(setDeck);
-    void accountName().then(setAccount);
-  }, []);
+    if (loaded) rememberRoom(code);
+  }, [code, loaded]);
 
   const updateSeat = useCallback((patch: Partial<Seat>) => {
     setSeat((s) => {
@@ -94,17 +82,25 @@ export function Studio() {
     if (room && seat.personId && !me) updateSeat({ personId: undefined });
   }, [room, me, seat.personId, updateSeat]);
 
-  if (!deck || !account || (status.kind === "loading" && seat.personId)) return <div className="st-page st-splash" aria-busy="true" />;
-  if (!account.signedIn || status.kind === "signed-out") return <SignIn />;
-  if (!me || !room) {
+  if (!room) {
+    if (status.kind === "missing") return <NoSlides code={code} />;
+    return (
+      <div className="st-page st-center" aria-busy={status.kind === "loading"}>
+        {status.kind === "offline" && <p className="st-quiet" role="status">No connection</p>}
+      </div>
+    );
+  }
+  if (!deck || !deck.groups.length) return <NoSlides code={code} />;
+  if (!me) {
     return (
       <Join
         code={code}
-        name={seat.name || account.name}
+        deck={deck}
+        taken={room.people.map((p) => p.name.toLowerCase())}
+        name={seat.name ?? ""}
         camera={camera}
         onDevice={(camId, micId) => updateSeat({ camId, micId })}
         onJoin={async (name) => {
-          await roomApi.open(code);
           const person = await roomApi.join(code, name);
           // The room on screen does not list this person yet; without this the seat would be dropped.
           apply(await roomApi.get(code));
@@ -119,21 +115,28 @@ export function Studio() {
   return <Room deck={deck} room={room} serverLive={live} me={me} camera={camera} apply={apply} onLeave={() => updateSeat({ personId: undefined })} />;
 }
 
-function SignIn() {
+/** A room nobody has set up yet: one way forward. */
+function NoSlides({ code }: { code: string }) {
   return (
     <div className="st-page st-center">
-      <div className="st-signin">
-        <Brand />
-        <a className="cf-btn is-primary is-lg" href="/#/signin" onClick={() => sessionStorage.setItem(STUDIO_RETURN, location.href)}>
-          Sign in
-        </a>
+      <div className="st-empty">
+        <Brand named />
+        <div className="st-join-actions">
+          <a className="cf-btn is-primary is-lg" href={editLink(code)}>
+            <Icon name="slides" size={16} />Add slides
+          </a>
+          <CopyLink code={code} />
+        </div>
       </div>
     </div>
   );
 }
 
-function Join({ code, name: initialName, camera, onDevice, onJoin }: {
+function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }: {
   code: string;
+  deck: Deck;
+  /** Names already in the room, lower case: the team list only suggests the others. */
+  taken: string[];
   name: string;
   camera: Camera;
   onDevice(camId: string | undefined, micId: string | undefined): void;
@@ -157,7 +160,7 @@ function Join({ code, name: initialName, camera, onDevice, onJoin }: {
     try {
       await onJoin(name.trim());
     } catch (e) {
-      setError(signedOut(e) ? "Signed out" : e instanceof RoomError && e.status === 404 ? "Room not found" : e instanceof RoomError && e.status === 409 ? "Room is full" : "Could not join");
+      setError(e instanceof RoomError && e.status === 404 ? "Room not found" : e instanceof RoomError && e.status === 409 ? "Room is full" : "Could not join");
       setBusy(false);
     }
   }
@@ -165,7 +168,10 @@ function Join({ code, name: initialName, camera, onDevice, onJoin }: {
   return (
     <div className="st-page st-center">
       <form className="st-join" onSubmit={(e) => { e.preventDefault(); void go(); }}>
-        <Brand />
+        <h1 className="st-join-title">
+          <ProjectMark title={deck.title} logo={deck.logo} size={32} />
+          <span>{deck.title}</span>
+        </h1>
         <div className={`st-cam${camera.stream ? "" : " is-empty"}`}>
           <video ref={preview} autoPlay muted playsInline />
           {!camera.stream && !camera.error && name.trim() && <span className="st-tile-face" aria-hidden="true">{initials(name)}</span>}
@@ -183,8 +189,11 @@ function Join({ code, name: initialName, camera, onDevice, onJoin }: {
         </div>
         <label className="st-field">
           <span>Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" required />
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" list="st-team" required />
         </label>
+        <datalist id="st-team">
+          {deck.team.filter((n) => n.trim() && !taken.includes(n.trim().toLowerCase())).map((n) => <option key={n} value={n} />)}
+        </datalist>
         {error && <p className="st-error" role="alert">{error}</p>}
         <div className="st-join-actions">
           <button type="submit" className="cf-btn is-primary is-lg" disabled={!name.trim() || busy || !camera.stream}>

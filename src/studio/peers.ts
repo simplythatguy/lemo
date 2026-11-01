@@ -1,5 +1,5 @@
 // Live room: everyone's camera and mic reach everyone else over WebRTC, and the presenter's slide and timer
-// travel on a data channel (and through the room, see RoomView). The handshake rides the room's signal queue (engine/routes_studio.py), polled.
+// travel on a data channel (and through the room, see RoomView). The handshake rides the room's signal queue (server/store.ts), polled.
 //
 // Every RTCPeerConnection has a random id. Signals carry the sender's connection id (`pc`) and the receiver
 // connection they answer (`to`, null while the sender does not know one yet). That keeps a reloaded page, a

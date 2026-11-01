@@ -59,7 +59,8 @@ async function upload(take: CachedTake, signal: AbortSignal) {
       backoff = 1000;
     } catch (e) {
       if (signal.aborted) return;
-      if (e instanceof RoomError && e.status === 401) break;
+      // A bad request or a full room will not get better by retrying; the take stays on this device.
+      if (e instanceof RoomError && (e.status === 400 || e.status === 413)) break;
       if (e instanceof RoomError && e.status === 404) {
         // The server take is gone (replaced by a newer take for this group, or the room reset).
         const room = await roomApi.get(take.room).catch(() => null);

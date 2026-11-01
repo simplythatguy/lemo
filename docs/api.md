@@ -23,4 +23,4 @@ Types are in `src/studio/types.ts` (`RoomState`, `Deck`, `TakeInfo`, `LiveState`
 
 Limits: a take is at most 150 MiB, a room's takes and files at most 600 MiB together, signals expire after 10 minutes (at most 2000 per room, 200 per page), a live row older than 10 s reads as `null`, and a room is deleted 14 days after it was created.
 
-Storage: Postgres when `DATABASE_URL` is set (production), otherwise a SQLite file at `.data/demo_app.sqlite` (local).
+Storage: Postgres when `DATABASE_URL` is set (production), otherwise a SQLite file at `.data/lemo.sqlite` (local).
