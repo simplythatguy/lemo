@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { CHUNK_BYTES, chunkCount, roomApi, RoomError } from "./room";
 import { takeCache, type CachedTake } from "./takeCache";
-import type { RoomState, TakeMedia } from "./types";
+import type { RoomState, TakeInfo, TakeMedia } from "./types";
 
 /** groupId → fraction uploaded, for takes this device is still sending. */
 type Progress = Record<string, number>;
@@ -39,6 +39,12 @@ const wait = (ms: number, signal: AbortSignal) =>
     }, { once: true });
   });
 
+/** The room holds a newer take of the group than this device's, so this one is no longer wanted. A take the room has
+ *  not finished receiving from the same person can be this one, created before its reply was lost: it is not newer. */
+const supersededBy = (theirs: TakeInfo | undefined, take: CachedTake) =>
+  !!theirs && theirs.id !== take.takeId && theirs.createdAt > take.createdAt
+  && (theirs.received >= theirs.chunks || theirs.personId !== take.personId);
+
 async function upload(take: CachedTake, signal: AbortSignal) {
   const chunks = chunkCount(take.blob.size);
   let backoff = 1000;
@@ -49,7 +55,7 @@ async function upload(take: CachedTake, signal: AbortSignal) {
         const info = await roomApi.startTake(take.room, {
           groupId: take.groupId, personId: take.personId, durationMs: Math.round(take.durationMs),
           cues: take.cues, mime: take.mime, size: take.blob.size, chunks,
-        });
+        }, signal);
         if (signal.aborted) return;
         take = await takeCache.put({ ...take, takeId: info.id, sent: 0 });
       }
@@ -63,9 +69,20 @@ async function upload(take: CachedTake, signal: AbortSignal) {
       if (e instanceof RoomError && (e.status === 400 || e.status === 413)) break;
       if (e instanceof RoomError && e.status === 404) {
         // The server take is gone (replaced by a newer take for this group, or the room reset).
-        const room = await roomApi.get(take.room).catch(() => null);
-        const theirs = room?.takes[take.groupId];
-        if (!room || !room.people.some((p) => p.id === take.personId) || (theirs && theirs.createdAt > take.createdAt)) {
+        let room: RoomState | null;
+        try {
+          room = await roomApi.get(take.room, signal);
+        } catch (e) {
+          if (signal.aborted) return;
+          // Only a room that is gone ends it; anything else is asked again, never taken as permission to delete.
+          if (!(e instanceof RoomError && e.status === 404)) {
+            await wait(backoff, signal);
+            backoff = Math.min(backoff * 2, 30_000);
+            continue;
+          }
+          room = null;
+        }
+        if (!room || !room.people.some((p) => p.id === take.personId) || supersededBy(room.takes[take.groupId], take)) {
           await takeCache.remove(take.key);
           break;
         }
@@ -93,13 +110,14 @@ export const uploads = {
   /** Saves the take on this device, then uploads it. Replaces any earlier take of the group from here. */
   async keep(room: string, groupId: string, personId: string, media: TakeMedia) {
     const earlier = (await takeCache.inRoom(room)).filter((t) => t.groupId === groupId);
-    running.get(`${room}:${groupId}`)?.abort();
-    await Promise.all(earlier.map((t) => takeCache.remove(t.key)));
+    // The new take is stored before the earlier ones go: a failed write never leaves the group with neither.
     const take = await takeCache.put({
       key: crypto.randomUUID(), room, groupId, personId, takeId: null,
       blob: media.blob, mime: media.mime, cues: media.cues, durationMs: media.durationMs,
       sent: 0, createdAt: Date.now(),
     });
+    running.get(`${room}:${groupId}`)?.abort();
+    await Promise.all(earlier.map((t) => takeCache.remove(t.key)));
     setProgress(groupId, 0);
     begin(take);
   },
@@ -108,8 +126,7 @@ export const uploads = {
   async resume(room: string, state: RoomState) {
     for (const take of await takeCache.inRoom(room)) {
       if (take.sent >= chunkCount(take.blob.size) || running.has(`${room}:${take.groupId}`)) continue;
-      const theirs = state.takes[take.groupId];
-      if (theirs && theirs.id !== take.takeId && theirs.createdAt > take.createdAt) {
+      if (supersededBy(state.takes[take.groupId], take)) {
         await takeCache.remove(take.key);
         continue;
       }

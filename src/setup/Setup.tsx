@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { roomApi, RoomError } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
 import { VIDEO_LIMIT_MS } from "../studio/types";
-import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
 import { Icon } from "./icons";
 import { importSlides, SlideFileError } from "./importSlides";
 import { Project } from "./Project";
@@ -35,6 +35,8 @@ export function Setup({ code: editCode }: { code?: string }) {
   const [fileOver, setFileOver] = useState(false);
   const [dirty, setDirty] = useState(false);
   const taken = useRef<Set<string>>(new Set());
+  /** The room's deck as this page opened it: takes were recorded on it. */
+  const loaded = useRef<Draft>(emptyDraft());
   const room = useRef<string | null>(editCode ?? null);
   const urls = useRef<string[]>([]);
   const job = useRef<AbortController | null>(null);
@@ -62,7 +64,8 @@ export function Setup({ code: editCode }: { code?: string }) {
       (r) => {
         taken.current = new Set(Object.keys(r.takes));
         if (r.deck) {
-          setDraftState(fromDeck(r.deck));
+          loaded.current = fromDeck(r.deck);
+          setDraftState(loaded.current);
           setStep("script");
         }
         setLoad({ kind: "ready" });
@@ -75,13 +78,14 @@ export function Setup({ code: editCode }: { code?: string }) {
     return () => ctl.abort();
   }, [editCode]);
 
-  // Leaving with unsaved work asks first.
+  // Leaving with unsaved work asks first, also once a save has failed.
+  const savingNow = !!saving && !saving.error;
   useEffect(() => {
-    if (!dirty || saving) return;
+    if (!dirty || savingNow) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, saving]);
+  }, [dirty, savingNow]);
 
   const onFile = useCallback(
     async (file: File) => {
@@ -177,10 +181,13 @@ export function Setup({ code: editCode }: { code?: string }) {
   const save = async () => {
     const stop = blocker(STEPS.length);
     if (stop) return go(stop);
+    // A group whose slides changed under its take gets a new id, so the take no longer plays over the wrong slides.
+    const settled = renewChangedGroups(draft, loaded.current);
+    if (settled !== draft) setDraftState(settled);
     setSaving({ done: 0, total: 0 });
     try {
       const code = await saveDraft({
-        draft,
+        draft: settled,
         code: room.current,
         onRoom: (c) => (room.current = c),
         onUploaded: (next) => setDraftState(next),

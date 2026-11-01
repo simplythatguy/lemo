@@ -77,6 +77,8 @@ function isWire(data: unknown): data is Wire {
 class Mesh {
   private peers = new Map<string, Peer>();
   private listed = new Set<string>();
+  /** People the room list showed and then no longer did. Ids are never reused, so they stay gone. */
+  private gone = new Set<string>();
   /** The room list has shown me, so it is fresh enough to say who was here before this page. */
   private seated = false;
   private introduced = false;
@@ -110,6 +112,7 @@ class Mesh {
   setPeople(ids: string[]) {
     const next = new Set(ids.filter((id) => id !== this.me));
     for (const id of this.listed) {
+      if (!next.has(id)) this.gone.add(id);
       const peer = this.peers.get(id);
       if (!next.has(id) && peer) {
         this.drop(peer);
@@ -232,8 +235,9 @@ class Mesh {
 
   private async handle(signal: Signal) {
     if (!isWire(signal.data) || signal.from === this.me) return;
-    // Only an offer introduces someone the room list has not shown yet.
-    const peer = this.peers.get(signal.from) ?? (signal.kind === "offer" ? this.addPeer(signal.from, false) : null);
+    // Only an offer introduces someone the room list has not shown yet, and never someone it has shown leaving: an
+    // offer they queued before they went would bring them back as a tile nobody removes.
+    const peer = this.peers.get(signal.from) ?? (signal.kind === "offer" && !this.gone.has(signal.from) ? this.addPeer(signal.from, false) : null);
     if (!peer) return;
     const w = signal.data;
     if (w.to && w.to !== peer.pcId) return; // meant for a connection of mine that is gone

@@ -50,7 +50,8 @@ export function SavedVideos({ deck, room, upload }: {
   upload: Record<string, number>;
 }) {
   const [open, setOpen] = useState(false);
-  const [playing, setPlaying] = useState<number | null>(null);
+  /** The group whose take is playing, by id: the deck can change under the player. */
+  const [playing, setPlaying] = useState<string | null>(null);
   const [saving, setSaving] = useState<Record<string, number>>({});
   const [now, setNow] = useState(Date.now());
 
@@ -95,6 +96,7 @@ export function SavedVideos({ deck, room, upload }: {
       .catch(() => undefined).finally(() => setAll(null));
   };
 
+  const playingIndex = deck.groups.findIndex((g) => g.id === playing);
   return (
     <>
       <button
@@ -161,7 +163,7 @@ export function SavedVideos({ deck, room, upload }: {
                   </span>
                   {done && take && (
                     <span className="st-saved-acts">
-                      <button type="button" className="cf-icon-btn" onClick={() => setPlaying(gi)} aria-label={`Play ${g.name}`} title="Play">
+                      <button type="button" className="cf-icon-btn" onClick={() => setPlaying(g.id)} aria-label={`Play ${g.name}`} title="Play">
                         <Icon name="play" size={15} />
                       </button>
                       {s === undefined ? (
@@ -180,14 +182,14 @@ export function SavedVideos({ deck, room, upload }: {
         </aside>
       )}
 
-      {playing !== null && room.takes[deck.groups[playing].id] && (
+      {playingIndex >= 0 && room.takes[playing!] && (
         <Player
           deck={deck}
           room={room.code}
-          index={playing}
-          take={room.takes[deck.groups[playing].id]}
-          saving={saving[deck.groups[playing].id]}
-          onSave={() => save(room.takes[deck.groups[playing].id])}
+          index={playingIndex}
+          take={room.takes[playing!]}
+          saving={saving[playing!]}
+          onSave={() => save(room.takes[playing!])}
           onClose={() => setPlaying(null)}
         />
       )}

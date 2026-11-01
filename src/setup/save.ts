@@ -37,6 +37,7 @@ export async function saveDraft(opts: {
     step({ ...draft, logo: { src } });
   }
   let next = 0;
+  let error: unknown;
   const worker = async () => {
     while (next < pending.length && !failed) {
       const id = pending[next++];
@@ -45,11 +46,14 @@ export async function saveDraft(opts: {
         step({ ...draft, slides: { ...draft.slides, [id]: { id, src } } });
       } catch (e) {
         failed = true;
-        throw e;
+        error ??= e;
       }
     }
   };
+  // The failure is reported once every upload in flight has landed: none of them can write into the draft after the
+  // page hands it back for editing.
   await Promise.all(Array.from({ length: Math.min(PARALLEL, pending.length) }, worker));
+  if (failed) throw error;
 
   await roomApi.putDeck(code, toDeck(draft));
   rememberRoom(code);

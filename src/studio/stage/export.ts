@@ -122,8 +122,10 @@ export async function exportVideo(opts: {
       const cues = [...take.cues].sort((a, b) => a.atMs - b.atMs);
       label = group.name;
       stage.setCamera(v);
-      stage.show(index, cues[0]?.slide ?? 0);
-      let cue = 1;
+      // Cues at zero apply at once; a later first cue waits for its moment on slide one.
+      let cue = 0;
+      while (cue < cues.length && cues[cue].atMs <= 0) cue++;
+      stage.show(index, cue ? cues[cue - 1].slide : 0);
       tick = () => {
         const ms = v.currentTime * 1000;
         while (cue < cues.length && cues[cue].atMs <= ms) stage.show(index, cues[cue++].slide);
@@ -138,6 +140,8 @@ export async function exportVideo(opts: {
           setTimeout(resolve, take.durationMs + 5000);
         }),
       );
+      // Stopped here even when the fallback timer ended it, so its sound never runs under the next take.
+      v.pause();
       tick = null;
       current = null;
       doneMs += take.durationMs;
