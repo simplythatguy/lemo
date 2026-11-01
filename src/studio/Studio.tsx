@@ -20,6 +20,10 @@ function useStableDeck(deck: Deck | null | undefined): Deck | null {
 
 let liveEl: HTMLVideoElement | null = null;
 
+// One camera open at a time. Windows can switch the camera on for two overlapping opens and then send the surviving one
+// no frames once the other is stopped, so each open waits for the last to settle and is skipped if no longer wanted.
+let opening: Promise<void> = Promise.resolve();
+
 function useCamera(camId: string | undefined, micId: string | undefined): Camera {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +37,10 @@ function useCamera(camId: string | undefined, micId: string | undefined): Camera
     let alive = true;
     let opened: MediaStream | null = null;
     // Turning the camera off or on reopens the mic with it: one stream, opened in one place.
-    openCamera(camId, micId, on).then(
-      (s) => {
+    opening = opening.then(async () => {
+      if (!alive) return;
+      try {
+        const s = await openCamera(camId, micId, on);
         if (!alive) return stopStream(s);
         opened = s;
         live.srcObject = s;
@@ -42,13 +48,12 @@ function useCamera(camId: string | undefined, micId: string | undefined): Camera
         setStream(s);
         setError(null);
         void listDevices().then((d) => alive && setDevices(d));
-      },
-      (e: unknown) => {
+      } catch (e) {
         if (!alive) return;
         const name = e instanceof DOMException ? e.name : "";
         setError(name === "NotAllowedError" ? "Camera blocked" : name === "NotFoundError" ? "No camera found" : "Camera unavailable");
-      },
-    );
+      }
+    });
     return () => {
       alive = false;
       stopStream(opened);
