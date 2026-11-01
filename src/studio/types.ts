@@ -25,6 +25,8 @@ export interface Deck {
   /** The project's logo (a file URL from the room), painted on the intro and outro cards. */
   logo?: string;
   groups: Group[];
+  /** Where the presenter's camera tile sits, in stage pixels; the default corner when unset. Moved in the room. */
+  camera?: Rect;
 }
 
 export type Tone = "blue" | "ink" | "grey";

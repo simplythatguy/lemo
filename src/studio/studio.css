@@ -764,6 +764,61 @@
   height: 100%;
 }
 
+/* The camera tile, picked up: the canvas paints it, this only catches the pointer and shows the handles. */
+.st-camframe {
+  position: absolute;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+
+.st-camframe:active { cursor: grabbing; }
+
+.st-camframe:hover,
+.st-camframe:focus-visible,
+.st-camframe:active {
+  box-shadow: 0 0 0 2px var(--cf-accent);
+}
+
+.st-camframe-h {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin: -10px;
+}
+
+.st-camframe-h.is-nw, .st-camframe-h.is-ne, .st-camframe-h.is-sw, .st-camframe-h.is-se {
+  z-index: 1;
+}
+
+/* Corners show a dot; the edges between them are plain strips. */
+.st-camframe-h.is-nw::after, .st-camframe-h.is-ne::after, .st-camframe-h.is-sw::after, .st-camframe-h.is-se::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--cf-accent);
+  opacity: 0;
+  transition: opacity 120ms var(--cf-ease);
+}
+
+.st-camframe:hover .st-camframe-h::after,
+.st-camframe:focus .st-camframe-h::after {
+  opacity: 1;
+}
+
+.st-camframe-h.is-nw { left: 0; top: 0; cursor: nwse-resize; }
+.st-camframe-h.is-se { right: 0; bottom: 0; cursor: nwse-resize; }
+.st-camframe-h.is-ne { right: 0; top: 0; cursor: nesw-resize; }
+.st-camframe-h.is-sw { left: 0; bottom: 0; cursor: nesw-resize; }
+.st-camframe-h.is-n, .st-camframe-h.is-s { left: 10px; right: 10px; width: auto; margin-left: 0; margin-right: 0; cursor: ns-resize; }
+.st-camframe-h.is-w, .st-camframe-h.is-e { top: 10px; bottom: 10px; height: auto; margin-top: 0; margin-bottom: 0; cursor: ew-resize; }
+.st-camframe-h.is-n { top: 0; }
+.st-camframe-h.is-s { bottom: 0; }
+.st-camframe-h.is-w { left: 0; }
+.st-camframe-h.is-e { right: 0; }
+
 .st-count {
   position: absolute;
   inset: 0;

@@ -25,8 +25,6 @@ export const L = {
   margin: 96,
   titleBaseline: 150,
   frame: { x: 96, y: 210, w: 1344, h: 840 } as Rect,
-  /** The presenter's tile, inset equally from the right and bottom edges so it sits cleanly over a full-bleed page. */
-  camera: { x: 1920 - 48 - 344, y: 1080 - 48 - 430, w: 344, h: 430 } as Rect,
   radius: 28,
 } as const;
 

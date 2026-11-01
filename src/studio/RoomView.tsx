@@ -6,12 +6,14 @@ import { Render, takeMedia } from "./Render";
 import { roomApi } from "./room";
 import { SavedVideos } from "./SavedVideos";
 import { createStage, exportVideo, preload, stageKey, type Stage } from "./stage";
+import { cameraOf } from "./stage/camera";
+import { CameraFrame } from "./CameraFrame";
 import { Cams } from "./Cams";
 import { Filmstrip, groupColor } from "./Filmstrip";
 import { Brand, CopyLink, editLink, firstName, initials, slug, type Camera } from "./parts";
 import { usePeers } from "./peers";
 import { clock, deckMs, targetMs } from "./timing";
-import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RoomState, type TakeInfo, type TakeMedia } from "./types";
+import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type Rect, type RoomState, type TakeInfo, type TakeMedia } from "./types";
 import { uploads, useUploads } from "./uploads";
 
 type Phase =
@@ -266,6 +268,8 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   const replay = useRef<HTMLVideoElement | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+  const deckRef = useRef(deck);
+  deckRef.current = deck;
   const send = useRef(broadcast);
   send.current = broadcast;
   const sent = useRef(false);
@@ -315,6 +319,27 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
     if (phase.k === "idle" && following) stage.setCamera(followCam, theirFace);
     else stage.setCamera(camera.live, myFace);
   }, [stage, camera.live, phase.k, following, followCam, myFace, theirFace]);
+  // The camera tile's place: the room's, or where this device is dragging it until the room has the new one.
+  const [camDraft, setCamDraft] = useState<Rect | null>(null);
+  const camGesture = useRef(0);
+  const camBox = camDraft ?? cameraOf(deck);
+  useEffect(() => {
+    stage?.placeCamera({ x: camBox.x, y: camBox.y, w: camBox.w, h: camBox.h });
+  }, [stage, camBox.x, camBox.y, camBox.w, camBox.h]);
+  const moveCam = useCallback((r: Rect) => {
+    camGesture.current++;
+    setCamDraft(r);
+  }, []);
+  const placeCam = useCallback(async (r: Rect) => {
+    const gesture = ++camGesture.current;
+    setCamDraft(r);
+    try {
+      apply(await roomApi.putDeck(room.code, { ...deckRef.current, camera: r }));
+    } catch {
+      // Not saved: the tile goes back to where the room has it.
+    }
+    if (gesture === camGesture.current) setCamDraft(null);
+  }, [apply, room.code]);
   const placed = useRef(false);
   useEffect(() => {
     if (!stage || phase.k !== "idle") return;
@@ -585,6 +610,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
 
       <div className="st-stage-cell">
         <StageCanvas deck={deck} onStage={setStage}>
+          {canEdit && stage && <CameraFrame box={camBox} onChange={moveCam} onCommit={placeCam} />}
           {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
         </StageCanvas>
       </div>
