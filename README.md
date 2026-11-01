@@ -36,11 +36,12 @@ Open http://127.0.0.1:5173. The web app runs on port 5173 and the room server on
 | `server` | The room server: rooms, people, slide images, takes in 3 MB chunks, and the connection handshake between cameras. SQLite locally, Postgres online |
 | `api` | The Vercel function that runs the room server |
 
-The API is described in [docs/api.md](docs/api.md). `npm test` runs the server tests, `npm run build` typechecks and builds, and `npm run smoke` starts `npm run dev` and saves a room through it. CI runs all of them on Windows, macOS and Linux for every pull request.
+The API is described in [docs/api.md](docs/api.md). Why a take sometimes needs a click before it plays with sound, and how to test that, is in [docs/playback.md](docs/playback.md). `npm test` runs the server tests, `npm run build` typechecks and builds, and `npm run smoke` starts `npm run dev` and saves a room through it. CI runs all of them on Windows, macOS and Linux for every pull request.
 
 ## Limits
 
 - Anyone with the room link can join. There are no accounts.
 - PowerPoint files are drawn in the browser, so fonts you don't have installed fall back to another font, and SmartArt, charts and video may look different from PowerPoint. If something looks off, export to PDF and upload that.
 - A take is at most 150 MB, and a room's takes and images at most 600 MB.
+- Brave with autoplay blocked, and Safari, won't start a take with sound on their own. The player shows a large play button instead. Click it.
 - Cameras connect directly between browsers, with a public relay server as a fallback. Some strict networks can still block them. Recording still works, but teammates may not see each other live.

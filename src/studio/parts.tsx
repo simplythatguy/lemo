@@ -32,6 +32,15 @@ export function CameraToggle({ camera, className, size, disabled }: { camera: Ca
   );
 }
 
+/** Over the stage when startPlayback was refused: one click plays it. */
+export function StartButton({ onStart }: { onStart(): void }) {
+  return (
+    <button type="button" className="st-start" onClick={onStart} aria-label="Play" title="Play">
+      <Icon name="play" size={30} />
+    </button>
+  );
+}
+
 /** The first two letters of the first name: "Abdel Abdelwaly" → "Ab". */
 export const initials = (name: string) => {
   const first = name.trim().split(/\s+/)[0] ?? "";

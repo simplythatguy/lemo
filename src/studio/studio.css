@@ -884,6 +884,33 @@
   color: var(--cf-text);
 }
 
+/* A take the browser would not start on its own: one round play button in the middle of the stage. */
+.st-start {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  padding: 0 0 0 4px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cf-primary-bg);
+  color: var(--cf-primary-text);
+  box-shadow: var(--cf-shadow-pop);
+  cursor: pointer;
+  transition: scale 160ms var(--cf-ease);
+}
+
+.st-start:hover {
+  scale: 1.05;
+}
+
+.st-start:active {
+  scale: 0.97;
+}
+
 /* Transcript column */
 
 .st-script-col {
