@@ -97,6 +97,11 @@ export function SavedVideos({ deck, room, upload }: {
   };
 
   const playingIndex = deck.groups.findIndex((g) => g.id === playing);
+  const playable = playingIndex >= 0 && !!room.takes[playing!];
+  // The group or its take went away under the player: it closes, and Escape closes the list again.
+  useEffect(() => {
+    if (playing !== null && !playable) setPlaying(null);
+  }, [playing, playable]);
   return (
     <>
       <button
@@ -182,7 +187,7 @@ export function SavedVideos({ deck, room, upload }: {
         </aside>
       )}
 
-      {playingIndex >= 0 && room.takes[playing!] && (
+      {playable && (
         <Player
           deck={deck}
           room={room.code}

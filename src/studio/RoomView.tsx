@@ -478,17 +478,22 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
 
   // The review stays open until the take is safe on this device; a failed write leaves it there to try again.
   const [keepFailed, setKeepFailed] = useState(false);
+  useEffect(() => setKeepFailed(false), [media]);
   const keeping = useRef(false);
   const keep = useCallback(async () => {
     if (!media || keeping.current) return;
     keeping.current = true;
+    // Only the review this Keep came from closes: a retake started meanwhile carries on.
+    const same = () => phaseRef.current.k === "review" && phaseRef.current.media === media;
     try {
       await uploads.keep(room.code, group.id, me.id, media);
-      setKeepFailed(false);
-      setPhase({ k: "idle" });
+      if (same()) {
+        setKeepFailed(false);
+        setPhase({ k: "idle" });
+      }
     } catch (e) {
       console.error(e);
-      setKeepFailed(true);
+      if (same()) setKeepFailed(true);
     } finally {
       keeping.current = false;
     }

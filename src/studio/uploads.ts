@@ -39,11 +39,11 @@ const wait = (ms: number, signal: AbortSignal) =>
     }, { once: true });
   });
 
-/** The room holds a newer take of the group than this device's, so this one is no longer wanted. A take the room has
- *  not finished receiving from the same person can be this one, created before its reply was lost: it is not newer. */
+/** The room holds a newer take of the group than this device's, so this one is no longer wanted. Before this device
+ *  has heard its take's id, an unfinished take from the same person can be this one, made before the reply was lost. */
 const supersededBy = (theirs: TakeInfo | undefined, take: CachedTake) =>
   !!theirs && theirs.id !== take.takeId && theirs.createdAt > take.createdAt
-  && (theirs.received >= theirs.chunks || theirs.personId !== take.personId);
+  && (take.takeId !== null || theirs.received >= theirs.chunks || theirs.personId !== take.personId);
 
 async function upload(take: CachedTake, signal: AbortSignal) {
   const chunks = chunkCount(take.blob.size);
