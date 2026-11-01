@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import postgres from "postgres";
+import type { Slide } from "../src/studio/types.ts";
 import { createHandler } from "./app.ts";
-import { CHUNK_BYTES, ROOM_MS, Store, type StoreOptions } from "./store.ts";
+import { CHUNK_BYTES, ROOM_MAX_SIGNALS, ROOM_MS, SIGNAL_MS, Store, type StoreOptions } from "./store.ts";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -148,7 +149,7 @@ test("take limits", async (t) => {
   assert.equal(await post(takeBody(ana.id, 150 * 1024 * 1024 + 1)), 400);
   assert.equal(await post(takeBody(ana.id, 10, "intro", { chunks: 2 })), 400);
   assert.equal(await post(takeBody(ana.id, 10, "intro", { mime: "audio/webm" })), 400);
-  assert.equal(await post(takeBody(ana.id, 10, "intro", { cues: Array(101).fill({ slide: 0, atMs: 0 }) })), 400);
+  assert.equal(await post(takeBody(ana.id, 10, "intro", { cues: Array(1001).fill({ slide: 0, atMs: 0 }) })), 400);
   assert.equal(await post(takeBody(ana.id, 10, "intro", { durationMs: 1.5 })), 400);
   assert.equal(await post(takeBody(ana.id, 10, "intro", { extra: 1 })), 400);
   assert.equal(await post(takeBody("nobody", 10)), 404);
@@ -161,11 +162,52 @@ test("take limits", async (t) => {
   assert.equal(await status(oversized), 413);
 });
 
+test("a take keeps up to 1000 slide-change cues", async (t) => {
+  const { ok, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  for (const cues of [
+    Array.from({ length: 101 }, (_, i) => ({ slide: i % 2, atMs: i * 1000 })),
+    Array.from({ length: 1000 }, () => ({ slide: 1000, atMs: Number.MAX_SAFE_INTEGER })),
+  ]) {
+    const body = takeBody(ana.id, 1, "intro", { cues });
+    assert.ok(Buffer.byteLength(JSON.stringify(body)) < 256 * 1024);
+    const take = await ok("POST", `/api/rooms/${code}/takes`, { json: body }, 201);
+    assert.deepEqual(take.cues, cues);
+    assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).takes.intro.cues, cues);
+  }
+});
+
 test("an expired room is gone", async (t) => {
   const { call, room, clock } = await setup(t);
   const { code } = await room();
   clock(ROOM_MS + 1000);
   assert.equal(await status(call("GET", `/api/rooms/${code}`)), 404);
+});
+
+test("expired reads and writes commit deletion of the room and its media", async (t) => {
+  const { ok, call, room, person, clock, sql } = await setup(t);
+  for (const method of ["GET", "PUT"]) {
+    clock(0);
+    const { code } = await room();
+    const ana = await person(code, "Ana");
+    await ok("PUT", `/api/rooms/${code}/assignments/intro`, { json: { personId: ana.id } });
+    assert.equal(await status(call("PUT", `/api/rooms/${code}/assignments/intro`, { json: { personId: "nobody" } })), 404);
+    assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).assignments, { intro: ana.id });
+    await ok("POST", `/api/rooms/${code}/files`, { body: "image", type: "image/png" }, 201);
+    const take = await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1) }, 201);
+    await ok("PUT", `/api/rooms/${code}/takes/${take.id}/chunks/0`, { body: "x" });
+    clock(ROOM_MS + 1000);
+    const path = `/api/rooms/${code}${method === "PUT" ? "/deck" : ""}`;
+    assert.equal(await status(call(method, path, method === "PUT" ? { json: deck } : {})), 404);
+    assert.equal(await status(call("GET", `/api/rooms/${code}`)), 404);
+    await sql.tx(async (tx) => {
+      for (const table of ["studio_rooms", "studio_people", "studio_assignments", "studio_files", "studio_takes", "studio_chunks"]) {
+        const row = await tx.get(`SELECT COUNT(*) AS n FROM ${table}`);
+        assert.equal(Number(row!.n), 0, `${method}: ${table}`);
+      }
+    });
+  }
 });
 
 async function signalRoom(t: TestContext) {
@@ -242,6 +284,41 @@ test("signals expire after ten minutes", async (t) => {
   assert.deepEqual(rows.map((r) => Number(r.seq)), [old + 1, old + 2]);
 });
 
+test("concurrent signals cannot exceed the room cap or consume rejected sequence numbers", async (t) => {
+  const { code, ana, ben, send, inbox, clock, sql } = await signalRoom(t);
+  for (let i = 0; i < ROOM_MAX_SIGNALS - 1; i++) assert.equal(await status(send(ana, ben)), 201);
+  const race = () => Promise.all(Array.from({ length: 20 }, () => send(ana, ben)));
+  let responses: Response[];
+  if (sql.postgres) {
+    const { pending, waiting } = await sql.tx(async (tx) => {
+      await tx.get("SELECT last FROM studio_signal_heads WHERE room_code=? FOR UPDATE", [code]);
+      const pending = race();
+      const deadline = Date.now() + 5000;
+      let waiting = 0;
+      // Hold the head until two senders overlap there, rather than relying on network timing.
+      while (waiting < 2 && Date.now() < deadline) {
+        await tx.run("SELECT pg_stat_clear_snapshot()");
+        const row = await tx.get("SELECT COUNT(*) AS n FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'INSERT INTO studio_signal_heads%'");
+        waiting = Number(row!.n);
+      }
+      return { pending, waiting };
+    });
+    responses = await pending;
+    assert.ok(waiting >= 2, "two senders reached the signal head lock");
+  } else {
+    responses = await race();
+  }
+  assert.equal(responses.filter((r) => r.status === 201).length, 1);
+  assert.equal(responses.filter((r) => r.status === 429).length, 19);
+  assert.deepEqual(await inbox(ben), { signals: [], last: ROOM_MAX_SIGNALS });
+  const row = await sql.tx((tx) => tx.get("SELECT COUNT(*) AS n FROM studio_signals WHERE room_code=?", [code]));
+  assert.equal(Number(row!.n), ROOM_MAX_SIGNALS);
+  clock(SIGNAL_MS + 1000);
+  const next = await send(ana, ben);
+  assert.equal(next.status, 201);
+  assert.equal(await seqOf(next), ROOM_MAX_SIGNALS + 1);
+});
+
 test("a named room is made once and shared", async (t) => {
   const { ok, call, person } = await setup(t);
   const first = await ok("POST", "/api/rooms", { json: { code: " batats " } }, 201);
@@ -290,6 +367,67 @@ test("the deck is stored with the room", async (t) => {
   const nearly = { ...deck, title: "x".repeat(1024 * 1024 - 400) };
   assert.equal(await status(call("PUT", `/api/rooms/${created.code}/deck`, { json: nearly })), 200);
   assert.equal(await status(call("PUT", "/api/rooms/ZZZZZZ/deck", { json: deck })), 404);
+});
+
+test("invalid nested decks leave the stored deck intact", async (t) => {
+  const { ok, call, room } = await setup(t);
+  const { code } = await room();
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: deck });
+  const group = deck.groups[0];
+  for (const bad of [
+    { ...deck, team: [null, 7], groups: [null] },
+    { ...deck, team: [null] },
+    { ...deck, team: [7] },
+    { ...deck, groups: [null] },
+    { ...deck, groups: [7] },
+    ...[
+      { id: undefined }, { id: "Bad_Id" }, { id: "../intro" }, { name: 7 },
+      { slides: null }, { slides: [null] }, { slides: [7] }, { slides: [{ kind: 7 }] },
+      { script: null }, { script: [null] }, { script: [7] },
+      { speaker: "0" }, { speaker: null }, { seconds: "5" }, { seconds: null },
+    ].map((bad) => ({ ...deck, groups: [{ ...group, ...bad }] })),
+    { ...deck, logo: 7 },
+    { ...deck, camera: null },
+    { ...deck, camera: { x: 0, y: 0, w: 100 } },
+    { ...deck, camera: { x: "0", y: 0, w: 100, h: 100 } },
+  ]) {
+    assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: bad })), 400, JSON.stringify(bad));
+    assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, deck);
+  }
+  for (const body of [
+    JSON.stringify(deck).replace('"speaker":0', '"speaker":1e999'),
+    JSON.stringify({ ...deck, groups: [{ ...group, seconds: 5 }] }).replace('"seconds":5', '"seconds":1e999'),
+    JSON.stringify({ ...deck, camera: { x: 0, y: 0, w: 100, h: 100 } }).replace('"x":0', '"x":1e999'),
+  ]) {
+    assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { body, type: "application/json" })), 400);
+  }
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, deck);
+});
+
+test("all slide kinds and extra slide fields round-trip with camera and timing edits", async (t) => {
+  const { ok, room } = await setup(t);
+  const { code } = await room();
+  const slides = [
+    { kind: "page", id: "p1", src: "/page.png" },
+    { kind: "statement", id: "s1", text: "Hi" },
+    { kind: "clip", id: "c1", title: "Clip", src: "/clip.webm", from: 0, to: 2, rate: 1.5 },
+    { kind: "image", id: "i1", title: "Image", src: "/image.png" },
+    { kind: "compare", id: "c2", title: "Compare", left: { src: "/a.png", label: "A" }, right: { src: "/b.png", label: "B" } },
+    { kind: "bars", id: "b1", title: "Bars", max: 5, bars: [{ label: "A", value: 3 }] },
+    { kind: "count", id: "n1", value: 3, label: "Count" },
+    { kind: "dots", id: "d1", title: "Dots", total: 5, lit: 3, label: "Dots" },
+    { kind: "flow", id: "f1", title: "Flow", steps: [{ label: "Start" }] },
+    { kind: "logo", id: "l1", names: ["Ana"] },
+  ] satisfies Slide[];
+  const value = {
+    title: "", team: ["", "Ana"], logo: "/logo.png", camera: { x: 0.5, y: -1, w: 320, h: 180 },
+    groups: [{ id: "g-setup", name: "", seconds: 12.5, script: ["", "An edit"], slides: [
+      ...slides.map((slide) => ({ ...slide, extra: { kept: true } })),
+      { kind: "older-slide", payload: { kept: [1, null, "text"] } },
+    ] }],
+  };
+  assert.deepEqual((await ok("PUT", `/api/rooms/${code}/deck`, { json: value })).deck, value);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, value);
 });
 
 test("files upload and come back with their type", async (t) => {
@@ -388,4 +526,46 @@ test("unknown paths, wrong methods and bad bodies", async (t) => {
   assert.equal(await status(call("GET", "/api/rooms/ABC")), 404);
   assert.equal(await status(call("POST", `/api/rooms/${code}/people`, { body: "{", type: "application/json" })), 400);
   assert.equal(await status(call("POST", `/api/rooms/${code}/people`)), 400);
+});
+
+test("NUL strings and malformed resource ids are rejected before storage", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const nul = "Null\u0000Name";
+  for (const [method, path, body] of [
+    ["POST", "/api/rooms", { code: "ABC\u0000234" }],
+    ["POST", `/api/rooms/${code}/people`, { name: nul }],
+    ["PUT", `/api/rooms/${code}/assignments/intro`, { personId: nul }],
+    ["POST", `/api/rooms/${code}/takes`, takeBody(nul, 1)],
+    ["POST", `/api/rooms/${code}/takes`, takeBody(ana.id, 1, nul)],
+    ["POST", `/api/rooms/${code}/takes`, takeBody(ana.id, 1, "intro", { mime: `video/${nul}` })],
+    ["POST", `/api/rooms/${code}/signals`, { from: nul, to: ana.id, kind: "bye" }],
+    ["POST", `/api/rooms/${code}/signals`, { from: ana.id, to: nul, kind: "bye" }],
+    ["PUT", `/api/rooms/${code}/live?person=${ana.id}`, liveBody(nul)],
+    ["PUT", `/api/rooms/${code}/live?person=${ana.id}`, liveBody(ana.id, { groupId: nul })],
+  ] as const) {
+    assert.equal(await status(call(method, path, { json: body })), 400, `${method} ${path}`);
+  }
+  for (const bad of [
+    { ...deck, title: nul }, { ...deck, team: [nul] }, { ...deck, logo: nul },
+    ...[{ id: nul }, { name: nul }, { script: [nul] }, { slides: [{ kind: nul }] }]
+      .map((bad) => ({ ...deck, groups: [{ ...deck.groups[0], ...bad }] })),
+  ]) {
+    assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: bad })), 400);
+  }
+  assert.equal(await status(call("GET", `/api/rooms/${code}/signals?to=%00`)), 400);
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/live?person=%00`, { body: "null", type: "application/json" })), 400);
+  for (const id of ["%00", "bad", "f".repeat(31), "g".repeat(32), "F".repeat(32)]) {
+    assert.equal(await status(call("GET", `/api/rooms/${code}/files/${id}`)), 404);
+    assert.equal(await status(call("GET", `/api/rooms/${code}/takes/${id}/chunks/0`)), 404);
+    assert.equal(await status(call("PUT", `/api/rooms/${code}/takes/${id}/chunks/0`, { body: "x" })), 404);
+  }
+  for (const id of ["%00", "bad", "f".repeat(11), "f".repeat(13), "g".repeat(12), "F".repeat(12)]) {
+    assert.equal(await status(call("DELETE", `/api/rooms/${code}/people/${id}`)), 404);
+  }
+  const state = await ok("GET", `/api/rooms/${code}`);
+  assert.deepEqual(state.people, [ana]);
+  assert.deepEqual(state.takes, {});
+  assert.equal(state.deck, null);
 });

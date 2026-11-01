@@ -21,6 +21,7 @@ const bad = (detail: string) => new HttpError(400, detail);
 
 const str = (min: number, max: number, pattern?: RegExp): Check<string> => (v, name) => {
   if (typeof v !== "string") throw bad(`${name} must be a string`);
+  if (v.includes("\u0000")) throw bad(`${name} must not contain NUL`);
   const length = [...v].length;
   if (length < min || length > max) throw bad(`${name} must be ${min}–${max} characters`);
   if (pattern && !pattern.test(v)) throw bad(`${name} is not valid`);
@@ -29,6 +30,10 @@ const str = (min: number, max: number, pattern?: RegExp): Check<string> => (v, n
 const trimmed = (min: number, max: number): Check<string> => (v, name) => str(min, max)(typeof v === "string" ? v.trim() : v, name);
 const int = (min: number, max = Number.MAX_SAFE_INTEGER): Check<number> => (v, name) => {
   if (typeof v !== "number" || !Number.isInteger(v) || v < min || v > max) throw bad(`${name} must be a whole number from ${min} to ${max}`);
+  return v;
+};
+const finite: Check<number> = (v, name) => {
+  if (typeof v !== "number" || !Number.isFinite(v)) throw bad(`${name} must be a finite number`);
   return v;
 };
 const bool: Check<boolean> = (v, name) => {
@@ -69,7 +74,7 @@ const newTake = shape({
   groupId: required(str(1, 40, GROUP_ID)),
   personId,
   durationMs: required(int(0, HOUR_MS)),
-  cues: required(list(cue, 100)),
+  cues: required(list(cue, 1000)),
   mime: required(str(1, 120, MIME)),
   size: required(int(1, TAKE_MAX_BYTES)),
   chunks: required(int(1)),
@@ -88,9 +93,31 @@ const kind: Check<SignalKind> = (v, name) => {
   return v as SignalKind;
 };
 const newSignal = shape({ from: personId, to: personId, kind: required(kind), data: anything });
+const text = str(0, DECK_MAX_BYTES);
+const slide: Check<unknown> = (v, name) => {
+  if (!isObject(v)) throw bad(`${name} must be an object`);
+  text(v.kind, `${name}.kind`);
+  return v;
+};
+const group: Check<unknown> = (v, name) => {
+  if (!isObject(v)) throw bad(`${name} must be an object`);
+  str(1, 40, GROUP_ID)(v.id, `${name}.id`);
+  text(v.name, `${name}.name`);
+  list(slide, DECK_MAX_BYTES)(v.slides, `${name}.slides`);
+  list(text, DECK_MAX_BYTES)(v.script, `${name}.script`);
+  if (v.speaker !== undefined) finite(v.speaker, `${name}.speaker`);
+  if (v.seconds !== undefined) finite(v.seconds, `${name}.seconds`);
+  return v;
+};
 const deck = (v: unknown) => {
-  if (!isObject(v) || typeof v.title !== "string" || !Array.isArray(v.team) || !Array.isArray(v.groups)) {
-    throw bad("A deck is an object with title, team and groups");
+  if (!isObject(v)) throw bad("A deck is an object with title, team and groups");
+  text(v.title, "deck.title");
+  list(text, DECK_MAX_BYTES)(v.team, "deck.team");
+  list(group, DECK_MAX_BYTES)(v.groups, "deck.groups");
+  if (v.logo !== undefined) text(v.logo, "deck.logo");
+  if (v.camera !== undefined) {
+    if (!isObject(v.camera)) throw bad("deck.camera must be an object");
+    for (const key of ["x", "y", "w", "h"]) finite(v.camera[key], `deck.camera.${key}`);
   }
   return v;
 };
@@ -236,6 +263,9 @@ export function createHandler(getStore: () => Promise<Store>) {
       const [r, params] = hit;
       // The store upper-cases codes; anything that is not 6 letters or digits cannot name a room.
       if (params!.code !== undefined && !/^[A-Za-z0-9]{6}$/.test(params!.code)) throw new HttpError(404, "Room not found");
+      if (params!.id !== undefined && !/^[a-f0-9]{32}$/.test(params!.id)) throw new HttpError(404, "File not found");
+      if (params!.takeId !== undefined && !/^[a-f0-9]{32}$/.test(params!.takeId)) throw new HttpError(404, "Take not found");
+      if (params!.personId !== undefined && !/^[a-f0-9]{12}$/.test(params!.personId)) throw new HttpError(404, "Person not found");
       return await r.run(await getStore(), req, params!, url);
     } catch (e) {
       if (e instanceof HttpError) return json({ detail: e.message }, e.status);

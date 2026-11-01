@@ -158,16 +158,21 @@ export class Store {
     await tx.run("UPDATE studio_rooms SET updated_at=CASE WHEN updated_at>=? THEN updated_at+1 ELSE ? END WHERE code=?", [now, now, code]);
   }
 
-  /** The live room's code (row-locked for writes on Postgres), or 404. An expired room is deleted on sight. */
-  private async room(tx: Tx, code: string, lock = true): Promise<string> {
+  /** Runs in a live room (row-locked for writes on Postgres). Expiry cleanup commits before the 404. */
+  private async inRoom<T>(code: string, run: (tx: Tx, code: string) => Promise<T>, lock = true): Promise<T> {
     code = normalCode(code);
-    let row = await tx.get(`SELECT created_at FROM studio_rooms WHERE code=?${lock && tx.postgres ? " FOR UPDATE" : ""}`, [code]);
-    if (row && Number(row.created_at) < this.ms() - ROOM_MS) {
-      await tx.run("DELETE FROM studio_rooms WHERE code=?", [code]);
-      row = undefined;
-    }
-    if (!row) throw new HttpError(404, "Room not found");
-    return code;
+    const result = await this.db.tx(async (tx) => {
+      const row = await tx.get(`SELECT created_at FROM studio_rooms WHERE code=?${lock && tx.postgres ? " FOR UPDATE" : ""}`, [code]);
+      if (!row) return null;
+      const before = this.ms() - ROOM_MS;
+      if (Number(row.created_at) < before) {
+        await tx.run("DELETE FROM studio_rooms WHERE code=? AND created_at<?", [code, before]);
+        return null;
+      }
+      return { value: await run(tx, code) };
+    });
+    if (result === null) throw new HttpError(404, "Room not found");
+    return result.value;
   }
 
   private async person(tx: Tx, code: string, personId: string) {
@@ -242,12 +247,11 @@ export class Store {
   }
 
   getRoom(code: string): Promise<RoomState> {
-    return this.db.tx(async (tx) => this.state(tx, await this.room(tx, code, false)));
+    return this.inRoom(code, (tx, code) => this.state(tx, code), false);
   }
 
   putDeck(code: string, deckJson: string): Promise<RoomState> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code);
+    return this.inRoom(code, async (tx, code) => {
       await tx.run("UPDATE studio_rooms SET deck_json=? WHERE code=?", [deckJson, code]);
       await this.stamp(tx, code);
       return this.state(tx, code);
@@ -255,8 +259,7 @@ export class Store {
   }
 
   putFile(code: string, mime: string, data: Uint8Array): Promise<string> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code);
+    return this.inRoom(code, async (tx, code) => {
       if ((await this.used(tx, code)) + data.length > this.roomMaxBytes) throw new HttpError(413, "This room is out of space");
       const id = hex();
       await tx.run("INSERT INTO studio_files(id,room_code,mime,size,data,created_at) VALUES (?,?,?,?,?,?)", [id, code, mime, data.length, data, this.ms()]);
@@ -266,18 +269,16 @@ export class Store {
   }
 
   getFile(code: string, id: string): Promise<{ mime: string; data: Uint8Array }> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code, false);
+    return this.inRoom(code, async (tx, code) => {
       const row = await tx.get("SELECT mime,data FROM studio_files WHERE room_code=? AND id=?", [code, id]);
       if (!row) throw new HttpError(404, "File not found");
       return { mime: String(row.mime), data: row.data as Uint8Array };
-    });
+    }, false);
   }
 
   join(code: string, name: string): Promise<Person> {
     const key = name.toLowerCase();
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code);
+    return this.inRoom(code, async (tx, code) => {
       const row = await tx.get("SELECT id,name FROM studio_people WHERE room_code=? AND name_key=?", [code, key]);
       if (row) return { id: String(row.id), name: String(row.name) };
       const count = await tx.get("SELECT COUNT(*) AS n FROM studio_people WHERE room_code=?", [code]);
@@ -290,8 +291,7 @@ export class Store {
   }
 
   leave(code: string, personId: string): Promise<RoomState> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code);
+    return this.inRoom(code, async (tx, code) => {
       await tx.run("DELETE FROM studio_assignments WHERE room_code=? AND person_id=?", [code, personId]);
       if ((await tx.run("DELETE FROM studio_people WHERE room_code=? AND id=?", [code, personId])) === 0) {
         throw new HttpError(404, "Person not found");
@@ -302,8 +302,7 @@ export class Store {
   }
 
   assign(code: string, groupId: string, personId: string | null): Promise<RoomState> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code);
+    return this.inRoom(code, async (tx, code) => {
       await tx.run("DELETE FROM studio_assignments WHERE room_code=? AND group_id=?", [code, groupId]);
       if (personId !== null) {
         await this.person(tx, code, personId);
@@ -318,8 +317,7 @@ export class Store {
     if (take.chunks !== expectedChunks(take.size)) {
       throw new HttpError(400, `A take of ${take.size} bytes has ${expectedChunks(take.size)} chunks`);
     }
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code);
+    return this.inRoom(code, async (tx, code) => {
       await this.person(tx, code, take.personId);
       if ((await this.used(tx, code, take.groupId)) + take.size > this.roomMaxBytes) throw new HttpError(413, "This room is out of space");
       // Chunks cascade with the take they belong to.
@@ -341,8 +339,7 @@ export class Store {
   }
 
   putChunk(code: string, takeId: string, index: number, data: Uint8Array): Promise<number> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code);
+    return this.inRoom(code, async (tx, code) => {
       const { size, chunks } = await this.takeShape(tx, code, takeId);
       if (index < 0 || index >= chunks) throw new HttpError(404, "Chunk not found");
       const length = chunkLength(size, chunks, index);
@@ -354,21 +351,19 @@ export class Store {
   }
 
   getChunk(code: string, takeId: string, index: number): Promise<Uint8Array> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code, false);
+    return this.inRoom(code, async (tx, code) => {
       await this.takeShape(tx, code, takeId);
       const row = await tx.get("SELECT data FROM studio_chunks WHERE take_id=? AND idx=?", [takeId, index]);
       if (!row) throw new HttpError(404, "Chunk not found");
       return row.data as Uint8Array;
-    });
+    }, false);
   }
 
   /** Publishes the take `personId` is recording, or clears it. Clearing only ends their own take (or one nobody
    *  refreshes any more), so a late stop from an earlier presenter leaves the current one alone. */
   async putLive(code: string, personId: string, live: LiveState | null): Promise<LiveState | null> {
     if (live !== null && live.presenterId !== personId) throw new HttpError(403, "Only the presenter publishes their take");
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code, false);
+    return this.inRoom(code, async (tx, code) => {
       await this.person(tx, code, personId);
       const now = this.ms();
       if (live === null) {
@@ -380,36 +375,34 @@ export class Store {
         );
       }
       return this.live(tx, code);
-    });
+    }, false);
   }
 
   /** Queues one signal for `to` and returns its sequence number. Expired signals go first. `data` is JSON text. */
   async sendSignal(code: string, from: string, to: string, kind: SignalKind, data: string): Promise<number> {
     if (from === to) throw new HttpError(400, "A signal goes to someone else");
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code, false);
+    return this.inRoom(code, async (tx, code) => {
       await this.person(tx, code, from);
       await this.person(tx, code, to);
       const now = this.ms();
-      await tx.run("DELETE FROM studio_signals WHERE at<?", [now - SIGNAL_MS]);
-      const count = await tx.get("SELECT COUNT(*) AS n FROM studio_signals WHERE room_code=?", [code]);
-      if (Number(count!.n) >= ROOM_MAX_SIGNALS) throw new HttpError(429, "Too many signals; try again shortly");
       // The head row is the per-room counter; its row lock orders concurrent senders.
       const head = await tx.get(
         "INSERT INTO studio_signal_heads(room_code,last) VALUES (?,1) ON CONFLICT(room_code) DO UPDATE SET last=studio_signal_heads.last+1 RETURNING last",
         [code],
       );
+      await tx.run("DELETE FROM studio_signals WHERE at<?", [now - SIGNAL_MS]);
+      const count = await tx.get("SELECT COUNT(*) AS n FROM studio_signals WHERE room_code=?", [code]);
+      if (Number(count!.n) >= ROOM_MAX_SIGNALS) throw new HttpError(429, "Too many signals; try again shortly");
       const seq = Number(head!.last);
       await tx.run("INSERT INTO studio_signals(room_code,seq,from_id,to_id,kind,data,at) VALUES (?,?,?,?,?,?,?)", [code, seq, from, to, kind, data, now]);
       return seq;
-    });
+    }, false);
   }
 
   /** Signals for `to` after the cursor, oldest first, and the cursor to send next time. Without a cursor only the
    *  current cursor comes back, so a new page skips what was meant for its predecessor. */
   signals(code: string, to: string, after: number | null): Promise<{ signals: Signal[]; last: number }> {
-    return this.db.tx(async (tx) => {
-      code = await this.room(tx, code, false);
+    return this.inRoom(code, async (tx, code) => {
       await this.person(tx, code, to);
       const row = await tx.get("SELECT last FROM studio_signal_heads WHERE room_code=?", [code]);
       const head = row ? Number(row.last) : 0;
@@ -423,7 +416,7 @@ export class Store {
         seq: Number(r.seq), from: String(r.from_id), kind: String(r.kind) as SignalKind, data: JSON.parse(String(r.data)), at: Number(r.at),
       }));
       return { signals, last: signals.length === SIGNAL_PAGE ? signals[signals.length - 1].seq : head };
-    });
+    }, false);
   }
 }
 
