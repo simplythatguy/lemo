@@ -169,6 +169,33 @@
   font-size: 24px;
 }
 
+.st-cam-toggle {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(18, 18, 23, 0.45);
+  color: #fff;
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: background 120ms ease-out;
+}
+
+.st-cam-toggle:hover {
+  background: rgba(18, 18, 23, 0.6);
+}
+
+.st-cam.is-empty .st-cam-toggle {
+  background: var(--cf-bg);
+  color: var(--cf-text);
+}
+
 .st-cam-error {
   position: absolute;
   inset: 0;
@@ -501,6 +528,7 @@
 }
 
 .st-tile-mic,
+.st-tile-cam,
 .st-tile-x {
   position: absolute;
   display: grid;
@@ -536,14 +564,38 @@
   transition: opacity 120ms ease-out;
 }
 
+.st-tile-cam {
+  top: 6px;
+  left: 6px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.st-tile-cam:disabled {
+  cursor: default;
+}
+
+/* Off, the switch stays in view: it is the way back. */
+.st-tile.is-off .st-tile-cam {
+  opacity: 1;
+  background: var(--cf-bg);
+  color: var(--cf-text-2);
+}
+
 .st-tile:hover .st-tile-x:not(:disabled),
-.st-tile-x:focus-visible {
+.st-tile-x:focus-visible,
+.st-tile:hover .st-tile-cam:not(:disabled),
+.st-tile-cam:focus-visible {
   opacity: 1;
 }
 
-/* No hover on touch screens: remove stays visible. */
+/* No hover on touch screens: remove and the camera switch stay visible. */
 @media (hover: none) {
-  .st-tile-x:not(:disabled) {
+  .st-tile-x:not(:disabled),
+  .st-tile-cam:not(:disabled) {
     opacity: 1;
   }
 }

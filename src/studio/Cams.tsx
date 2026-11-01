@@ -2,7 +2,7 @@
 // which the mic icon shows (live for the presenter, slashed for everyone else).
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
-import { firstName, initials } from "./parts";
+import { CameraToggle, firstName, initials, type Camera } from "./parts";
 import type { Person } from "./types";
 
 // Lucide shapes (ISC licence), like icons.tsx.
@@ -15,12 +15,14 @@ const Glyph = ({ d, size = 14 }: { d: React.ReactNode; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>
 );
 
-export function Cams({ people, me, local, streams, failed, presenter, mutedAll, locked, onMuteAll, onRemove, onVideo }: {
+export function Cams({ people, me, camera, streams, failed, camOff, presenter, mutedAll, locked, onMuteAll, onRemove, onVideo }: {
   people: Person[];
   me: Person;
-  local: MediaStream | null;
+  camera: Camera;
   streams: Record<string, MediaStream>;
   failed: Record<string, boolean>;
+  /** Teammates who turned their camera off: their stream still has a video track, with no picture coming. */
+  camOff: Record<string, boolean>;
   presenter: string | null;
   mutedAll: boolean;
   locked: boolean;
@@ -38,7 +40,9 @@ export function Cams({ people, me, local, streams, failed, presenter, mutedAll, 
             key={p.id}
             person={p}
             mine={mine}
-            stream={mine ? local : streams[p.id] ?? null}
+            camera={mine ? camera : undefined}
+            stream={mine ? camera.stream : streams[p.id] ?? null}
+            off={mine ? !camera.on : !!camOff[p.id]}
             failed={!mine && !!failed[p.id]}
             presenting={p.id === presenter}
             audible={!mine && !mutedAll}
@@ -64,10 +68,13 @@ export function Cams({ people, me, local, streams, failed, presenter, mutedAll, 
   );
 }
 
-function Tile({ person, mine, stream, failed, presenting, audible, locked, onRemove, onVideo }: {
+function Tile({ person, mine, camera, stream, off, failed, presenting, audible, locked, onRemove, onVideo }: {
   person: Person;
   mine: boolean;
+  /** This device's camera, on my own tile only. */
+  camera?: Camera;
   stream: MediaStream | null;
+  off: boolean;
   failed: boolean;
   presenting: boolean;
   audible: boolean;
@@ -106,10 +113,10 @@ function Tile({ person, mine, stream, failed, presenting, audible, locked, onRem
     return () => onVideo?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stream]);
-  const picture = usePicture(video, stream);
+  const picture = usePicture(video, stream) && !off;
 
   return (
-    <figure className={`st-tile${presenting ? " is-on" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}`}>
+    <figure className={`st-tile${presenting ? " is-on" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}`}>
       <video ref={video} autoPlay playsInline muted />
       <audio ref={sound} autoPlay />
       {!picture && <span className="st-tile-face" aria-hidden="true">{initials(person.name)}</span>}
@@ -120,6 +127,7 @@ function Tile({ person, mine, stream, failed, presenting, audible, locked, onRem
       <span className={`st-tile-mic${presenting ? " is-live" : ""}`} role="img" aria-label={presenting ? "Presenting: this mic is recorded" : "Not in the recording"}>
         <Glyph d={presenting ? MIC : MIC_OFF} size={12} />
       </span>
+      {camera && <CameraToggle camera={camera} className="st-tile-cam" size={11} disabled={locked} />}
       <button
         type="button"
         className="st-tile-x"

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import type { Camera } from "./parts";
-import { Brand, CopyLink, editLink, initials, ProjectMark } from "./parts";
+import { Brand, CameraToggle, CopyLink, editLink, initials, ProjectMark } from "./parts";
 import { listDevices, liveVideo, openCamera, stopStream } from "./recorder";
 import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, saveSeat, useRoom, type Seat } from "./room";
 import { Room } from "./RoomView";
@@ -25,13 +25,15 @@ function useCamera(camId: string | undefined, micId: string | undefined): Camera
   const [error, setError] = useState<string | null>(null);
   const [devices, setDevices] = useState<{ cams: MediaDeviceInfo[]; mics: MediaDeviceInfo[] }>({ cams: [], mics: [] });
   const [attempt, setAttempt] = useState(0);
+  const [on, setOn] = useState(true);
   liveEl ??= liveVideo();
   const live = liveEl;
 
   useEffect(() => {
     let alive = true;
     let opened: MediaStream | null = null;
-    openCamera(camId, micId).then(
+    // Turning the camera off or on reopens the mic with it: one stream, opened in one place.
+    openCamera(camId, micId, on).then(
       (s) => {
         if (!alive) return stopStream(s);
         opened = s;
@@ -51,9 +53,9 @@ function useCamera(camId: string | undefined, micId: string | undefined): Camera
       alive = false;
       stopStream(opened);
     };
-  }, [camId, micId, attempt, live]);
+  }, [camId, micId, on, attempt, live]);
 
-  return { stream, live, error, ...devices, retry: () => setAttempt((n) => n + 1) };
+  return { stream, live, error, on, turn: setOn, ...devices, retry: () => setAttempt((n) => n + 1) };
 }
 
 export function Studio({ code }: { code: string }) {
@@ -99,7 +101,7 @@ export function Studio({ code }: { code: string }) {
         taken={room.people.map((p) => p.name.toLowerCase())}
         name={seat.name ?? ""}
         camera={camera}
-        onDevice={(camId, micId) => updateSeat({ camId, micId })}
+        onDevice={updateSeat}
         onJoin={async (name) => {
           const person = await roomApi.join(code, name);
           // The room on screen does not list this person yet; without this the seat would be dropped.
@@ -139,7 +141,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   taken: string[];
   name: string;
   camera: Camera;
-  onDevice(camId: string | undefined, micId: string | undefined): void;
+  onDevice(patch: Pick<Seat, "camId"> | Pick<Seat, "micId">): void;
   onJoin(name: string): Promise<void>;
 }) {
   const [name, setName] = useState(initialName);
@@ -151,6 +153,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
     if (preview.current) preview.current.srcObject = camera.stream;
   }, [camera.stream]);
 
+  const picture = !!camera.stream && camera.on;
   const camId = camera.stream?.getVideoTracks()[0]?.getSettings().deviceId;
   const micId = camera.stream?.getAudioTracks()[0]?.getSettings().deviceId;
   async function go() {
@@ -172,20 +175,21 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
           <ProjectMark title={deck.title} logo={deck.logo} size={32} />
           <span>{deck.title}</span>
         </h1>
-        <div className={`st-cam${camera.stream ? "" : " is-empty"}`}>
+        <div className={`st-cam${picture ? "" : " is-empty"}`}>
           <video ref={preview} autoPlay muted playsInline />
-          {!camera.stream && !camera.error && name.trim() && <span className="st-tile-face" aria-hidden="true">{initials(name)}</span>}
+          {!picture && !camera.error && name.trim() && <span className="st-tile-face" aria-hidden="true">{initials(name)}</span>}
           {camera.error && (
             <div className="st-cam-error">
               <span>{camera.error}</span>
               <button type="button" className="cf-btn is-sm" onClick={camera.retry}>Try again</button>
             </div>
           )}
+          <CameraToggle camera={camera} className="st-cam-toggle" size={18} />
           <MicLevel stream={camera.stream} />
         </div>
         <div className="st-devices">
-          <DevicePicker icon="camera" label="Camera" devices={camera.cams} value={camId} onChange={(id) => onDevice(id, micId)} />
-          <DevicePicker icon="mic" label="Microphone" devices={camera.mics} value={micId} onChange={(id) => onDevice(camId, id)} />
+          <DevicePicker icon="camera" label="Camera" devices={camera.cams} value={camId} onChange={(id) => { onDevice({ camId: id }); camera.turn(true); }} />
+          <DevicePicker icon="mic" label="Microphone" devices={camera.mics} value={micId} onChange={(id) => onDevice({ micId: id })} />
         </div>
         <label className="st-field">
           <span>Name</span>
