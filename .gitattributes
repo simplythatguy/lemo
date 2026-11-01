@@ -1,0 +1,2 @@
+# The same line endings on every OS, whatever git's autocrlf says.
+* text=auto eol=lf

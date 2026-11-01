@@ -2,6 +2,7 @@
 // Queries use `?` placeholders; the Postgres driver rewrites them to $1, $2, ...
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { TransactionSql } from "postgres";
 
 export type Value = string | number | null | Uint8Array;
@@ -24,7 +25,7 @@ export interface Db {
 
 export type Target = { sqlite: string } | { postgres: string; schema?: string };
 
-export const SQLITE_FILE = new URL("../.data/lemo.sqlite", import.meta.url).pathname;
+export const SQLITE_FILE = fileURLToPath(new URL("../.data/lemo.sqlite", import.meta.url));
 
 export function defaultTarget(): Target {
   const url = process.env.DATABASE_URL;

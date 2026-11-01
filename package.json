@@ -12,8 +12,9 @@
     "dev:api": "node --watch server/dev.ts",
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
-    "test": "node --test 'server/**/*.test.ts' 'src/**/*.test.ts'",
-    "preview": "vite preview"
+    "test": "node --test \"server/**/*.test.ts\" \"src/**/*.test.ts\"",
+    "preview": "vite preview",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@aiden0z/pptx-renderer": "^1.4.0",
