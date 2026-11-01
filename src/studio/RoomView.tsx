@@ -10,7 +10,8 @@ import { cameraOf } from "./stage/camera";
 import { CameraFrame } from "./CameraFrame";
 import { Cams } from "./Cams";
 import { Filmstrip, groupColor } from "./Filmstrip";
-import { Brand, CopyLink, editLink, firstName, initials, slug, type Camera } from "./parts";
+import { Brand, CopyLink, editLink, firstName, initials, slug, StartButton, type Camera } from "./parts";
+import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
 import { clock, deckMs, targetMs } from "./timing";
 import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type Rect, type RoomState, type TakeInfo, type TakeMedia } from "./types";
@@ -267,6 +268,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   const timers = useRef<number[]>([]);
   const attempt = useRef(0);
   const replay = useRef<HTMLVideoElement | null>(null);
+  const [refused, setRefused] = useState(false);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const deckRef = useRef(deck);
@@ -439,7 +441,9 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
     const v = document.createElement("video");
     v.playsInline = true;
     v.src = url;
+    v.addEventListener("playing", () => setRefused(false));
     replay.current = v;
+    let live = true;
     let shown = -1;
     let raf = 0;
     const tick = () => {
@@ -455,9 +459,11 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
       raf = requestAnimationFrame(tick);
     };
     stage.setCamera(v);
-    void v.play().catch(() => undefined);
+    void startPlayback(v).then((ok) => live && !ok && setRefused(true));
     tick();
     return () => {
+      live = false;
+      setRefused(false);
       cancelAnimationFrame(raf);
       v.pause();
       v.removeAttribute("src");
@@ -613,6 +619,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
         <StageCanvas deck={deck} onStage={setStage}>
           {canEdit && stage && <CameraFrame box={camBox} onChange={moveCam} onCommit={placeCam} />}
           {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
+          {refused && <StartButton onStart={again} />}
         </StageCanvas>
       </div>
 

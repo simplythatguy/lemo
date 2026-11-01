@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { groupColor } from "./Filmstrip";
 import { Icon } from "./icons";
-import { initials, slug } from "./parts";
+import { initials, slug, StartButton } from "./parts";
+import { startPlayback } from "./playback";
 import { takeMedia } from "./Render";
 import { createStage, exportVideo, preload, stageKey } from "./stage";
 import { clock, targetMs } from "./timing";
@@ -209,6 +210,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   const [loaded, setLoaded] = useState<number | null>(0);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [refused, setRefused] = useState(false);
   const group = deck.groups[index];
   const length = take.durationMs;
   // The room poll hands over a fresh take object every 2 s; only a different take restarts the player.
@@ -231,6 +233,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
     let url = "";
     const v = document.createElement("video");
     v.playsInline = true;
+    v.addEventListener("playing", () => setRefused(false));
     void (async () => {
       let got = 0;
       const media: TakeMedia = await takeMedia(room, take, (n) => {
@@ -257,8 +260,8 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
       };
       stage.setCamera(v);
       setLoaded(null);
-      void v.play().catch(() => undefined);
       tick();
+      if (!(await startPlayback(v)) && !ctl.signal.aborted) setRefused(true);
     })().catch(() => undefined);
     return () => {
       ctl.abort();
@@ -268,6 +271,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
       v.load();
       if (url) URL.revokeObjectURL(url);
       video.current = null;
+      setRefused(false);
       stage.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,6 +321,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
         <div className="st-stage">
           <canvas ref={canvas} />
           {loaded !== null && <div className="st-play-load">{Math.round(loaded * 100)}%</div>}
+          {refused && <StartButton onStart={toggle} />}
         </div>
         <div className="st-play-bar">
           <button type="button" className="cf-icon-btn" onClick={toggle} disabled={loaded !== null} aria-label={paused ? "Play" : "Pause"} title={paused ? "Play" : "Pause"}>
