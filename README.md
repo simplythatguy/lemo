@@ -11,7 +11,7 @@ Keys while recording: `R` to record, `→` / `←` to change slides, `Enter` to 
 
 ## Run it locally
 
-You need [Node.js](https://nodejs.org) 22.18 or newer.
+You need [Node.js](https://nodejs.org) 22.18 or newer, on Windows, macOS or Linux. `npm install` stops with an error on an older Node.
 
 ```sh
 npm install
@@ -36,7 +36,7 @@ Open http://127.0.0.1:5173. The web app runs on port 5173 and the room server on
 | `server` | The room server: rooms, people, slide images, takes in 3 MB chunks, and the connection handshake between cameras. SQLite locally, Postgres online |
 | `api` | The Vercel function that runs the room server |
 
-The API is described in [docs/api.md](docs/api.md). `npm test` runs the server tests and `npm run build` typechecks and builds.
+The API is described in [docs/api.md](docs/api.md). `npm test` runs the server tests, `npm run build` typechecks and builds, and `npm run smoke` starts `npm run dev` and saves a room through it. CI runs all of them on Windows, macOS and Linux for every pull request.
 
 ## Limits
 
