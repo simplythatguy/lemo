@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { emptyDraft, fromDeck, groupSlides, moveSlide, order, removeSlide, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
+import { emptyDraft, fromDeck, groupSlides, moveSlide, order, removeSlide, renewChangedGroups, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
 
 const pics = (n: number) => Array.from({ length: n }, (_, i) => ({ src: `blob:${i}` }));
 const sizes = (d: ReturnType<typeof emptyDraft>) => d.groups.map((g) => g.slides.length);
@@ -102,4 +102,22 @@ test("a stored deck round-trips with its ids", () => {
 test("editing a deck keeps where the room put the camera", () => {
   const deck = { ...toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(2))), camera: { x: 48, y: 48, w: 300, h: 300 } };
   assert.deepEqual(toDeck(fromDeck(deck)).camera, deck.camera);
+});
+
+test("a group keeps its id, and so its take, only while its recorded slides still open it", () => {
+  let before = replaceSlides(emptyDraft(), pics(4));
+  const [a, b, c, e] = order(before);
+  before = groupSlides(before, [a, b]);
+  const ids = before.groups.map((g) => g.id);
+  const kept = (d: typeof before) => d.groups.map((g) => ids.includes(g.id) ? ids.indexOf(g.id) : null);
+
+  assert.deepEqual(kept(renewChangedGroups(moveSlide(before, 3, 0), before)), [2, 0, 1], "moved whole groups keep their takes");
+  assert.deepEqual(kept(renewChangedGroups(groupSlides(before, [c, e]), before)), [0, 1], "a slide added after the recorded one keeps it");
+  assert.deepEqual(kept(renewChangedGroups(ungroupSlides(before, [a]), before)), [null, null, 1, 2], "ungrouping drops the take");
+  assert.deepEqual(kept(renewChangedGroups(removeSlide(before, a), before)), [null, 1, 2], "a slide gone from the group drops it");
+  assert.deepEqual(kept(renewChangedGroups(groupSlides(before, [b, c], new Set([ids[1]])), before)), [null, null, 2], "a recorded slide that is no longer first drops it");
+  assert.deepEqual(kept(renewChangedGroups(replaceSlides(before, pics(4)), before)), [0, 1, 2], "new slides in the same layout keep every take");
+  assert.deepEqual(kept(renewChangedGroups(replaceSlides(before, pics(5)), before)), [null, null, null, null, null], "a different count moves every slide, so no take fits");
+  const same = renewChangedGroups(before, before);
+  assert.equal(same, before);
 });

@@ -45,3 +45,9 @@ test("an edge stretches one side only", () => {
   assert.equal(wide.x + wide.w, 1920);
   assert.equal(wide.h, CAMERA.h);
 });
+
+test("a tile nearly as wide as the stage never snaps off it", () => {
+  const wide = { ...CAMERA, x: 0, w: 1880 };
+  assert.ok(inStage(moveCamera(wide, 40, 0)));
+  assert.ok(inStage(moveCamera({ ...CAMERA, y: 0, h: 1050 }, 0, 20)));
+});

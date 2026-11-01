@@ -16,6 +16,7 @@ export function Project({ draft, setDraft, show, makeUrl }: {
   const [focus, setFocus] = useState<number | null>(null);
   const names = useRef<(HTMLInputElement | null)[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
+  const logoPick = useRef(0);
 
   useEffect(() => {
     if (focus === null) return;
@@ -28,6 +29,10 @@ export function Project({ draft, setDraft, show, makeUrl }: {
   }, [show]);
 
   const setLogo = (logo: Pic | null) => setDraft((d) => ({ ...d, logo }));
+  const removeLogo = () => {
+    logoPick.current++;
+    setLogo(null);
+  };
   const addMember = (after: number) => {
     setDraft((d) => ({ ...d, team: [...d.team.slice(0, after + 1), "", ...d.team.slice(after + 1)] }));
     setFocus(after + 1);
@@ -47,7 +52,7 @@ export function Project({ draft, setDraft, show, makeUrl }: {
             {draft.logo ? <img src={draft.logo.src} alt="" /> : <Icon name="image" size={24} stroke={1.6} />}
           </button>
           {draft.logo && (
-            <button type="button" className="su-logo-x" aria-label="Remove logo" title="Remove logo" onClick={() => setLogo(null)}>
+            <button type="button" className="su-logo-x" aria-label="Remove logo" title="Remove logo" onClick={removeLogo}>
               <Icon name="x" size={12} stroke={2.4} />
             </button>
           )}
@@ -60,12 +65,15 @@ export function Project({ draft, setDraft, show, makeUrl }: {
               const f = e.currentTarget.files?.[0];
               e.currentTarget.value = "";
               if (!f) return;
+              // Only the last logo picked lands, whichever finishes first.
+              const pick = ++logoPick.current;
               try {
                 const blob = await squareLogo(f);
+                if (pick !== logoPick.current) return;
                 setLogoError(null);
                 setLogo({ src: makeUrl(blob), blob });
               } catch (err) {
-                setLogoError((err as Error).message);
+                if (pick === logoPick.current) setLogoError((err as Error).message);
               }
             }}
           />

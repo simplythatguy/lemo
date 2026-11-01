@@ -146,6 +146,33 @@ export function moveSlide(d: Draft, from: number, to: number): Draft {
   return { ...d, groups };
 }
 
+/** `d` with a fresh id for every group whose recording, made when the room had `before`, no longer fits it: a take is
+ *  kept while the slides it was recorded on still open its group in the same order, or, after new slides replaced
+ *  them all, while the group has as many slides in the same place. */
+export function renewChangedGroups(d: Draft, before: Draft): Draft {
+  const was = new Map<string, { slides: string[]; start: number }>();
+  let at = 0;
+  for (const g of before.groups) {
+    was.set(g.id, { slides: g.slides, start: at });
+    at += g.slides.length;
+  }
+  const old = new Set(order(before));
+  at = 0;
+  let changed = false;
+  const groups = d.groups.map((g) => {
+    const start = at;
+    at += g.slides.length;
+    const prev = was.get(g.id);
+    if (!prev) return g;
+    const fits = prev.slides.every((s, i) => g.slides[i] === s)
+      || (g.slides.every((s) => !old.has(s)) && g.slides.length === prev.slides.length && start === prev.start);
+    if (fits) return g;
+    changed = true;
+    return { ...g, id: newGroupId() };
+  });
+  return changed ? { ...d, groups } : d;
+}
+
 /** Removes team member `i`. Every group's speaker is 0 (the room assigns people), so nothing else moves. */
 export function removeMember(d: Draft, i: number): Draft {
   if (d.team.length <= 1) return d;

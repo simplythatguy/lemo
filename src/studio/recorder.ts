@@ -61,20 +61,22 @@ export function startRecording(stream: MediaStream): Promise<Recording> {
   };
   return new Promise((resolve, reject) => {
     rec.onerror = (e) => reject((e as ErrorEvent).error ?? new Error("Recording failed"));
+    // Settles once however the recorder ends: Stop, or on its own when its tracks end (a camera unplugged).
+    const stopped = new Promise<{ blob: Blob; mime: string }>((done) => {
+      rec.onstop = () => {
+        const mime = rec.mimeType || mimeType || parts[0]?.type || "video/webm";
+        done({ blob: new Blob(parts, { type: mime }), mime });
+      };
+    });
     rec.onstart = () => {
       const startedAt = performance.now();
       resolve({
         startedAt,
-        stop: () =>
-          new Promise((done) => {
-            rec.onstop = () => {
-              const mime = rec.mimeType || mimeType || parts[0]?.type || "video/webm";
-              done({ blob: new Blob(parts, { type: mime }), mime });
-            };
-            if (rec.state !== "inactive") rec.stop();
-          }),
+        stop: () => {
+          if (rec.state !== "inactive") rec.stop();
+          return stopped;
+        },
         cancel: () => {
-          rec.onstop = null;
           if (rec.state !== "inactive") rec.stop();
         },
       });

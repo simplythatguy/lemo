@@ -72,8 +72,8 @@ export const roomApi = {
   leave: (code: string, personId: string) => json<RoomState>(send("DELETE", `${base(code)}/people/${enc(personId)}`)),
   assign: (code: string, groupId: string, personId: string | null) =>
     json<RoomState>(send("PUT", `${base(code)}/assignments/${enc(groupId)}`, { json: { personId } })),
-  startTake: (code: string, body: { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number }) =>
-    json<TakeInfo>(send("POST", `${base(code)}/takes`, { json: body })),
+  startTake: (code: string, body: { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number }, signal?: AbortSignal) =>
+    json<TakeInfo>(send("POST", `${base(code)}/takes`, { json: body, signal })),
   putChunk: (code: string, takeId: string, i: number, data: Blob, signal?: AbortSignal) =>
     json<{ received: number }>(send("PUT", `${base(code)}/takes/${enc(takeId)}/chunks/${i}`, { body: data, signal })),
   getChunk: async (code: string, takeId: string, i: number, signal?: AbortSignal) =>
@@ -101,10 +101,13 @@ export function useRoom(code: string | null) {
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!code) return;
     try {
+      const before = latest.current;
       const next = await roomApi.get(code, signal);
       fast.current = !!next.live;
       setLive(next.live ? { ...next.live, seen: Date.now() } : null);
-      latest.current = 0;
+      // The poll is the truth (a room made again under its code starts over), unless a change applied while it
+      // was in flight is newer than what it read.
+      if (latest.current === before) latest.current = 0;
       apply(next);
       setStatus({ kind: "ready" });
     } catch (e) {

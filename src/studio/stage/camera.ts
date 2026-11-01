@@ -36,7 +36,8 @@ export function cameraOf(deck: Pick<Deck, "camera">): Rect {
 /** `start` moved by (`dx`, `dy`), kept on the stage, snapped to the default inset. */
 export function moveCamera(start: Rect, dx: number, dy: number): Rect {
   const x = clamp(start.x + dx, 0, W - start.w), y = clamp(start.y + dy, 0, H - start.h);
-  return { ...start, x: snap(x, start.w, W), y: snap(y, start.h, H) };
+  // A tile wider than the stage less both insets would snap past an edge: the snap is clamped too.
+  return { ...start, x: clamp(snap(x, start.w, W), 0, W - start.w), y: clamp(snap(y, start.h, H), 0, H - start.h) };
 }
 
 /**

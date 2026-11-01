@@ -49,9 +49,10 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   apply(next: RoomState): void;
   onLeave(): void;
 }) {
+  // By id: a deck edited elsewhere can reorder or remove groups while this one is open.
   const [selected, setSelected] = useState(() => {
-    const mine = deck.groups.findIndex((g) => room.assignments[g.id] === me.id && !complete(room.takes[g.id]));
-    return Math.max(0, mine);
+    const mine = deck.groups.find((g) => room.assignments[g.id] === me.id && !complete(room.takes[g.id]));
+    return (mine ?? deck.groups[0]).id;
   });
   const [preview, setPreview] = useState(0);
   const [shown, setShown] = useState(0);
@@ -95,7 +96,10 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
     : -1;
   const follow = followIndex >= 0 ? live : null;
   // The deck can lose groups while the room is open (edited on /r/CODE/edit).
-  const index = followIndex >= 0 ? followIndex : Math.min(selected, deck.groups.length - 1);
+  const index = followIndex >= 0 ? followIndex : Math.max(0, deck.groups.findIndex((g) => g.id === selected));
+  // A take belongs to the group it was recorded in: if that group leaves the stage (removed elsewhere), so does the take.
+  const boothGroup = deck.groups[index].id;
+  useEffect(() => setPhase({ k: "idle" }), [boothGroup]);
   const presenter = busy(phase) ? me.id : follow ? follow.presenterId : rendering ? null : room.assignments[deck.groups[index].id] ?? null;
 
   const missing = deck.groups.filter((g) => !complete(room.takes[g.id]) || progress[g.id] !== undefined);
@@ -172,7 +176,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           camera={camera}
           phase={phase}
           setPhase={setPhase}
-          preview={index === selected ? preview : 0}
+          preview={boothGroup === selected ? preview : 0}
           setPreview={setPreview}
           follow={follow}
           followVideo={follow ? peerVideos.current[follow.presenterId] ?? null : null}
@@ -196,7 +200,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         upload={progress}
         onPick={(gi, si) => {
           setRendering(false);
-          setSelected(gi);
+          setSelected(deck.groups[gi].id);
           setPreview(si);
         }}
         onAssign={assign}
@@ -255,7 +259,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   apply(next: RoomState): void;
 }) {
   const group = deck.groups[index];
-  const script = useScriptDraft(room.code, deck, group, apply);
+  const script = useScriptDraft(room.code, group, apply);
   // The planned length follows the words as they are typed; a running take keeps the length it started with.
   const planned = targetMs({ ...group, script: script.draft });
   const target = phase.k === "recording" ? phase.target : planned;
@@ -271,8 +275,6 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   const [refused, setRefused] = useState(false);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
-  const deckRef = useRef(deck);
-  deckRef.current = deck;
   const send = useRef(broadcast);
   send.current = broadcast;
   const sent = useRef(false);
@@ -337,7 +339,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
     const gesture = ++camGesture.current;
     setCamDraft(r);
     try {
-      apply(await roomApi.putDeck(room.code, { ...deckRef.current, camera: r }));
+      apply(await roomApi.putDeck(room.code, { ...(await freshDeck(room.code)), camera: r }));
     } catch {
       // Not saved: the tile goes back to where the room has it.
     }
@@ -474,10 +476,27 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
     };
   }, [media, stage, index, camera.live, me.name]);
 
+  // The review stays open until the take is safe on this device; a failed write leaves it there to try again.
+  const [keepFailed, setKeepFailed] = useState(false);
+  useEffect(() => setKeepFailed(false), [media]);
+  const keeping = useRef(false);
   const keep = useCallback(async () => {
-    if (!media) return;
-    setPhase({ k: "idle" });
-    await uploads.keep(room.code, group.id, me.id, media);
+    if (!media || keeping.current) return;
+    keeping.current = true;
+    // Only the review this Keep came from closes: a retake started meanwhile carries on.
+    const same = () => phaseRef.current.k === "review" && phaseRef.current.media === media;
+    try {
+      await uploads.keep(room.code, group.id, me.id, media);
+      if (same()) {
+        setKeepFailed(false);
+        setPhase({ k: "idle" });
+      }
+    } catch (e) {
+      console.error(e);
+      if (same()) setKeepFailed(true);
+    } finally {
+      keeping.current = false;
+    }
   }, [group.id, me.id, media, room.code, setPhase]);
 
   const again = () => {
@@ -492,6 +511,8 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el.closest("input, select, textarea, [role=menu]") || e.metaKey || e.ctrlKey || e.altKey) return;
+      // A saved take playing over the room has the keys.
+      if (document.querySelector("[aria-modal=true]")) return;
       const p = phaseRef.current;
       if (e.key === "Escape" && (p.k === "countdown" || p.k === "recording")) {
         e.preventDefault();
@@ -573,6 +594,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
             </button>
           )}
           {phase.k === "review" && saving !== null && <span className="st-step-n">Rendering {Math.round(saving * 100)}%</span>}
+          {phase.k === "review" && keepFailed && <p className="st-error" role="alert">Not saved</p>}
           {phase.k === "countdown" && (
             <button type="button" className="cf-btn is-lg" onClick={cancel}>Cancel<kbd className="cf-kbd">Esc</kbd></button>
           )}
@@ -690,21 +712,26 @@ function Transcript({ script, current, picked, onPick }: { script: string[]; cur
   );
 }
 
+/** The room's deck as it is now, so a write that changes one part of it never puts back an older copy of the rest. */
+async function freshDeck(code: string): Promise<Deck> {
+  const { deck } = await roomApi.get(code);
+  if (!deck) throw new Error("The room has no slides");
+  return deck;
+}
+
 /** Debounce for transcript saves: one PUT per pause in typing. */
 const SAVE_MS = 600;
 const RETRY_SAVE_MS = 3000;
 
 /**
- * The group's transcript as this device shows it. Edits go to the room with the whole deck (last write wins), a pause
- * after the last key. The room's copy flows in whenever this device is not typing and has nothing unsaved, so a poll
+ * The group's transcript as this device shows it. Edits go to the room a pause after the last key, as the room's
+ * current deck with only this group's words changed. The room's copy flows in whenever this device is not typing and has nothing unsaved, so a poll
  * never overwrites words mid-sentence.
  */
-function useScriptDraft(code: string, deck: Deck, group: Group, apply: (next: RoomState) => void) {
+function useScriptDraft(code: string, group: Group, apply: (next: RoomState) => void) {
   const pad = (script: string[]) => Array.from({ length: Math.max(group.slides.length, script.length) }, (_, i) => script[i] ?? "");
   const [draft, setDraft] = useState(() => pad(group.script));
   const [failed, setFailed] = useState(false);
-  const deckRef = useRef(deck);
-  deckRef.current = deck;
   const groupRef = useRef(group);
   groupRef.current = group;
   const pending = useRef<string[] | null>(null);
@@ -727,11 +754,11 @@ function useScriptDraft(code: string, deck: Deck, group: Group, apply: (next: Ro
     if (!script || inflight.current) return;
     pending.current = null;
     inflight.current = true;
-    const d = deckRef.current;
     const id = groupRef.current.id;
     let ok = false;
     try {
-      apply(await roomApi.putDeck(code, { ...d, groups: d.groups.map((g) => (g.id === id ? { ...g, script } : g)) }));
+      const d = await freshDeck(code);
+      if (d.groups.some((g) => g.id === id)) apply(await roomApi.putDeck(code, { ...d, groups: d.groups.map((g) => (g.id === id ? { ...g, script } : g)) }));
       ok = true;
     } catch {
       pending.current ??= script;
