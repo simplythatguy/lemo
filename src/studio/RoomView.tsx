@@ -125,9 +125,10 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
       <Cams
         people={room.people}
         me={me}
-        local={camera.stream}
+        camera={camera}
         streams={peers.streams}
         failed={Object.fromEntries(Object.entries(peers.status).map(([id, s]) => [id, s === "failed"]))}
+        camOff={peers.camOff}
         presenter={presenter}
         mutedAll={mutedAll}
         locked={busy(phase)}
@@ -359,7 +360,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   }, [setPhase]);
 
   const start = useCallback(() => {
-    if (!mine || following || !camera.stream || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
+    if (!mine || following || !camera.stream || !camera.on || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     const token = ++attempt.current;
     const length = planned;
     (document.activeElement as HTMLElement | null)?.blur?.();
@@ -383,7 +384,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
         }, () => setPhase({ k: "idle" }));
       }, 3000),
     );
-  }, [camera.live, camera.stream, finish, following, index, last, me.name, mine, planned, setPhase, stage]);
+  }, [camera.live, camera.on, camera.stream, finish, following, index, last, me.name, mine, planned, setPhase, stage]);
 
   const cancel = useCallback(() => {
     attempt.current++;
@@ -550,7 +551,7 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
           {phase.k === "idle" && (follow ? (
             <span className="st-who-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Recording"}</span>
           ) : mine ? (
-            <button type="button" className={`cf-btn is-lg st-rec${take ? "" : " is-primary"}`} onClick={start} disabled={!camera.stream || !stage || last < 0}>
+            <button type="button" className={`cf-btn is-lg st-rec${take ? "" : " is-primary"}`} onClick={start} disabled={!camera.stream || !camera.on || !stage || last < 0} title={camera.on ? undefined : "Camera off"}>
               <span className="st-dot" />{take ? "Retake" : "Record"}<kbd className="cf-kbd">R</kbd>
             </button>
           ) : assignee ? (
