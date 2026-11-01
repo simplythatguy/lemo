@@ -15,17 +15,18 @@ export function recordingMime(): string {
   return MIME_PREFERENCE.find((m) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(m)) ?? "";
 }
 
-export async function openCamera(camId?: string, micId?: string): Promise<MediaStream> {
+/** The mic, and the camera unless `withVideo` is false (then the camera is not opened at all and its light stays off). */
+export async function openCamera(camId?: string, micId?: string, withVideo = true): Promise<MediaStream> {
   const video: MediaTrackConstraints = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
   const audio: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
   try {
     return await navigator.mediaDevices.getUserMedia({
-      video: camId ? { ...video, deviceId: { exact: camId } } : video,
+      video: withVideo && (camId ? { ...video, deviceId: { exact: camId } } : video),
       audio: micId ? { ...audio, deviceId: { exact: micId } } : audio,
     });
   } catch (e) {
     // A remembered device that is gone: fall back to the defaults.
-    if (camId || micId) return navigator.mediaDevices.getUserMedia({ video, audio });
+    if (camId || micId) return navigator.mediaDevices.getUserMedia({ video: withVideo && video, audio });
     throw e;
   }
 }

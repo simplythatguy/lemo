@@ -7,9 +7,29 @@ export interface Camera {
   /** The page-lifetime element playing `stream`; the stage paints it as the camera tile. */
   live: HTMLVideoElement;
   error: string | null;
+  /** The camera is on. Off, `stream` carries the mic alone. */
+  on: boolean;
+  turn(on: boolean): void;
   cams: MediaDeviceInfo[];
   mics: MediaDeviceInfo[];
   retry(): void;
+}
+
+/** Turns this device's camera off (its light goes out) and on again. */
+export function CameraToggle({ camera, className, size, disabled }: { camera: Camera; className: string; size: number; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={disabled}
+      aria-pressed={!camera.on}
+      aria-label={camera.on ? "Turn camera off" : "Turn camera on"}
+      title={camera.on ? "Camera off" : "Camera on"}
+      onClick={() => camera.turn(!camera.on)}
+    >
+      <Icon name={camera.on ? "camera" : "camera-off"} size={size} />
+    </button>
+  );
 }
 
 /** The first two letters of the first name: "Abdel Abdelwaly" → "Ab". */

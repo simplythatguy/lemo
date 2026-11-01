@@ -3,7 +3,8 @@
 
 import type { Deck, Rect, Slide } from "../types";
 import { clipUrl, fontsReady as fontsLoaded, loadFonts } from "./assets";
-import { C, L, coverSource, font, frame, text, type Ctx } from "./draw";
+import { cameraOf, cameraRadius } from "./camera";
+import { C, coverSource, font, frame, text, type Ctx } from "./draw";
 import { clamp01, inOutSine, outCubic } from "./ease";
 import { hasTitle, paintCard, paintSlide, paintTitle } from "./slides";
 
@@ -13,6 +14,8 @@ export interface Stage {
   show(group: number, slide: number, opts?: { instant?: boolean }): void;
   /** The camera tile: `src` when it has frames, otherwise `initials` on a soft grey tile. Neither: no tile. */
   setCamera(src: HTMLVideoElement | null, initials?: string): void;
+  /** Moves the camera tile to `r`, in stage pixels, from the next frame on. */
+  placeCamera(r: Rect): void;
   showCard(card: "intro" | "outro"): void;
   destroy(): void;
 }
@@ -97,15 +100,15 @@ function hasPicture(v: HTMLVideoElement): boolean {
   return !(src instanceof MediaStream) || src.getVideoTracks().some((t) => t.readyState === "live" && !t.muted);
 }
 
-/** A camera with no picture: the presenter's initials in a white circle on the soft grey tile. */
+/** A camera with no picture: the presenter's initials in a white circle on the soft grey tile, sized to the tile. */
 function paintInitials(c: Ctx, r: Rect, initials: string) {
-  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, d = 132;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, k = Math.min(r.w, r.h) / 344;
   c.fillStyle = C.white;
   c.beginPath();
-  c.arc(cx, cy, d / 2, 0, Math.PI * 2);
+  c.arc(cx, cy, 66 * k, 0, Math.PI * 2);
   c.fill();
-  font(c, 500, 46, -0.01);
-  text(c, initials, cx, cy + 16, C.grey, "center");
+  font(c, 500, 46 * k, -0.01);
+  text(c, initials, cx, cy + 16 * k, C.grey, "center");
 }
 
 export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { beforePaint?: (now: number) => void } = {}): Stage {
@@ -132,6 +135,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
   let cur: Layer | null = null;
   let dissolve: Dissolve | null = null;
   let cams: Cam[] = [];
+  let camRect = cameraOf(deck);
   let raf = 0;
   let dead = false;
 
@@ -191,7 +195,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
     });
     const tile = Math.max(...alphas);
     if (tile <= 0) return;
-    const r = L.camera;
+    const r = camRect;
     ctx.save();
     ctx.globalAlpha = tile;
     frame(ctx, r, (c) => {
@@ -209,7 +213,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
         } else paintInitials(c, r, cam.initials!);
         c.restore();
       });
-    });
+    }, cameraRadius(r));
     ctx.restore();
   }
 
@@ -259,6 +263,9 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
       if (top && top.el === el && top.initials === initials && top.out === undefined) return;
       for (const c of cams) c.out ??= now;
       if (el || initials) cams.push({ el, initials, at: cams.length || cur ? now : -Infinity });
+    },
+    placeCamera(r) {
+      camRect = r;
     },
     destroy() {
       dead = true;

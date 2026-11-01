@@ -98,3 +98,8 @@ test("a stored deck round-trips with its ids", () => {
   assert.deepEqual(toDeck(d1), deck);
   assert.deepEqual(sizes(d1), [1, 2, 1]);
 });
+
+test("editing a deck keeps where the room put the camera", () => {
+  const deck = { ...toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(2))), camera: { x: 48, y: 48, w: 300, h: 300 } };
+  assert.deepEqual(toDeck(fromDeck(deck)).camera, deck.camera);
+});

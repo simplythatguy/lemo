@@ -1,5 +1,5 @@
 // Live room: everyone's camera and mic reach everyone else over WebRTC, and the presenter's slide and timer
-// travel on a data channel (and through the room, see RoomView). The handshake rides the room's signal queue (server/store.ts), polled.
+// travel on a data channel (and through the room, see RoomView), as does whether each person's camera is on. The handshake rides the room's signal queue (server/store.ts), polled.
 //
 // Every RTCPeerConnection has a random id. Signals carry the sender's connection id (`pc`) and the receiver
 // connection they answer (`to`, null while the sender does not know one yet). That keeps a reloaded page, a
@@ -53,6 +53,8 @@ interface Peer {
   channel: RTCDataChannel | null;
   senders: Partial<Record<(typeof KINDS)[number], RTCRtpTransceiver>>;
   stream: MediaStream | null;
+  /** They turned their camera off: the video track stays, with no frames, so only they can say so. */
+  camOff: boolean;
   status: PeerStatus;
   makingOffer: boolean;
   /** A connection made to answer an offer stays quiet until that offer is applied. */
@@ -62,7 +64,8 @@ interface Peer {
   timers: Partial<Record<"connect" | "disconnected" | "retry" | "unanswered" | "flush", number>>;
 }
 
-interface Snapshot { streams: Record<string, MediaStream>; status: Record<string, PeerStatus>; live: HeardLive | null }
+interface Snapshot { streams: Record<string, MediaStream>; status: Record<string, PeerStatus>; camOff: Record<string, boolean>; live: HeardLive | null }
+interface Message { live?: LiveState | null; video?: boolean }
 
 const randomId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 const signalsUrl = (room: string, query = "") => `${API}/rooms/${encodeURIComponent(room)}/signals${query}`;
@@ -136,16 +139,21 @@ class Mesh {
     for (const peer of this.peers.values()) {
       for (const kind of KINDS) void peer.senders[kind]?.sender.replaceTrack(this.track(kind)).catch(() => undefined);
     }
+    this.tell({ video: !!this.track("video") });
   }
 
   broadcast(state: LiveState | null) {
     this.mine = state;
     this.setLive(state && { ...state, seen: Date.now() }, state ? this.me : null);
-    const message = JSON.stringify({ live: state });
+    this.tell({ live: state });
+  }
+
+  private tell(message: Message) {
+    const text = JSON.stringify(message);
     for (const peer of this.peers.values()) {
       if (peer.channel?.readyState === "open") {
         try {
-          peer.channel.send(message);
+          peer.channel.send(text);
         } catch {
           /* the channel closed under us; the next open resends */
         }
@@ -305,6 +313,7 @@ class Mesh {
       channel: null,
       senders: {},
       stream: null,
+      camOff: false,
       status: "connecting",
       makingOffer: false,
       quiet: false,
@@ -339,11 +348,17 @@ class Mesh {
     const channel = pc.createDataChannel("live", { negotiated: true, id: 0, ordered: true });
     peer.channel = channel;
     channel.onopen = () => {
-      if (this.mine) channel.send(JSON.stringify({ live: this.mine }));
+      const hello: Message = { video: !!this.track("video") };
+      if (this.mine) hello.live = this.mine;
+      channel.send(JSON.stringify(hello));
     };
     channel.onmessage = (e) => {
       try {
-        const message = JSON.parse(String(e.data)) as { live?: LiveState | null };
+        const message = JSON.parse(String(e.data)) as Message;
+        if (typeof message.video === "boolean" && peer.camOff === message.video) {
+          peer.camOff = !message.video;
+          this.emit();
+        }
         // The sender's clock is not mine: the timer counts from when it arrived.
         if (message.live !== undefined) this.setLive(message.live && { ...message.live, seen: Date.now() }, message.live ? peer.id : null);
       } catch {
@@ -478,6 +493,7 @@ class Mesh {
     peer.remotePc = null;
     peer.senders = {};
     peer.stream = null;
+    peer.camOff = false;
     peer.candidates = [];
     peer.makingOffer = false;
   }
@@ -497,11 +513,13 @@ class Mesh {
     if (!this.alive) return;
     const streams: Record<string, MediaStream> = {};
     const status: Record<string, PeerStatus> = {};
+    const camOff: Record<string, boolean> = {};
     for (const peer of this.peers.values()) {
       status[peer.id] = peer.status;
       if (peer.stream) streams[peer.id] = peer.stream;
+      if (peer.camOff) camOff[peer.id] = true;
     }
-    this.onChange({ streams, status, live: this.live });
+    this.onChange({ streams, status, camOff, live: this.live });
   }
 }
 
@@ -509,18 +527,19 @@ class Mesh {
 export function usePeers(opts: { room: string; me: string | null; people: Person[]; stream: MediaStream | null }): {
   streams: Record<string, MediaStream>;
   status: Record<string, PeerStatus>;
+  camOff: Record<string, boolean>;
   live: HeardLive | null;
   broadcast(state: LiveState | null): void;
 } {
   const { room, me, people, stream } = opts;
-  const [snapshot, setSnapshot] = useState<Snapshot>({ streams: {}, status: {}, live: null });
+  const [snapshot, setSnapshot] = useState<Snapshot>({ streams: {}, status: {}, camOff: {}, live: null });
   const mesh = useRef<Mesh | null>(null);
   const ids = people.map((p) => p.id).join(",");
   const latest = useRef({ ids, stream });
   latest.current = { ids, stream };
 
   useEffect(() => {
-    setSnapshot({ streams: {}, status: {}, live: null });
+    setSnapshot({ streams: {}, status: {}, camOff: {}, live: null });
     if (!me || typeof RTCPeerConnection === "undefined") return;
     const m = new Mesh(room, me, setSnapshot);
     mesh.current = m;
