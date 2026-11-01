@@ -1,7 +1,7 @@
 // The presentation while it is being set up: slides in order, cut into groups, a script line per slide.
 // Groups own their slide ids, so the flat order is the groups read in turn. Group ids survive edits
 // wherever a group survives, because recorded takes are keyed by group id.
-import type { Deck, Group, Slide } from "../studio/types";
+import type { Deck, Group, Rect, Slide } from "../studio/types";
 
 /** An image the draft shows. `blob` is set until it is uploaded; `src` is then the room's file URL. */
 export interface Pic {
@@ -31,6 +31,8 @@ export interface Draft {
   script: Record<string, string>;
   /** The source file's name, when this session uploaded one. */
   file?: string;
+  /** Where the room put the camera tile; setup leaves it alone. */
+  camera?: Rect;
 }
 
 /** A new group every this many slides until someone moves the cuts. */
@@ -173,6 +175,7 @@ export function toDeck(d: Draft, src: (s: DraftSlide) => string = (s) => s.src, 
   const team = d.team.map((t) => t.trim()).filter(Boolean);
   const deck: Deck = { title: d.title.trim(), team, groups };
   if (logo) deck.logo = logo;
+  if (d.camera) deck.camera = d.camera;
   return deck;
 }
 
@@ -197,7 +200,7 @@ export function fromDeck(deck: Deck): Draft {
     if (g.seconds !== undefined) group.seconds = g.seconds;
     groups.push(group);
   }
-  return {
+  const draft: Draft = {
     title: deck.title,
     team: deck.team.length ? deck.team.slice() : [""],
     logo: deck.logo ? { src: deck.logo } : null,
@@ -205,6 +208,8 @@ export function fromDeck(deck: Deck): Draft {
     groups,
     script,
   };
+  if (deck.camera) draft.camera = deck.camera;
+  return draft;
 }
 
 /** What still blocks saving, by step. */
