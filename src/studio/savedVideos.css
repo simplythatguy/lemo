@@ -1,0 +1,328 @@
+/* Saved videos: a grey pill in the corner with the count, a drawer over the transcript column with one hairline row
+   per group in deck order, and a player for one take. Mercury look: white surfaces, hairlines, colour only for the group dots. */
+
+.st-saved-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cf-fill);
+  font: 500 13px/1 var(--cf-font);
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-text-2);
+  cursor: pointer;
+  transition: background-color 150ms var(--cf-ease), color 150ms var(--cf-ease);
+}
+
+.st-saved-btn svg {
+  color: var(--cf-text-3);
+}
+
+.st-saved-n span {
+  color: var(--cf-text-4);
+}
+
+.st-saved-btn.is-open {
+  background: var(--cf-text);
+  color: #fff;
+}
+
+.st-saved-btn.is-open svg,
+.st-saved-btn.is-open .st-saved-n span {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (hover: hover) {
+  .st-saved-btn:not(.is-open):hover {
+    background: var(--cf-fill-hover);
+    color: var(--cf-text);
+  }
+}
+
+/* The drawer sits over the transcript column, under the top bar, as tall as its rows. */
+.st-saved {
+  position: fixed;
+  z-index: 40;
+  top: 88px;
+  right: 16px;
+  max-height: calc(100dvh - 104px);
+  display: flex;
+  flex-direction: column;
+  width: clamp(332px, calc(22vw + 32px), 432px);
+  padding: 16px 8px 8px 20px;
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-r-card);
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow-pop);
+  font-family: var(--cf-font);
+  animation: st-saved-in 160ms var(--cf-ease);
+}
+
+@keyframes st-saved-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}
+
+.st-saved-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 4px;
+}
+
+.st-saved-head-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.st-saved-head-acts .cf-btn {
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-saved-title {
+  margin: 0;
+  font: 400 20px/1.3 var(--cf-font);
+  letter-spacing: -0.01em;
+  color: var(--cf-text);
+}
+
+.st-saved-sum {
+  margin: 2px 0 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-text-3);
+}
+
+/* The video in deck order: one segment per group, as long as its planned length, filled in its colour once saved. */
+.st-saved-bar {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+  margin: 0 12px 8px 0;
+}
+
+.st-saved-bar span {
+  flex-basis: 0;
+  border-radius: 2px;
+  background: var(--cf-fill);
+}
+
+.st-saved-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 4px 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.st-saved-row {
+  display: grid;
+  grid-template-columns: 18px 8px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  min-height: 56px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cf-line);
+}
+
+.st-saved-row:last-child {
+  border-bottom: 0;
+}
+
+.st-saved-i {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--cf-text-4);
+}
+
+.st-saved-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.st-saved-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.st-saved-name {
+  overflow: hidden;
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--cf-text);
+}
+
+.st-saved-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--cf-text-3);
+}
+
+.st-saved-who {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--cf-fill);
+  font: 500 9px/1 var(--cf-font);
+  color: var(--cf-text-2);
+}
+
+.st-saved-row.is-empty .st-saved-name {
+  color: var(--cf-text-3);
+}
+
+.st-saved-row.is-empty .st-saved-meta {
+  color: var(--cf-text-4);
+}
+
+.st-saved-row.is-empty .st-saved-dot {
+  opacity: 0.45;
+}
+
+.st-saved-acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.st-saved-acts .cf-icon-btn,
+.st-play-bar .cf-icon-btn {
+  color: var(--cf-text-2);
+}
+
+.st-saved-pct {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-text-3);
+}
+
+/* The player */
+
+.st-play {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: rgba(18, 18, 23, 0.32);
+  font-family: var(--cf-font);
+  animation: st-play-in 160ms var(--cf-ease);
+}
+
+@keyframes st-play-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.st-play-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(1120px, 100%, calc((100dvh - 64px - 112px) * 16 / 9));
+  padding: 16px 20px 12px;
+  border-radius: 16px;
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow-pop);
+}
+
+.st-play-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.st-play-head .st-saved-i {
+  text-align: left;
+}
+
+.st-play-title {
+  flex: 1;
+  margin: 0;
+  font: 400 18px/1.3 var(--cf-font);
+  letter-spacing: -0.01em;
+  color: var(--cf-text);
+}
+
+.st-play-load {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-text-3);
+}
+
+.st-play-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.st-play-track {
+  flex: 1;
+  position: relative;
+  height: 20px;
+  cursor: pointer;
+}
+
+.st-play-track::before,
+.st-play-track span {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cf-fill);
+}
+
+.st-play-track span {
+  background: var(--cf-text);
+  transform-origin: left;
+}
+
+.st-play-time {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-text-2);
+}
+
+.st-play-time small {
+  font-size: 13px;
+  color: var(--cf-text-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-saved,
+  .st-play {
+    animation: none;
+  }
+}

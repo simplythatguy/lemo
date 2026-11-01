@@ -1,0 +1,72 @@
+/* Tokens and the two shared controls (buttons, icon buttons). Light, monotone: colour only identifies. */
+:root {
+  --cf-accent: #5266eb;
+  --cf-bg: #ffffff;
+  --cf-surface: #ffffff;
+  --cf-raise: #ffffff;
+  --cf-blocking: #e5484d;
+  --cf-blocking-ink: #b42318;
+  --cf-done: #18a058;
+  --cf-ease: cubic-bezier(0.2, 0, 0, 1);
+  --cf-fill: #f0f1f5;
+  --cf-fill-hover: #e6e7ee;
+  --cf-focus: #5266eb;
+  --cf-font: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --cf-mono: ui-monospace, "SF Mono", monospace;
+  --cf-hover: #f7f7f9;
+  --cf-line: #ebebee;
+  --cf-line-2: #e0e0e5;
+  --cf-r-card: 12px;
+  --cf-r-ctl: 10px;
+  --cf-shadow-pop: 0 4px 12px rgba(18, 18, 23, 0.08), 0 1px 2px rgba(18, 18, 23, 0.04);
+  --cf-text: #121217;
+  --cf-text-2: #4f4e54;
+  --cf-text-3: #6b6a70;
+  --cf-text-4: #8a898e;
+  --cf-primary-bg: #121217;
+  --cf-primary-hover: #2a2a31;
+  --cf-primary-text: #ffffff;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: var(--cf-bg); color: var(--cf-text); font-family: var(--cf-font); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--cf-focus); outline-offset: 2px; }
+
+.cf-btn {
+  display: inline-flex; align-items: center; gap: 10px; height: 38px; padding: 0 18px;
+  border-radius: var(--cf-r-ctl); border: 1px solid var(--cf-line-2); background: transparent; color: var(--cf-text);
+  font: 520 14px/1 var(--cf-font); white-space: nowrap; flex-shrink: 0; cursor: pointer; text-decoration: none;
+  transition-property: scale, background-color, color, opacity; transition-duration: 150ms; transition-timing-function: ease-out;
+}
+.cf-btn:not(:disabled):active { scale: 0.96; }
+.cf-btn.is-primary { background: var(--cf-primary-bg); color: var(--cf-primary-text); border-color: var(--cf-primary-bg); }
+.cf-btn.is-danger { color: var(--cf-blocking-ink); border-color: rgba(180, 35, 24, 0.32); }
+.cf-btn.is-ghost { border-color: transparent; color: var(--cf-text-2); padding: 0 12px; }
+.cf-btn.is-sm { height: 32px; font-size: 13px; padding: 0 14px; gap: 8px; border-radius: 9px; }
+.cf-btn.is-ghost.is-sm { padding: 0 10px; }
+.cf-btn.is-xs { height: 26px; padding: 0 10px; font-size: 12px; gap: 6px; border-radius: 7px; }
+.cf-btn.is-lg { height: 46px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
+.cf-btn.is-center { justify-content: center; width: 100%; }
+.cf-btn.is-grow { flex: 1; justify-content: center; }
+.cf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.cf-kbd { font: 500 11px/1 var(--cf-mono); padding: 4px 6px; border-radius: 6px; border: 1px solid var(--cf-line-2); color: var(--cf-text-3); }
+.cf-btn.is-primary .cf-kbd { border-color: rgba(255, 255, 255, 0.28); color: rgba(255, 255, 255, 0.75); }
+
+.cf-icon-btn {
+  width: 36px; height: 36px; flex: none; border-radius: 12px; border: 1px solid var(--cf-line); background: transparent;
+  color: var(--cf-text-2); display: grid; place-items: center; cursor: pointer;
+  transition-property: scale, background-color, color; transition-duration: 150ms; transition-timing-function: ease-out;
+}
+.cf-icon-btn.is-sm { width: 30px; height: 30px; border-radius: 10px; }
+.cf-icon-btn.is-xs { width: 24px; height: 24px; border-radius: 8px; border-color: transparent; }
+.cf-icon-btn.is-plain { border-color: transparent; }
+.cf-icon-btn:not(:disabled):active { scale: 0.96; }
+
+@media (hover: hover) {
+  .cf-btn:not(:disabled):hover { background: rgba(17, 24, 39, 0.06); }
+  .cf-btn.is-primary:not(:disabled):hover { background: var(--cf-primary-hover); }
+  .cf-btn.is-danger:not(:disabled):hover { background: rgba(180, 35, 24, 0.06); }
+  .cf-btn.is-ghost:not(:disabled):hover { color: var(--cf-text); }
+  .cf-icon-btn:hover { color: var(--cf-text); background: rgba(17, 24, 39, 0.06); }
+}
