@@ -3,7 +3,7 @@
 Record a team demo video without anyone starting over.
 
 1. **Upload your slides.** Drop in a PDF or a PowerPoint. Slides must be 16:9.
-2. **Write the script.** Cut the slides into groups and type what's said on each slide.
+2. **Group and write the script.** Every slide is its own group. To record slides together, select them and choose **Group**. Drag slides to change their order, then type what's said on each slide.
 3. **Record your part.** Everyone opens the room link and turns on their camera. Each group is assigned to one person, who records it with only their own camera and mic. The others see the slide and the transcript live. Groups can be recorded in any order and retaken.
 4. **Make the video.** Lemo joins the groups into one 1080p video. It starts with your logo, project name and team, and ends with a logo card.
 

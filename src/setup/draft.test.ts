@@ -1,42 +1,75 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { emptyDraft, fromDeck, isCut, moveSlide, order, removeSlide, replaceSlides, toDeck, toggleCut } from "./draft.ts";
+import { emptyDraft, fromDeck, groupSlides, moveSlide, order, removeSlide, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
 
 const pics = (n: number) => Array.from({ length: n }, (_, i) => ({ src: `blob:${i}` }));
 const sizes = (d: ReturnType<typeof emptyDraft>) => d.groups.map((g) => g.slides.length);
 
-test("new slides are cut every 3", () => {
-  const d = replaceSlides(emptyDraft(), pics(7));
-  assert.deepEqual(sizes(d), [3, 3, 1]);
-  assert.ok(isCut(d, 2) && !isCut(d, 1) && !isCut(d, 6));
+test("every new slide is its own group", () => {
+  const d = replaceSlides(emptyDraft(), pics(4));
+  assert.deepEqual(sizes(d), [1, 1, 1, 1]);
+  assert.equal(new Set(d.groups.map((g) => g.id)).size, 4);
   for (const g of d.groups) assert.match(g.id, /^[a-z0-9-]{1,40}$/);
 });
 
-test("splitting keeps the id on the first half; joining keeps the id with a take", () => {
-  let d = replaceSlides(emptyDraft(), pics(6));
-  const [a, b] = d.groups.map((g) => g.id);
-  d = toggleCut(d, 0);
-  assert.deepEqual(sizes(d), [1, 2, 3]);
-  assert.equal(d.groups[0].id, a);
-  d = toggleCut(d, 0);
-  assert.deepEqual(sizes(d), [3, 3]);
-  assert.equal(d.groups[0].id, a);
-  d = toggleCut(d, 2, new Set([b]));
-  assert.deepEqual(sizes(d), [6]);
-  assert.equal(d.groups[0].id, b);
+test("grouping puts the chosen slides together where the first one is", () => {
+  let d = replaceSlides(emptyDraft(), pics(5));
+  const [a, b, c, e, f] = order(d);
+  const ids = d.groups.map((g) => g.id);
+  d = groupSlides(d, [e, b], new Set([ids[3]]));
+  assert.deepEqual(order(d), [a, b, e, c, f]);
+  assert.deepEqual(sizes(d), [1, 2, 1, 1]);
+  assert.equal(d.groups[1].id, ids[3], "the swallowed group with a take lends its id");
+  assert.equal(groupSlides(d, [a]), d, "one slide is not a group");
 });
 
-test("moving and removing slides keeps scripts and drops empty groups", () => {
+test("grouping part of a group leaves the rest with its id", () => {
+  let d = replaceSlides(emptyDraft(), pics(4));
+  const [a, b, c, e] = order(d);
+  d = groupSlides(d, [a, b, c]);
+  const g = d.groups[0].id;
+  d = groupSlides(d, [b, e]);
+  assert.deepEqual(d.groups.map((x) => x.slides), [[a], [b, e], [c]]);
+  assert.equal(d.groups[0].id, g);
+  assert.notEqual(d.groups[2].id, g);
+});
+
+test("ungrouping splits the whole group back into single slides", () => {
+  let d = replaceSlides(emptyDraft(), pics(4));
+  const [a, b, c] = order(d);
+  d = groupSlides(d, [a, b, c]);
+  const g = d.groups[0].id;
+  d = ungroupSlides(d, [b]);
+  assert.deepEqual(sizes(d), [1, 1, 1, 1]);
+  assert.equal(d.groups[0].id, g);
+  assert.equal(new Set(d.groups.map((x) => x.id)).size, 4);
+});
+
+test("a moved slide stays in its group, joins the group it lands in, or stands alone", () => {
+  let d = replaceSlides(emptyDraft(), pics(5));
+  const [a, b, c, e, f] = order(d);
+  d = groupSlides(d, [b, c, e]);
+  const lone = d.groups[2].id;
+  d = moveSlide(d, 0, 2);
+  assert.deepEqual(d.groups.map((x) => x.slides), [[b, c, a, e], [f]], "dropped inside a group, it joins");
+  d = moveSlide(d, 0, 3);
+  assert.deepEqual(d.groups.map((x) => x.slides), [[c, a, e, b], [f]], "next to its own group's slides, it stays");
+  d = moveSlide(d, 4, 0);
+  assert.deepEqual(d.groups.map((x) => x.slides), [[f], [c, a, e, b]]);
+  assert.equal(d.groups[0].id, lone, "a slide on its own moves with its group id");
+  d = moveSlide(d, 2, 0);
+  assert.deepEqual(d.groups.map((x) => x.slides), [[a], [f], [c, e, b]], "away from its group, it stands alone");
+});
+
+test("removing slides keeps scripts and drops empty groups", () => {
   let d = replaceSlides(emptyDraft(), pics(4));
   const ids = order(d);
-  d = { ...d, script: { [ids[0]]: "hello" } };
-  d = moveSlide(d, 0, 3);
-  assert.deepEqual(order(d), [ids[1], ids[2], ids[3], ids[0]]);
-  assert.deepEqual(sizes(d), [3, 1]);
+  d = groupSlides({ ...d, script: { [ids[1]]: "hello" } }, ids.slice(0, 3));
   d = removeSlide(d, ids[3]);
   d = removeSlide(d, ids[0]);
   assert.deepEqual(sizes(d), [2]);
   assert.equal(toDeck(d).groups[0].name, "Slides 1–2");
+  assert.deepEqual(toDeck(d).groups[0].script, ["hello", ""]);
 });
 
 test("a replaced file keeps scripts and group ids by position", () => {
@@ -47,14 +80,21 @@ test("a replaced file keeps scripts and group ids by position", () => {
   d = replaceSlides(d, pics(5));
   assert.equal(d.groups[0].id, id);
   assert.equal(d.script[order(d)[0]], "intro");
-  assert.deepEqual(sizes(d), [3, 2]);
+  assert.deepEqual(sizes(d), [1, 1, 1, 1, 1]);
+});
+
+test("a replaced file with the same count keeps the groups", () => {
+  let d = replaceSlides(emptyDraft(), pics(3));
+  d = groupSlides(d, order(d).slice(0, 2));
+  assert.deepEqual(sizes(replaceSlides(d, pics(3))), [2, 1]);
 });
 
 test("a stored deck round-trips with its ids", () => {
   const d0 = replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana", " ", "Bo"] }, pics(4));
-  const deck = toDeck(d0);
+  const deck = toDeck(groupSlides(d0, order(d0).slice(1, 3)));
   assert.deepEqual(deck.team, ["Ana", "Bo"]);
   assert.ok(deck.groups.every((g) => g.speaker === 0 && g.script.length === g.slides.length));
   const d1 = fromDeck(deck);
   assert.deepEqual(toDeck(d1), deck);
+  assert.deepEqual(sizes(d1), [1, 2, 1]);
 });

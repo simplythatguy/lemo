@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { roomApi, RoomError } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
 import { VIDEO_LIMIT_MS } from "../studio/types";
-import { emptyDraft, fromDeck, moveSlide, removeSlide, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, toggleCut, type Draft } from "./draft";
+import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
 import { Icon } from "./icons";
 import { importSlides, SlideFileError } from "./importSlides";
 import { Project } from "./Project";
@@ -288,6 +288,8 @@ export function Setup({ code: editCode }: { code?: string }) {
             onFile={(f) => void onFile(f)}
             onRemove={(id) => setDraft((d) => removeSlide(d, id))}
             onMove={(from, to) => setDraft((d) => moveSlide(d, from, to))}
+            onGroup={(ids) => setDraft((d) => groupSlides(d, ids, taken.current))}
+            onUngroup={(ids) => setDraft((d) => ungroupSlides(d, ids))}
           />
         )}
         {step === "project" && <Project draft={draft} setDraft={setDraft} show={show} makeUrl={makeUrl} />}
@@ -295,7 +297,6 @@ export function Setup({ code: editCode }: { code?: string }) {
           <Script
             draft={draft}
             deck={deck}
-            onCut={(at) => setDraft((d) => toggleCut(d, at, taken.current))}
             onSay={(id, text) => setDraft((d) => ({ ...d, script: { ...d.script, [id]: text } }))}
           />
         )}

@@ -1,4 +1,5 @@
-// The presentation while it is being set up: slides in order, cut into groups, a script line per slide.
+// The presentation while it is being set up: slides in order, in groups, a script line per slide. Every slide is its own
+// group until someone groups slides together.
 // Groups own their slide ids, so the flat order is the groups read in turn. Group ids survive edits
 // wherever a group survives, because recorded takes are keyed by group id.
 import type { Deck, Group, Slide } from "../studio/types";
@@ -33,9 +34,6 @@ export interface Draft {
   file?: string;
 }
 
-/** A new group every this many slides until someone moves the cuts. */
-export const DEFAULT_GROUP = 3;
-
 export const emptyDraft = (): Draft => ({ title: "", team: [""], logo: null, slides: {}, groups: [], script: {} });
 
 const rand = (n: number) => {
@@ -55,17 +53,13 @@ export function groupName(first: number, count: number): string {
   return count === 1 ? `Slide ${first}` : `Slides ${first}–${first + count - 1}`;
 }
 
-/** Cuts `ids` into runs of DEFAULT_GROUP, reusing `ids` of earlier groups by position. */
-function defaultGroups(ids: string[], reuse: string[] = []): DraftGroup[] {
-  const groups: DraftGroup[] = [];
-  for (let i = 0; i < ids.length; i += DEFAULT_GROUP) {
-    groups.push({ id: reuse[groups.length] ?? newGroupId(), slides: ids.slice(i, i + DEFAULT_GROUP) });
-  }
-  return groups;
+/** One group per slide, reusing `reuse` ids by position. */
+function singles(ids: string[], reuse: string[] = []): DraftGroup[] {
+  return ids.map((id, i) => ({ id: reuse[i] ?? newGroupId(), slides: [id] }));
 }
 
 /** A new set of slides replaces the old one: scripts carry over by position, group ids by position. When the count is
- *  unchanged the cuts stay where they were too. */
+ *  unchanged the groups stay as they were too. */
 export function replaceSlides(d: Draft, pics: Pic[], file?: string): Draft {
   const before = order(d);
   const ids = pics.map(() => newSlideId());
@@ -81,41 +75,37 @@ export function replaceSlides(d: Draft, pics: Pic[], file?: string): Draft {
     let i = 0;
     groups = d.groups.map((g) => ({ ...g, slides: g.slides.map(() => ids[i++]) }));
   } else {
-    groups = defaultGroups(ids, d.groups.map((g) => g.id));
+    groups = singles(ids, d.groups.map((g) => g.id));
   }
   return { ...d, slides, script, groups, file };
 }
 
-/** Which group holds flat position `at`, and where in it. */
-function locate(groups: DraftGroup[], at: number): { g: number; k: number } {
-  let n = at;
-  for (let g = 0; g < groups.length; g++) {
-    if (n < groups[g].slides.length) return { g, k: n };
-    n -= groups[g].slides.length;
+/** Puts the slides `ids` together, in deck order, as one group where the first of them is. Groups they leave keep their
+ *  ids; the new group takes the id of a group it swallows whole, one with a recorded take (`taken`) first. */
+export function groupSlides(d: Draft, ids: Iterable<string>, taken: ReadonlySet<string> = new Set()): Draft {
+  const pick = new Set(ids);
+  const slides = order(d).filter((s) => pick.has(s));
+  if (slides.length < 2) return d;
+  const whole = d.groups.filter((g) => g.slides.every((s) => pick.has(s)));
+  const id = (whole.find((g) => taken.has(g.id)) ?? whole[0])?.id ?? newGroupId();
+  const groups: DraftGroup[] = [];
+  for (const g of d.groups) {
+    const at = g.slides.indexOf(slides[0]);
+    const before = (at < 0 ? g.slides : g.slides.slice(0, at)).filter((s) => !pick.has(s));
+    const after = at < 0 ? [] : g.slides.slice(at).filter((s) => !pick.has(s));
+    if (before.length) groups.push(before.length === g.slides.length ? g : { id: g.id, slides: before });
+    if (at >= 0) groups.push({ id, slides });
+    if (after.length) groups.push({ id: before.length ? newGroupId() : g.id, slides: after });
   }
-  return { g: groups.length - 1, k: groups[groups.length - 1]?.slides.length ?? 0 };
+  return { ...d, groups };
 }
 
-/** Is there a cut between flat positions `at` and `at + 1`? */
-export function isCut(d: Draft, at: number): boolean {
-  const { g, k } = locate(d.groups, at);
-  return k === d.groups[g].slides.length - 1 && g < d.groups.length - 1;
-}
-
-/** Toggles the cut between flat positions `at` and `at + 1`. Splitting keeps the id on the first half; joining keeps the
- *  id that has a recorded take (`taken`), else the first group's. */
-export function toggleCut(d: Draft, at: number, taken: ReadonlySet<string> = new Set()): Draft {
-  const { g, k } = locate(d.groups, at);
-  const cur = d.groups[g];
-  const groups = d.groups.slice();
-  if (k === cur.slides.length - 1) {
-    const next = groups[g + 1];
-    if (!next) return d;
-    const id = !taken.has(cur.id) && taken.has(next.id) ? next.id : cur.id;
-    groups.splice(g, 2, { id, slides: [...cur.slides, ...next.slides] });
-  } else {
-    groups.splice(g, 1, { id: cur.id, slides: cur.slides.slice(0, k + 1) }, { id: newGroupId(), slides: cur.slides.slice(k + 1) });
-  }
+/** Splits every group holding one of `ids` back into one group per slide. The first slide keeps the group's id. */
+export function ungroupSlides(d: Draft, ids: Iterable<string>): Draft {
+  const pick = new Set(ids);
+  const groups = d.groups.flatMap((g) =>
+    g.slides.length > 1 && g.slides.some((s) => pick.has(s)) ? g.slides.map((s, k) => ({ id: k ? newGroupId() : g.id, slides: [s] })) : [g],
+  );
   return { ...d, groups };
 }
 
@@ -130,18 +120,27 @@ export function removeSlide(d: Draft, id: string): Draft {
   return { ...d, groups, slides, script };
 }
 
-/** Moves the slide at flat position `from` to flat position `to`. The cuts stay where they are (every group keeps its
- *  size), since the slides step does not show groups. */
+/** Moves the slide at flat position `from` to flat position `to`. It stays in its group while it lands next to one of
+ *  that group's slides, joins a group it lands inside, and is otherwise a group of its own. */
 export function moveSlide(d: Draft, from: number, to: number): Draft {
   const flat = order(d);
   if (from === to || from < 0 || from >= flat.length || to < 0 || to >= flat.length) return d;
-  const [id] = flat.splice(from, 1);
-  flat.splice(to, 0, id);
-  let i = 0;
-  const groups = d.groups.map((g) => {
-    const slides = flat.slice(i, (i += g.slides.length));
-    return slides.every((s, k) => s === g.slides[k]) ? g : { id: g.id, slides };
-  });
+  const id = flat[from];
+  const rest = flat.filter((s) => s !== id);
+  const prev = rest[to - 1];
+  const next = rest[to];
+  const home = d.groups.find((g) => g.slides.includes(id))!;
+  const groups = d.groups.flatMap((g) => (g !== home ? [g] : g.slides.length > 1 ? [{ id: g.id, slides: g.slides.filter((s) => s !== id) }] : []));
+  const of = (s: string | undefined) => (s === undefined ? -1 : groups.findIndex((g) => g.slides.includes(s)));
+  const homeAt = groups.findIndex((g) => g.id === home.id);
+  const into = homeAt >= 0 && (of(prev) === homeAt || of(next) === homeAt) ? homeAt : of(prev) >= 0 && of(prev) === of(next) ? of(prev) : -1;
+  if (into >= 0) {
+    const g = groups[into];
+    const k = g.slides.indexOf(prev) + 1 || g.slides.indexOf(next);
+    groups[into] = { ...g, slides: [...g.slides.slice(0, k), id, ...g.slides.slice(k)] };
+  } else {
+    groups.splice(of(prev) + 1, 0, homeAt >= 0 ? { id: newGroupId(), slides: [id] } : home);
+  }
   return { ...d, groups };
 }
 
