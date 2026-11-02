@@ -52,7 +52,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           const pending = up !== undefined || saving.has(g.id);
           const done = !!take && !pending;
           const note = pending ? (up ? `Saving ${Math.round(up * 100)}%` : "Saving…") : done ? clock(take.durationMs) : null;
-          const status = pending ? note!.toLowerCase() : done ? `recorded ${clock(take.durationMs)}` : "not recorded";
+          const status = done ? `recorded ${clock(take.durationMs)}` : note?.toLowerCase() ?? "not recorded";
           return (
             <div key={g.id} className="st-strip-g" role="group" aria-label={g.name}>
               <div className="st-strip-slides">
