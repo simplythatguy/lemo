@@ -5,6 +5,7 @@ import { forgetRoom, knownRooms, RoomError, roomApi, validCode } from "../studio
 import { clock, deckMs } from "../studio/timing";
 import type { Deck, RoomState, TakeInfo } from "../studio/types";
 import { Icon } from "../icons";
+import { ProjectMark } from "../studio/parts";
 import "./home.css";
 
 type Row = { code: string } & ({ state: "loading" } | { state: "offline" } | { state: "ready"; room: RoomState });
@@ -18,7 +19,10 @@ export function Home() {
       setRows((rs) => (row ? rs.map((r) => (r.code === code ? row : r)) : rs.filter((r) => r.code !== code)));
     for (const { code } of knownRooms()) {
       roomApi.get(code, ctl.signal).then(
-        (room) => set(code, { code, state: "ready", room }),
+        (room) => {
+          rememberTitle(code, room.deck?.title.trim() ?? "");
+          set(code, { code, state: "ready", room });
+        },
         (e) => {
           if (ctl.signal.aborted) return;
           if (e instanceof RoomError && e.status === 404) {
@@ -67,6 +71,24 @@ export function Home() {
   );
 }
 
+/** The last title each demo had here, so one the server can't reach still goes by its name. */
+const TITLES_KEY = "lemo.home.titles";
+function titles(): Record<string, string> {
+  try {
+    const t = JSON.parse(localStorage.getItem(TITLES_KEY) ?? "{}");
+    return t && typeof t === "object" ? t : {};
+  } catch {
+    return {};
+  }
+}
+function rememberTitle(code: string, title: string) {
+  const t = titles();
+  if (t[code] === title) return;
+  if (title) t[code] = title;
+  else delete t[code];
+  localStorage.setItem(TITLES_KEY, JSON.stringify(t));
+}
+
 const complete = (t: TakeInfo | undefined) => !!t && t.received >= t.chunks;
 
 /** "8 slides · 1:08 · 2 of 3 recorded": the recorded part only once something is. */
@@ -92,15 +114,24 @@ function Card({ row }: { row: Row }) {
     );
   }
   const room = row.state === "ready" ? row.room : null;
-  const title = room ? room.deck?.title.trim() || "Untitled" : row.code;
+  const deck = room?.deck;
+  const title = (room ? deck?.title.trim() : titles()[row.code]) || "Untitled";
   return (
     <a className="hm-card" href={`/r/${row.code}`}>
-      {room?.deck?.groups[0]?.slides[0] ? (
+      {deck?.groups[0]?.slides[0] ? (
         <span className="hm-cover">
-          <Cover deck={room.deck} />
+          <Cover deck={deck} />
         </span>
       ) : (
-        <span className="hm-cover is-blank" />
+        <span className="hm-cover is-blank">
+          {!room ? (
+            <Icon name="offline" size={28} />
+          ) : deck?.title.trim() || deck?.logo ? (
+            <ProjectMark title={deck.title} logo={deck.logo} size={56} />
+          ) : (
+            <Icon name="slides" size={28} />
+          )}
+        </span>
       )}
       <span className="hm-name">{title}</span>
       <span className="hm-line">{room ? meta(room) : "Offline"}</span>

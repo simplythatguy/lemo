@@ -17,9 +17,30 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: var(--space-16);
+  /* As wide as the content under it, so its ends line up with the content's edges, not the window's. */
+  max-width: 1160px;
   height: var(--space-64);
-  padding: 0 var(--space-24);
+  margin: 0 auto;
+  padding: 0 var(--space-32);
   background: var(--bg);
+}
+
+/* The close's icon, not its hover square, sits on the content's left edge. */
+.su-top > .icon-btn {
+  margin-left: calc(var(--space-8) * -1);
+}
+
+/* A step change and Create cross-fade the page; removed or moved slides glide to their new places (src/setup/glide.ts). */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--dur-sheet);
+  animation-timing-function: var(--ease);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-control);
 }
 
 /* Once the page scrolls under the bar, a hairline marks its edge. */
@@ -149,13 +170,23 @@
 }
 
 /* When the actions need the room, the count gives way before the name does. */
-.su-head-name .su-quiet {
+.su-head-name .su-quiet,
+.su-head-name .su-error {
   flex: 0 4 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-14);
+}
+
+/* The selection's count never gives way; its quiet actions sit word to word, their own padding the only gap. */
+.su-head-name:has(> .su-picked) {
+  flex: none;
+}
+
+.su-head > .btn.is-quiet + .btn.is-quiet {
+  margin-left: calc(var(--space-8) * -1);
 }
 
 .su-quiet {
@@ -170,6 +201,18 @@
   font-size: var(--text-14);
   font-style: normal;
   color: var(--red-ink);
+  animation: su-fade var(--dur-control) var(--ease);
+}
+
+@keyframes su-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A file still opening: nothing changes, unless it takes long enough to need a sign that it is working. */
+.su-page [aria-busy="true"].btn {
+  animation: su-wait var(--dur-pulse) var(--ease) calc(var(--dur-sheet) * 2) infinite;
 }
 
 .su-grow {
@@ -206,10 +249,6 @@
   text-align: center;
 }
 
-.su-slides > .su-error {
-  margin: calc(var(--space-12) * -1) 0 var(--space-24);
-}
-
 .su-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
@@ -233,15 +272,8 @@
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus);
 }
 
-.su-cell.is-new {
-  animation: su-arrive var(--dur-sheet) var(--ease) both;
-}
-
-@keyframes su-arrive {
-  from {
-    opacity: 0;
-    scale: 0.96;
-  }
+.su-thumb-img.is-new {
+  animation: su-fade var(--dur-sheet) var(--ease) both;
 }
 
 .su-cell.is-dragging {
@@ -297,8 +329,19 @@
   user-select: none;
 }
 
+/* A slide still being drawn: a light surface with a slow shimmer, its number already under it. */
 .su-thumb.is-wait {
-  animation: su-wait var(--dur-pulse) var(--ease) infinite;
+  background: linear-gradient(100deg, var(--hover) 40%, var(--fill) 50%, var(--hover) 60%) 0 0 / 300% 100%;
+  animation: su-shimmer calc(var(--dur-pulse) * 1.5) var(--ease) infinite;
+}
+
+@keyframes su-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
 }
 
 @keyframes su-wait {
@@ -394,6 +437,14 @@
   padding: var(--space-24);
   background: var(--bg);
   pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-control) var(--ease), visibility var(--dur-control) var(--ease);
+}
+
+.su-drop.is-on {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* —— Project —— */
@@ -452,9 +503,17 @@
   outline-offset: -1px;
 }
 
+/* No name and no logo yet: a quiet tile with a +, so Next stays the one filled control. */
+.su-logo-pick.is-blank .st-pmark.is-letter {
+  background: var(--fill);
+}
+
 @media (hover: hover) {
   .su-logo-pick:hover .st-pmark.is-letter {
     background: var(--primary-hover);
+  }
+  .su-logo-pick.is-blank:hover .st-pmark.is-letter {
+    background: var(--fill-hover);
   }
 }
 
@@ -488,7 +547,7 @@
   height: auto;
   background: none;
   box-shadow: none;
-  color: var(--on-dark);
+  color: var(--ink-2);
 }
 
 .su-field {
@@ -600,7 +659,6 @@
 /* —— Script —— */
 
 .su-script {
-  max-width: 1000px;
   margin: 0 auto;
 }
 
@@ -673,6 +731,11 @@
   outline: none;
 }
 
+/* An empty line keeps a hairline, so it reads as a place to write. */
+.su-say.is-empty {
+  box-shadow: inset 1px 0 0 var(--line-2);
+}
+
 .su-say:focus {
   box-shadow: inset 2px 0 0 var(--accent);
 }
@@ -743,11 +806,6 @@
   .su-head {
     margin-bottom: var(--space-16);
   }
-  /* With slides selected, the selection's actions take the name's place, as words alone. */
-  .su-head:has(> .icon-btn) .su-head-name,
-  .su-head:has(> .icon-btn) .btn svg {
-    display: none;
-  }
   .su-row {
     grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
     gap: var(--space-12);
@@ -771,6 +829,13 @@
   }
   .su-project {
     gap: var(--space-32);
+  }
+}
+
+/* Too narrow for the word beside every selection action: the count alone. */
+@media (max-width: 389px) {
+  .su-picked-word {
+    display: none;
   }
 }
 

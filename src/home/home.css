@@ -78,6 +78,13 @@
   font: var(--weight-body) var(--text-13)/1 var(--font);
   white-space: nowrap;
   color: var(--red-ink);
+  animation: hm-fade var(--dur-control) var(--ease);
+}
+
+@keyframes hm-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 .hm-grid {
@@ -137,11 +144,32 @@ a.hm-card:active .hm-cover {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  animation: hm-fade var(--dur-control) var(--ease);
 }
 
-/* A demo with no slides yet: a blank slide, white like one. */
+/* A demo with no slide to show: the quiet surface with the project's mark, or a quiet icon for no slides or offline. */
 .hm-cover.is-blank {
-  background: var(--bg);
+  display: grid;
+  place-items: center;
+  color: var(--ink-4);
+}
+
+.hm-cover.is-blank::after {
+  box-shadow: none;
+}
+
+.hm-cover .st-pmark {
+  border-radius: 24%;
+  object-fit: contain;
+}
+
+.hm-cover .st-pmark.is-letter {
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  font-weight: var(--weight-title);
+  line-height: 1;
+  color: var(--on-dark);
 }
 
 .hm-name,
