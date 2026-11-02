@@ -199,6 +199,15 @@ export function Setup({ code: editCode }: { code?: string }) {
     }
   };
 
+  const length = total > 0 && (
+    <span className={`su-total${over ? " is-over" : ""}`} aria-label={`Video length ${clock(total)}${over ? ", longer than 5:00" : ""}`}>
+      <Icon name="clock" size={14} />
+      {clock(total)}
+      {over && <span className="su-total-of">/ {clock(VIDEO_LIMIT_MS)}</span>}
+    </span>
+  );
+  /** Nothing to go on with yet: the slides step's own Choose a file is the one action. */
+  const waiting = step === "slides" && slidesMissing(draft) && !importing;
   const exit = editCode ? `/r/${editCode}` : "/";
   const index = STEPS.findIndex((s) => s.key === step);
   const last = index === STEPS.length - 1;
@@ -211,7 +220,7 @@ export function Setup({ code: editCode }: { code?: string }) {
             <>
               <h1 className="su-title">{load.kind === "missing" ? `No room ${editCode}` : "Can't open this room"}</h1>
               {load.kind === "failed" && <p className="su-error">{load.message}</p>}
-              <a className="btn is-secondary" href="/">Demos</a>
+              <a className="btn is-primary" href="/">Demos</a>
             </>
           )}
         </div>
@@ -225,19 +234,21 @@ export function Setup({ code: editCode }: { code?: string }) {
       <div className="su-page">
         <div className="su-center su-saving">
           <h1 className="su-title">{error ? "Not saved" : editing ? "Saving" : "Creating your room"}</h1>
-          <div className="su-meter is-wide" role="progressbar" aria-label="Uploading" aria-valuemin={0} aria-valuemax={n || 1} aria-valuenow={done}>
-            <span style={{ transform: `scaleX(${n ? done / n : error ? 0 : 0.04})` }} />
-          </div>
+          {!error && (
+            <div className="su-meter" role="progressbar" aria-label="Uploading" aria-valuemin={0} aria-valuemax={n || 1} aria-valuenow={done}>
+              <span style={{ transform: `scaleX(${n ? done / n : 0.04})` }} />
+            </div>
+          )}
           {error ? (
             <>
               <p className="su-error" role="alert">{error}</p>
               <div className="su-row-actions">
-                <button type="button" className="btn is-secondary" onClick={() => setSaving(null)}>Back</button>
+                <button type="button" className="btn is-quiet" onClick={() => setSaving(null)}>Back</button>
                 <button type="button" className="btn is-primary" onClick={() => void save()}>Try again</button>
               </div>
             </>
           ) : (
-            <p className="su-quiet">{n ? `${done} / ${n}` : " "}</p>
+            <p className="su-quiet">{n ? `${done} of ${n}` : " "}</p>
           )}
         </div>
       </div>
@@ -267,14 +278,8 @@ export function Setup({ code: editCode }: { code?: string }) {
           ))}
         </nav>
         <div className="su-top-end">
-          {last && total > 0 && (
-            <span className={`su-total${over ? " is-over" : ""}`} title={over ? "Longer than 5:00" : "Video length"} aria-label={`Video length ${clock(total)}${over ? ", longer than 5:00" : ""}`}>
-              <Icon name="clock" size={14} />
-              {clock(total)}
-              {over && <span className="su-total-of">/ {clock(VIDEO_LIMIT_MS)}</span>}
-            </span>
-          )}
-          {last || editing ? (
+          {last && length}
+          {waiting ? null : last || editing ? (
             <button type="button" className="btn is-primary" onClick={() => void save()} disabled={!!importing}>
               {editing ? "Save" : "Create"}
             </button>
@@ -304,13 +309,17 @@ export function Setup({ code: editCode }: { code?: string }) {
           <Script
             draft={draft}
             deck={deck}
+            length={length}
             onSay={(id, text) => setDraft((d) => ({ ...d, script: { ...d.script, [id]: text } }))}
           />
         )}
       </main>
       {fileOver && (
         <div className="su-drop" aria-hidden="true">
-          <span><Icon name="upload" size={28} /></span>
+          <div className="su-drop-target">
+            <Icon name="upload" size={28} />
+            {slidesMissing(draft) ? "Drop to add" : "Drop to replace"}
+          </div>
         </div>
       )}
     </div>
