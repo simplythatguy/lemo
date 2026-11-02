@@ -5,7 +5,7 @@ import type { DraftSlide } from "./draft";
 
 export function Thumb({ slide }: { slide: DraftSlide }) {
   if (slide.kept) return <KeptThumb slide={slide} />;
-  return <img className="su-thumb-img" src={slide.src} alt="" draggable={false} decoding="async" />;
+  return <img className="su-thumb-img" src={slide.src} alt="" draggable={false} loading="lazy" decoding="async" />;
 }
 
 function KeptThumb({ slide }: { slide: DraftSlide }) {

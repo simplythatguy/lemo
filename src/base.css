@@ -126,6 +126,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
   }
 }
 
+/* An empty 16:9 place for a deck: the slide a demo will become, with the camera tile where the presenter will sit. */
+.slot {
+  position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card); background: var(--hover); box-shadow: inset 0 0 0 1px var(--edge);
+}
+.slot::before {
+  content: ""; position: absolute; right: 3%; bottom: 5%; width: 17%; aspect-ratio: 8 / 9;
+  border-radius: var(--radius-control); background: var(--fill);
+}
+
 .tip {
   position: fixed; inset: auto; margin: 0; padding: var(--space-4) var(--space-8);
   border: 0; border-radius: var(--radius-tag); background: var(--ink); color: var(--on-dark);
