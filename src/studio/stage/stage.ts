@@ -12,7 +12,7 @@ export const STAGE_W = 1920, STAGE_H = 1080;
 
 export interface Stage {
   show(group: number, slide: number, opts?: { instant?: boolean }): void;
-  /** The camera tile: `src` when it has frames, otherwise `initials` on a soft grey tile. Neither: no tile. */
+  /** The camera tile: `src` when it has frames, otherwise `initials` on a dark tile. Neither: no tile. */
   setCamera(src: HTMLVideoElement | null, initials?: string): void;
   /** Moves the camera tile to `r`, in stage pixels, from the next frame on. */
   placeCamera(r: Rect): void;
@@ -100,15 +100,13 @@ function hasPicture(v: HTMLVideoElement): boolean {
   return !(src instanceof MediaStream) || src.getVideoTracks().some((t) => t.readyState === "live" && !t.muted);
 }
 
-/** A camera with no picture: the presenter's initials in a white circle on the soft grey tile, sized to the tile. */
+/** A camera with no picture: a dark tile with the presenter's initials, large and white, sized to the tile. */
 function paintInitials(c: Ctx, r: Rect, initials: string) {
   const cx = r.x + r.w / 2, cy = r.y + r.h / 2, k = Math.min(r.w, r.h) / 344;
-  c.fillStyle = C.white;
-  c.beginPath();
-  c.arc(cx, cy, 66 * k, 0, Math.PI * 2);
-  c.fill();
-  font(c, 500, 46 * k, -0.01);
-  text(c, initials, cx, cy + 16 * k, C.grey, "center");
+  c.fillStyle = C.cameraOff;
+  c.fillRect(r.x, r.y, r.w, r.h);
+  font(c, 600, 96 * k, -0.02);
+  text(c, initials, cx, cy + 34 * k, C.white, "center");
 }
 
 export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { beforePaint?: (now: number) => void } = {}): Stage {
