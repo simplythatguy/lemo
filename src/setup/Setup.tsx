@@ -6,6 +6,7 @@ import { clock, deckMs } from "../studio/timing";
 import { VIDEO_LIMIT_MS } from "../studio/types";
 import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
 import { Icon } from "../icons";
+import { glide } from "./glide";
 import { importSlides, SlideFileError } from "./importSlides";
 import { Project } from "./Project";
 import { saveDraft } from "./save";
@@ -104,6 +105,9 @@ export function Setup({ code: editCode }: { code?: string }) {
             setImporting((s) => (s ? { ...s, done: [...s.done, pics[i].src] } : s));
           },
         });
+        // The last slide finishes fading in over its place before the grid takes over.
+        await new Promise(requestAnimationFrame);
+        await Promise.all(Array.from(document.querySelectorAll(".su-thumb-img.is-new"), (el) => Promise.all(el.getAnimations().map((a) => a.finished)))).catch(() => undefined);
         if (ctl.signal.aborted) return;
         setDraft((d) => replaceSlides(d, pics, file.name));
       } catch (e) {
@@ -174,8 +178,11 @@ export function Setup({ code: editCode }: { code?: string }) {
     const stop = blocker(i);
     if (stop === "project") setShow({ title: titleMissing(draft), team: teamMissing(draft) });
     if (stop === "slides" && !importing && slidesMissing(draft)) setFileError(null);
-    setStep(stop ?? to);
-    window.scrollTo({ top: 0 });
+    if ((stop ?? to) === step) return window.scrollTo({ top: 0 });
+    void glide(() => {
+      setStep(stop ?? to);
+      window.scrollTo({ top: 0 });
+    });
   };
 
   const save = async () => {
@@ -184,7 +191,7 @@ export function Setup({ code: editCode }: { code?: string }) {
     // A group whose slides changed under its take gets a new id, so the take no longer plays over the wrong slides.
     const settled = renewChangedGroups(draft, loaded.current);
     if (settled !== draft) setDraftState(settled);
-    setSaving({ done: 0, total: 0 });
+    await glide(() => setSaving({ done: 0, total: 0 }));
     try {
       const code = await saveDraft({
         draft: settled,
@@ -207,7 +214,7 @@ export function Setup({ code: editCode }: { code?: string }) {
     </span>
   );
   /** Nothing to go on with yet: the slides step's own Choose a file is the one action. */
-  const waiting = step === "slides" && slidesMissing(draft) && !importing;
+  const waiting = step === "slides" && slidesMissing(draft) && !importing?.total;
   const exit = editCode ? `/r/${editCode}` : "/";
   const index = STEPS.findIndex((s) => s.key === step);
   const last = index === STEPS.length - 1;
@@ -243,7 +250,7 @@ export function Setup({ code: editCode }: { code?: string }) {
             <>
               <p className="su-error" role="alert">{error}</p>
               <div className="su-row-actions">
-                <button type="button" className="btn is-quiet" onClick={() => setSaving(null)}>Back</button>
+                <button type="button" className="btn is-quiet" onClick={() => void glide(() => setSaving(null))}>Back</button>
                 <button type="button" className="btn is-primary" onClick={() => void save()}>Try again</button>
               </div>
             </>
@@ -284,7 +291,7 @@ export function Setup({ code: editCode }: { code?: string }) {
               {editing ? "Save" : "Create"}
             </button>
           ) : (
-            <button type="button" className="btn is-primary" onClick={() => go(STEPS[index + 1].key)} disabled={step === "slides" && (slidesMissing(draft) || !!importing)}>
+            <button type="button" className="btn is-primary" onClick={() => go(STEPS[index + 1].key)} disabled={step === "slides" && (slidesMissing(draft) || !!importing?.total)}>
               Next<Icon name="arrow" size={16} />
             </button>
           )}
