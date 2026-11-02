@@ -101,14 +101,18 @@
   .st-room .is-narrow {
     display: none;
   }
+  /* The phone's Make the video steps aside, so the quiet action after it is the first one the eye meets. */
+  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet {
+    margin-left: calc(var(--space-12) * -1);
+  }
 }
 
 /* Top bar: where you are on the left, the cameras centred, the room's controls on the right. The cameras shrink
-   and then scroll; the two sides never get covered. */
+   and then scroll; the two sides never get covered, and the title keeps a few words before the cameras give way. */
 .st-top {
   grid-area: top;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(max-content, 1fr);
+  grid-template-columns: minmax(160px, 1fr) minmax(0, max-content) minmax(max-content, 1fr);
   align-items: center;
   column-gap: var(--space-24);
   height: 76px;
@@ -143,7 +147,22 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-12);
+  gap: var(--space-4);
+}
+
+/* The room code: quiet text at control height that copies the room link. */
+.st-corner .st-copy {
+  height: var(--control);
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-control);
+  background: none;
+  font-size: var(--text-14);
+}
+
+@media (hover: hover) {
+  .st-corner .st-copy:hover {
+    background: var(--wash);
+  }
 }
 
 /* Turning primary once every group is in: a quiet fade, not a jump. */
@@ -169,7 +188,7 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 92px;
+  width: 104px;
   aspect-ratio: 16 / 9;
   margin: 0;
   border-radius: var(--radius-control);
@@ -210,9 +229,11 @@
   color: var(--ink-2);
 }
 
+/* Above the name row, never under it. */
 .st-cams .st-tile-face {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  margin-bottom: var(--space-24);
   font-size: var(--text-12);
 }
 
@@ -230,11 +251,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.st-tile.is-empty figcaption {
-  background: none;
-  color: var(--ink-2);
 }
 
 .st-tile-hint {
@@ -313,6 +329,17 @@
   .st-tile-cam:not(:disabled) {
     opacity: 1;
   }
+}
+
+/* A teammate's circle on a phone: the whole circle opens their menu (stacked layout only). */
+.st-tile-menu {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
 }
 
 .st-cams-sound {
@@ -433,12 +460,12 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: var(--veil);
+  background: var(--shade);
   backdrop-filter: blur(4px);
   font: var(--weight-body) calc(var(--text-40) * 4)/1 var(--font);
   letter-spacing: var(--tracking-title);
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--on-dark);
 }
 
 /* A take the browser would not start on its own: one round play button in the middle of the stage. */
@@ -482,7 +509,6 @@
   align-items: center;
   gap: var(--space-8);
   min-width: 0;
-  margin-bottom: var(--space-8);
 }
 
 .st-script-title {
@@ -525,16 +551,16 @@
   flex: 1;
   min-height: 0;
   margin: 0 calc(var(--space-12) * -1);
-  padding: 0 0 var(--space-24);
+  padding: var(--space-16) 0 var(--space-24);
   overflow: auto;
   list-style: none;
   scrollbar-width: thin;
   mask-image: linear-gradient(black calc(100% - 24px), transparent);
 }
 
-/* The list scrolls under soft edges instead of cutting lines in half; while a take runs, the top one too. */
+/* The list scrolls under soft edges instead of cutting lines in half; while a take runs, the top one too. Its top
+   padding never changes, so the words stay put from idle to countdown, take and review. */
 .st-script.is-following {
-  padding-top: var(--space-16);
   mask-image: linear-gradient(transparent, black var(--space-16), black calc(100% - 32px), transparent);
 }
 
@@ -638,8 +664,8 @@
   margin-left: var(--space-8);
   vertical-align: 2px;
   border-radius: 18%;
-  background: var(--red);
-  opacity: 0.55;
+  background: currentColor;
+  opacity: 0.6;
 }
 
 .st-seg.is-now .st-stop {
@@ -749,6 +775,16 @@
   min-height: var(--control-lg);
 }
 
+/* Every secondary action (Retake, Stop, Cancel, Assign to me, Try again) is quiet text; the first one's words line up
+   with the clock above it. */
+.st-dock-acts > .btn.is-quiet {
+  padding: 0 var(--space-12);
+}
+
+.st-dock-acts > .btn.is-quiet:first-child {
+  margin-left: calc(var(--space-12) * -1);
+}
+
 .st-dock-note {
   display: flex;
   align-items: center;
@@ -792,19 +828,15 @@
   }
 }
 
-/* No keyboard on a touch screen: the key hints go. A one-line segment is still a full finger's height. */
+/* A one-line segment is still a full finger's height. */
 @media (pointer: coarse) {
-  .st-dock .kbd {
-    display: none;
-  }
   .st-seg-hit {
     min-height: var(--control-lg);
   }
 }
 
-/* The group strip: each group a run of slide thumbs under one quiet row (who records it, ✓ and the take's length
-   once kept, the upload while it goes). Space separates the groups; an ink outline marks the group on stage and an
-   indigo ring the slide on stage. */
+/* The group strip: each group a run of slide thumbs under one quiet row (who records it, Saving… while a kept take
+   goes up, then ✓ and its length). Space separates the groups; the one marker is the indigo ring on the slide on stage. */
 
 .st-strip {
   grid-area: strip;
@@ -841,6 +873,11 @@
   color: var(--ink-4);
 }
 
+.st-strip .st-strip-who.btn[aria-expanded="true"] {
+  background: none;
+  color: var(--ink);
+}
+
 .st-strip-who svg {
   color: var(--green);
   animation: st-tick var(--dur-sheet) var(--ease);
@@ -864,14 +901,6 @@
 .st-strip-slides {
   display: flex;
   gap: var(--space-8);
-  border-radius: var(--radius-card);
-  outline: 1.5px solid transparent;
-  outline-offset: 5px;
-  transition: outline-color var(--dur-control) var(--ease);
-}
-
-.st-strip-g.is-current .st-strip-slides {
-  outline-color: var(--ink);
 }
 
 .st-thumb {
@@ -1058,8 +1087,9 @@
   .st-script-col {
     display: contents;
   }
+  /* The title keeps a few letters (then an ellipsis) before the cameras start to scroll. */
   .st-top {
-    grid-template-columns: minmax(0, 1fr) minmax(0, max-content) max-content;
+    grid-template-columns: minmax(96px, 1fr) minmax(0, max-content) max-content;
     column-gap: var(--space-8);
     height: 56px;
     padding: 0 var(--space-8) 0 var(--space-16);
@@ -1072,6 +1102,11 @@
     width: 32px;
     aspect-ratio: 1;
     border-radius: var(--radius-full);
+  }
+  .st-cams .st-tile-face {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 0;
   }
   .st-tile figcaption,
   .st-tile-mic,
@@ -1098,7 +1133,7 @@
   .st-script {
     grid-area: script;
     margin: 0;
-    padding: 0 var(--space-4) var(--space-16);
+    padding: var(--space-8) var(--space-4) var(--space-16);
   }
   .st-strip {
     gap: var(--space-24);
@@ -1114,8 +1149,6 @@
   }
   .st-strip-slides {
     gap: var(--space-4);
-    border-radius: var(--radius-control);
-    outline-offset: 4px;
   }
   .st-strip-g {
     gap: var(--space-8);

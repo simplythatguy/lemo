@@ -18,7 +18,6 @@
   --primary-hover: #2a2a31;
   --on-dark: #ffffff;
   --on-dark-2: rgba(255, 255, 255, 0.72);
-  --on-dark-line: rgba(255, 255, 255, 0.28);
   --shade: rgba(18, 18, 23, 0.5);
   --shade-hover: rgba(18, 18, 23, 0.7);
   --scrim: rgba(18, 18, 23, 0.32);
@@ -33,7 +32,6 @@
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%237d7c82' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
   --font: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --mono: ui-monospace, "SF Mono", monospace;
   --text-12: 12px;
   --text-13: 13px;
   --text-14: 14px;
@@ -99,8 +97,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.is-quiet.is-sm { padding: 0 var(--space-8); }
 .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 
-.kbd { min-width: 20px; padding: var(--space-4); border-radius: var(--radius-tag); border: 1px solid var(--line-2); font: var(--weight-label) var(--text-12)/1 var(--mono); color: var(--ink-3); }
-.btn.is-primary .kbd { border-color: var(--on-dark-line); color: var(--on-dark-2); }
+/* A key hint on a desktop button: the key's name, small and faded. Touch screens have no keys. */
+.kbd { font: var(--weight-label) var(--text-12)/1 var(--font); color: var(--ink-4); }
+.btn.is-primary .kbd { color: var(--on-dark-2); }
+@media (pointer: coarse) { .kbd { display: none; } }
 
 /* Icon-only: transparent, square, always an aria-label and a data-tip. */
 .icon-btn {
