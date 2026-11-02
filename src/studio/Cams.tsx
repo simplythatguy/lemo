@@ -43,18 +43,18 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
 
   // Someone who leaves fades out where they were while the others close the gap.
   const [leaving, setLeaving] = useState<Person[]>([]);
-  const [before, setBefore] = useState(people);
-  if (before !== people) {
-    setBefore(people);
-    const gone = before.filter((p) => !people.some((q) => q.id === p.id));
+  const [known, setKnown] = useState(people);
+  if (known !== people) {
+    setKnown(people);
+    const gone = known.filter((p) => !people.some((q) => q.id === p.id));
     if (gone.length) setLeaving((l) => [...l, ...gone]);
   }
   const fading = leaving.filter((p) => !people.some((q) => q.id === p.id));
 
   // Where every tile and button was painted before the team changed, so they glide to their new places.
   const lineup = order.map((p) => p.id).join();
-  const glide = useRef<{ team: string; from: Map<string, DOMRect> | null }>({ team: lineup, from: null });
-  if (lineup !== glide.current.team && !glide.current.from && row.current) glide.current.from = placesIn(row.current);
+  const glide = useRef<{ lineup: string; from: Map<string, DOMRect> | null }>({ lineup, from: null });
+  if (lineup !== glide.current.lineup && !glide.current.from && row.current) glide.current.from = placesIn(row.current);
 
   // The row asks for the width of every tile; the top bar grants what it can spare, and the tiles that fit show.
   // Hidden tiles stay mounted: their sound keeps playing and the stage can still follow their camera.
@@ -88,9 +88,9 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
     // A first pass with a stale fit is never painted: glide from what was, once the row has settled.
     if (measure() !== room) return;
     const g = glide.current;
-    if (g.team === lineup) return;
+    if (g.lineup === lineup) return;
     const from = g.from;
-    glide.current = { team: lineup, from: null };
+    glide.current = { lineup, from: null };
     if (!from) return;
     const box = el.getBoundingClientRect();
     const unseen: string[] = [];

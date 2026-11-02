@@ -111,7 +111,7 @@ export function Menu({ label, anchor, role = "menu", above = false, onClose, chi
 }) {
   // What it showed when it was last open, so the exit has something to fade.
   const last = useRef<{ anchor: HTMLElement; children: React.ReactNode } | null>(null);
-  const [, exited] = useState(0);
+  const [, rerender] = useState(0);
   if (anchor) last.current = { anchor, children };
   const shown = last.current;
   if (!shown) return null;
@@ -125,7 +125,7 @@ export function Menu({ label, anchor, role = "menu", above = false, onClose, chi
       onClose={onClose}
       onExited={() => {
         last.current = null;
-        exited((n) => n + 1);
+        rerender((n) => n + 1);
       }}
     >
       {shown.children}
@@ -169,19 +169,18 @@ function MenuSurface({ label, role, anchor, above, closing, onClose, onExited, c
   useEffect(() => {
     if (closing) return;
     ref.current?.querySelector<HTMLElement>("[aria-checked=true], button:not(:disabled), a")?.focus({ preventScroll: true });
-    let swallow: ((e: MouseEvent) => void) | null = null;
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
       if (ref.current?.contains(t) || anchor.contains(t)) return;
       // Not the focus move, and not the click that follows: on a phone that tap would also change the slide under it.
       e.preventDefault();
-      swallow = (c) => {
+      const swallow = (c: MouseEvent) => {
         c.preventDefault();
         c.stopPropagation();
       };
       window.addEventListener("click", swallow, { capture: true, once: true });
       // A tap that turns into a scroll sends no click.
-      window.setTimeout(() => swallow && window.removeEventListener("click", swallow, true), 600);
+      window.setTimeout(() => window.removeEventListener("click", swallow, true), 600);
       close.current();
     };
     const key = (e: KeyboardEvent) => {
