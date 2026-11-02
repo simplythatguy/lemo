@@ -69,13 +69,13 @@
   color: var(--ink-4);
 }
 
-/* Under the field, so the header line never moves. */
+/* Under the field, inside the space the header always keeps below it, so nothing moves and it never meets the grid. */
 .hm-join-error {
   position: absolute;
-  top: calc(100% + var(--space-8));
+  top: calc(100% + var(--space-4));
   right: 0;
   margin: 0;
-  font-size: var(--text-13);
+  font: var(--weight-body) var(--text-13)/1 var(--font);
   white-space: nowrap;
   color: var(--red-ink);
 }
@@ -140,7 +140,11 @@ a.hm-card:active .hm-cover {
 }
 
 .hm-cover.slot {
-  background: var(--hover);
+  background: var(--bg);
+}
+
+.hm-cover.slot::after {
+  box-shadow: none;
 }
 
 .hm-name,
@@ -197,7 +201,6 @@ a.hm-card:active .hm-cover {
   }
   .hm-top {
     gap: var(--space-12);
-    margin-bottom: var(--space-24);
   }
   .hm-join input {
     width: 76px;
