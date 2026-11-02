@@ -418,13 +418,12 @@
   container-type: size;
 }
 
-/* Where the width caps the stage short of the row's height (1024x768), the script column still gets room to read: it
-   reaches below the stage, which then starts level with the group's title. */
+/* The pair shares one top and one bottom edge: the script column is exactly as tall as the stage, and its words
+   scroll when the width keeps the stage short (1024x768). */
 .st-desk {
   display: grid;
   grid-template-columns: min(100cqw - clamp(288px, 28vw, 440px) - var(--space-32), 100cqh * 16 / 9) clamp(288px, 28vw, 440px);
   align-items: start;
-  min-height: min(100cqh, 480px);
   column-gap: var(--space-32);
 }
 
@@ -863,6 +862,17 @@
   margin-left: calc(var(--space-12) * -1);
 }
 
+/* Controls pulled into line with the column's edge show hover in ink: a fill would reach past that edge. */
+@media (hover: hover) {
+  .st-dock-acts > .btn.is-quiet:first-child:not(:disabled):hover,
+  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet:not(:disabled):hover,
+  .st-dock-side .icon-btn:not(:disabled):hover,
+  .st-script-head .st-script-edit:not(:disabled):hover {
+    background: none;
+    color: var(--ink);
+  }
+}
+
 /* The next group to record, after a take is kept: its name gives way before the arrow does. */
 .st-dock-next {
   min-width: 0;
@@ -949,6 +959,11 @@
 
 .st-strip.is-locked {
   opacity: 0.5;
+}
+
+/* Making the video is the one job on screen: the speakers and slides wait until it closes. */
+.st-room.is-rendering .st-strip {
+  display: none;
 }
 
 .st-strip-g {
@@ -1261,8 +1276,8 @@
     padding: 0;
   }
   .st-room.is-rendering {
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas: "top top top" ". body ." "strip strip strip";
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "top top top" ". body .";
   }
   .st-body,
   .st-desk,
@@ -1314,10 +1329,12 @@
     margin: 0;
     padding: var(--space-16) var(--space-16) var(--space-4);
   }
+  /* Its last line fades out above the strip, never cut by the strip's edge. */
   .st-script {
     grid-area: script;
     margin: 0;
-    padding: var(--space-8) var(--space-4) var(--space-16);
+    padding: var(--space-8) var(--space-4) var(--space-48);
+    mask-image: linear-gradient(black calc(100% - var(--space-48)), transparent calc(100% - var(--space-8)));
   }
   .st-strip {
     gap: var(--space-24);
