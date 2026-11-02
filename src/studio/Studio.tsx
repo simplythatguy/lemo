@@ -7,6 +7,7 @@ import { Brand, CameraToggle, CopyLink, editLink, initials, ProjectMark } from "
 import { listDevices, liveVideo, openCamera, stopStream } from "./recorder";
 import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, saveSeat, useRoom, type Seat } from "./room";
 import { Room } from "./RoomView";
+import { preload } from "./stage";
 import type { Deck } from "./types";
 import "./studio.css";
 import "./join.css";
@@ -74,6 +75,10 @@ export function Studio({ code }: { code: string }) {
   useEffect(() => {
     if (loaded) rememberRoom(code);
   }, [code, loaded]);
+  // While the join screen shows, so the room's stage has its fonts and slides by the time it opens.
+  useEffect(() => {
+    if (deck) void preload(deck).catch(() => undefined);
+  }, [deck]);
 
   const updateSeat = useCallback((patch: Partial<Seat>) => {
     setSeat((s) => {

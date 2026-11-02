@@ -123,11 +123,13 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
 
 function Thumb({ deck, group, slide }: { deck: Deck; group: number; slide: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const [painted, setPainted] = useState(false);
   useEffect(() => {
     const c = canvas.current!;
     c.width = 256;
     c.height = 144;
-    void renderThumb(c, deck, group, slide).catch(() => undefined);
+    void renderThumb(c, deck, group, slide).then(() => setPainted(true), () => undefined);
   }, [deck, group, slide]);
-  return <canvas ref={canvas} aria-hidden="true" />;
+  // The first paint fades in rather than popping into an empty frame.
+  return <canvas ref={canvas} className={painted ? "is-painted" : undefined} aria-hidden="true" />;
 }

@@ -1,6 +1,6 @@
 // The room: cameras along the top; the stage beside the group's script, whose dock (time, actions, slide nav) ends level
 // with the stage; every slide along the bottom. On a phone the same parts stack, with the dock pinned to the bottom.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../icons";
 import { startRecording, type Recording } from "./recorder";
@@ -159,6 +159,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const recording = phase.k === "recording" || !!follow;
   const stacked = useMedia(STACKED);
   const [dockSlot, setDockSlot] = useState<HTMLDivElement | null>(null);
+  const { canvas, stage } = useStage(deck, !rendering);
 
   return (
     <div className={`st-room${rendering ? " is-rendering" : ""}${busy(phase) ? " is-busy" : ""}`}>
@@ -245,6 +246,8 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           room={room}
           me={me}
           camera={camera}
+          canvas={canvas}
+          stage={stage}
           dock={dock}
           phase={phase}
           setPhase={setPhase}
@@ -389,38 +392,45 @@ function More({ code, locked, make, blocked, total, onMake, team, mutedAll, onMu
   );
 }
 
-/** The canvas the stage paints. `onStage` hands the live Stage to the parent. */
-export function StageCanvas({ deck, onStage, children }: { deck: Deck; onStage(stage: Stage | null): void; children?: React.ReactNode }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
+/** The stage and the canvas it paints, which outlive the booth (it remounts for every group), so switching groups,
+    or a followed take ending, never shows a blank frame. Painting stops while `on` is false (the render has its own). */
+function useStage(deck: Deck, on: boolean) {
+  const [canvas] = useState(() => Object.assign(document.createElement("canvas"), { width: 1920, height: 1080 }));
+  const [stage, setStage] = useState<Stage | null>(null);
   // Rebuilt only when what it paints changes: a transcript edit leaves the stage (and the take on it) alone.
   const key = stageKey(deck);
   const latest = useRef(deck);
   latest.current = deck;
-  useEffect(() => {
-    const c = canvas.current!;
-    c.width = 1920;
-    c.height = 1080;
-    const stage = createStage(c, latest.current);
-    onStage(stage);
+  useLayoutEffect(() => {
+    if (!on) return;
+    const s = createStage(canvas, latest.current);
+    setStage(s);
     return () => {
-      onStage(null);
-      stage.destroy();
+      setStage(null);
+      s.destroy();
     };
-  }, [key, onStage]);
+  }, [canvas, key, on]);
+  return { canvas, stage };
+}
+
+/** The stage's frame: it takes the room's one canvas in. */
+function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children?: React.ReactNode }) {
+  const hold = useCallback((el: HTMLDivElement | null) => el?.prepend(canvas), [canvas]);
   return (
-    <div className="st-stage">
-      <canvas ref={canvas} />
+    <div ref={hold} className="st-stage">
       {children}
     </div>
   );
 }
 
-function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
   me: Person;
   camera: Camera;
+  canvas: HTMLCanvasElement;
+  stage: Stage | null;
   dock: Dock;
   phase: Phase;
   setPhase(p: Phase): void;
@@ -456,7 +466,6 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
   const planned = targetMs({ ...group, script: script.draft });
   const target = phase.k === "recording" ? phase.target : planned;
   const last = group.slides.length - 1;
-  const [stage, setStage] = useState<Stage | null>(null);
   const [replaySlide, setReplaySlide] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const rec = useRef<Recording | null>(null);
@@ -534,7 +543,8 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
     if (gesture === camGesture.current) setCamDraft(null);
   }, [apply, room.code]);
   const placed = useRef(false);
-  useEffect(() => {
+  // Before the first paint, so a new booth never shows an empty stage.
+  useLayoutEffect(() => {
     if (!stage || phase.k !== "idle") return;
     stage.show(index, idleSlide, { instant: !following || !placed.current });
     placed.current = true;
@@ -656,11 +666,14 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
       setRefused(false);
       cancelAnimationFrame(raf);
       v.pause();
-      v.removeAttribute("src");
-      v.load();
-      URL.revokeObjectURL(url);
       replay.current = null;
+      // The take's last frame stays under the live camera while that fades in, so the tile never shows empty.
       stage.setCamera(camera.live, initials(me.name));
+      window.setTimeout(() => {
+        v.removeAttribute("src");
+        v.load();
+        URL.revokeObjectURL(url);
+      }, 1000);
     };
   }, [media, stage, index, camera.live, me.name]);
 
@@ -867,7 +880,7 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
     <main className="st-body">
       <div className="st-desk">
         <div className="st-stage-cell">
-          <StageCanvas deck={deck} onStage={setStage}>
+          <StageCanvas canvas={canvas}>
             {canEdit && stage && <CameraFrame box={camBox} onChange={moveCam} onCommit={placeCam} />}
             {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
             {refused && <StartButton onStart={again} />}
