@@ -171,6 +171,24 @@
   transition-duration: var(--dur-sheet);
 }
 
+/* Blocked, the name and icon fade as any unavailable control does, and what blocks it stays readable beside them. */
+.st-make[aria-disabled="true"],
+.st-menu-item[aria-disabled="true"] {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.st-make[aria-disabled="true"] > :not(.st-make-n),
+.st-menu-item[aria-disabled="true"] > :not(.st-menu-value) {
+  opacity: 0.4;
+}
+
+.st-make-n {
+  font-weight: var(--weight-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
 /* Cameras */
 
 /* Its width (every tile's) is set by Cams.tsx; the top bar may grant less, and then only the tiles that fit show. */
@@ -810,6 +828,14 @@
   color: var(--ink-3);
 }
 
+/* Beside Make the video on a phone it keeps to one line. */
+.st-dock-note:not(.is-live) {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .st-dock-note.is-live {
   font-weight: var(--weight-label);
   color: var(--ink);
@@ -999,7 +1025,7 @@
   cursor: not-allowed;
 }
 
-.st-menu-item:not(:disabled):hover,
+.st-menu-item:not(:disabled, [aria-disabled="true"]):hover,
 .st-menu .st-menu-item:focus-visible {
   background: var(--hover);
   outline: none;

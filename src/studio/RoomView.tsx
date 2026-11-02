@@ -145,7 +145,12 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   });
 
   const allIn = missing.length === 0 && saving.size === 0;
+  const toRecord = deck.groups.filter((g) => !room.takes[g.id] && !saving.has(g.id) && progress[g.id] === undefined).length;
+  /** Why Make the video cannot run yet, on the button itself. */
+  const blocked = toRecord ? `${toRecord} to record` : allIn ? null : "Saving…";
   const makeLeads = allIn && !rendering && !leadsTheRoom(dock) && !busy(phase);
+  /** On a phone Make the video, once it leads, is the dock's button rather than a line in More. */
+  const makeInDock = makeLeads && dock !== "watching";
   const makeVideo = () => {
     if (allIn && !busy(phase)) setRendering(true);
   };
@@ -192,18 +197,20 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
               type="button"
               className={`btn st-make is-wide ${makeLeads ? "is-primary" : "is-quiet"}`}
               aria-disabled={!allIn || busy(phase) || undefined}
-              aria-label="Make the video"
+              aria-label={blocked ? `Make the video, ${blocked}` : "Make the video"}
               data-tip={allIn ? `Planned ${clock(total)}` : `Missing ${missing.map((g) => g.name).join(", ")} · planned ${clock(total)}`}
               onClick={makeVideo}
             >
               <Icon name="film" size={16} />
-              Make the video
+              <span>Make the video</span>
+              {blocked && <span className="st-make-n">{blocked}</span>}
             </button>
           )}
           <More
             code={room.code}
             locked={busy(phase)}
-            canMake={!rendering && allIn && !busy(phase)}
+            make={rendering || makeInDock ? "none" : allIn && !busy(phase) ? "ready" : "blocked"}
+            blocked={blocked}
             total={total}
             onMake={makeVideo}
             team={room.people.length > 1}
@@ -238,6 +245,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           editing={editing}
           setEditing={setEditing}
           makeLeads={makeLeads}
+          makeInDock={makeInDock}
           onMake={makeVideo}
           onKept={markKept}
           apply={apply}
@@ -267,11 +275,13 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
 
 /** On a phone the top bar keeps the mark, the title, the cameras and Saved; the room's other controls wait in here.
     Your camera and Leave are in the People list, which any circle opens. */
-function More({ code, locked, canMake, total, onMake, team, mutedAll, onMuteAll }: {
+function More({ code, locked, make, blocked, total, onMake, team, mutedAll, onMuteAll }: {
   code: string;
   /** A take is running here: nothing that would end it or move away from it. */
   locked: boolean;
-  canMake: boolean;
+  /** Make the video's line: not here (rendering, or the dock has it), ready, or blocked by `blocked`. */
+  make: "none" | "ready" | "blocked";
+  blocked: string | null;
   total: number;
   onMake(): void;
   team: boolean;
@@ -322,11 +332,19 @@ function More({ code, locked, canMake, total, onMake, team, mutedAll, onMuteAll 
               <span className="st-menu-name">Edit slides</span>
             </a>
           )}
-          <button type="button" role="menuitem" className="st-menu-item" disabled={!canMake} onClick={act(onMake)}>
-            <Icon name="film" size={16} />
-            <span className="st-menu-name">Make the video</span>
-            <span className="st-menu-value">{clock(total)}</span>
-          </button>
+          {make !== "none" && (
+            <button
+              type="button"
+              role="menuitem"
+              className="st-menu-item"
+              aria-disabled={make === "blocked" || undefined}
+              onClick={make === "ready" ? act(onMake) : undefined}
+            >
+              <Icon name="film" size={16} />
+              <span className="st-menu-name">Make the video</span>
+              <span className="st-menu-value">{blocked ? `${blocked} · ${clock(total)}` : clock(total)}</span>
+            </button>
+          )}
           {team && (
             <button type="button" role="menuitem" className="st-menu-item" onClick={act(() => onMuteAll(!mutedAll))}>
               <Icon name={mutedAll ? "speaker" : "speaker-off"} size={16} />
@@ -365,7 +383,7 @@ export function StageCanvas({ deck, onStage, children }: { deck: Deck; onStage(s
   );
 }
 
-function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, makeLeads, onMake, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, makeLeads, makeInDock, onMake, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -387,8 +405,10 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
   /** The transcript is open for editing (kept across groups). */
   editing: boolean;
   setEditing(on: boolean): void;
-  /** Make the video is the room's one primary: on a phone it sits in the dock. */
+  /** Make the video is the room's one primary (in the top bar on a wide screen)... */
   makeLeads: boolean;
+  /** ...and on a phone it sits first in the dock. */
+  makeInDock: boolean;
   onMake(): void;
   /** My take of this group is safe on this device and on its way to the room. */
   onKept(groupId: string): void;
@@ -783,22 +803,20 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
               <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, fill))})` }} />
             </div>
             <div className="st-dock-acts">
+              {makeInDock && (
+                <button type="button" className="btn is-primary is-lg is-narrow st-dock-make" onClick={onMake}>
+                  <Icon name="film" size={16} />Make the video
+                </button>
+              )}
               {dock === "record" && (
                 <button type="button" className="btn is-primary is-lg st-rec" onClick={start} disabled={!canRecord}>
                   <span className="st-dot" />Record{recordKey}
                 </button>
               )}
               {dock === "retake" && (
-                <>
-                  {makeLeads && (
-                    <button type="button" className="btn is-primary is-lg is-narrow st-dock-make" onClick={onMake}>
-                      <Icon name="film" size={16} />Make the video
-                    </button>
-                  )}
-                  <button type="button" className="btn is-quiet is-lg" onClick={start} disabled={!canRecord}>
-                    <Icon name="restart" size={16} />Retake{recordKey}
-                  </button>
-                </>
+                <button type="button" className="btn is-quiet is-lg" onClick={start} disabled={!canRecord}>
+                  <Icon name="restart" size={16} />Retake{recordKey}
+                </button>
               )}
               {dock === "camera-off" && (
                 <button type="button" className="btn is-primary is-lg" onClick={() => camera.turn(true)}>
@@ -811,8 +829,9 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
                 </button>
               )}
               {dock === "theirs" && <span className="st-dock-note">{firstName(assignee!.name)} records this</span>}
+              {/* The one thing to do here, unless Make the video leads the room. */}
               {dock === "nobody" && (
-                <button type="button" className="btn is-quiet is-lg" onClick={() => onAssign(me.id)}>Assign to me</button>
+                <button type="button" className={`btn is-lg ${makeLeads ? "is-quiet" : "is-primary"}`} onClick={() => onAssign(me.id)}>Assign to me</button>
               )}
               {dock === "watching" && (
                 <span className="st-dock-note is-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Someone"} is recording</span>
@@ -822,8 +841,9 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
                   <Icon name="x" size={16} />Cancel<kbd className="kbd">Esc</kbd>
                 </button>
               )}
+              {/* Stop takes Record's place and its fill: the one thing to do while the clock runs. */}
               {dock === "recording" && (
-                <button type="button" className="btn is-quiet is-lg" onClick={() => void finish(false)} aria-label="Stop">
+                <button type="button" className="btn is-primary is-lg" onClick={() => void finish(false)} aria-label="Stop">
                   <span className="st-square" />Stop<kbd className="kbd">Enter</kbd>
                 </button>
               )}
