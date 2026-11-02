@@ -24,7 +24,7 @@ export function CameraToggle({ camera, className, size, disabled }: { camera: Ca
       disabled={disabled}
       aria-pressed={!camera.on}
       aria-label={camera.on ? "Turn camera off" : "Turn camera on"}
-      data-tip={camera.on ? "Camera off" : "Camera on"}
+      data-tip={camera.on ? "Turn camera off" : "Turn camera on"}
       onClick={() => camera.turn(!camera.on)}
     >
       <Icon name={camera.on ? "camera" : "camera-off"} size={size} />

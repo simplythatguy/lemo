@@ -15,6 +15,8 @@ export const C = {
   tint: "rgba(82,102,235,0.08)",
   /** The camera tile before (or without) a picture. */
   camera: "#F0F1F5",
+  /** A camera that is off: the app's ink, the presenter's initials in white. Never recorded (a take needs the camera). */
+  cameraOff: "#121217",
 } as const;
 
 export const FAMILY = "'Inter Variable', Inter, system-ui, sans-serif";
