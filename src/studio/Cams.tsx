@@ -1,11 +1,12 @@
-// Everyone's camera along the top. The team hears everyone; only the presenter's mic goes into the video,
-// which the mic icon shows (live for the presenter, slashed for everyone else).
+// Everyone's camera along the top (small circles on a phone). The team hears everyone; only the presenter's mic goes
+// into the video, which the mic icon shows (live for the presenter, slashed for everyone else). A red ring marks
+// whoever is recording right now.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { CameraToggle, firstName, initials, type Camera } from "./parts";
 import type { Person } from "./types";
 
-export function Cams({ people, me, camera, streams, failed, camOff, presenter, mutedAll, locked, onMuteAll, onRemove, onVideo }: {
+export function Cams({ people, me, camera, streams, failed, camOff, presenter, recording, mutedAll, locked, onMuteAll, onRemove, onVideo }: {
   people: Person[];
   me: Person;
   camera: Camera;
@@ -14,6 +15,8 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, m
   /** Teammates who turned their camera off: their stream still has a video track, with no picture coming. */
   camOff: Record<string, boolean>;
   presenter: string | null;
+  /** The presenter is recording now (here or followed from a teammate). */
+  recording: boolean;
   mutedAll: boolean;
   locked: boolean;
   onMuteAll(muted: boolean): void;
@@ -35,6 +38,7 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, m
             off={mine ? !camera.on : !!camOff[p.id]}
             failed={!mine && !!failed[p.id]}
             presenting={p.id === presenter}
+            recording={recording && p.id === presenter}
             audible={!mine && !mutedAll}
             locked={locked}
             onRemove={() => onRemove(p.id)}
@@ -58,7 +62,7 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, m
   );
 }
 
-function Tile({ person, mine, camera, stream, off, failed, presenting, audible, locked, onRemove, onVideo }: {
+function Tile({ person, mine, camera, stream, off, failed, presenting, recording, audible, locked, onRemove, onVideo }: {
   person: Person;
   mine: boolean;
   /** This device's camera, on my own tile only. */
@@ -67,6 +71,7 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, audible, 
   off: boolean;
   failed: boolean;
   presenting: boolean;
+  recording: boolean;
   audible: boolean;
   locked: boolean;
   onRemove(): void;
@@ -106,7 +111,7 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, audible, 
   const picture = usePicture(video, stream) && !off;
 
   return (
-    <figure className={`st-tile${presenting ? " is-on" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}`}>
+    <figure className={`st-tile${recording ? " is-live" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}`}>
       <video ref={video} autoPlay playsInline muted />
       <audio ref={sound} autoPlay />
       {!picture && <span className="st-tile-face" aria-hidden="true">{initials(person.name)}</span>}

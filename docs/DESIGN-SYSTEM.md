@@ -34,7 +34,7 @@
 - `--ink` is body text (Lc 105 on white). `--ink-2` is secondary text (Lc 88). `--ink-3` is tertiary text (Lc 77). `--ink-4` is quiet metadata and placeholders (Lc 68 on white, at least Lc 60 on `--fill` and `--hover`). [15]
 - Never use a text colour below Lc 75 for paragraphs, or below Lc 60 for anything people must read. [15]
 - `--primary` (ink) fills the one primary button on a screen. Text on it is `--on-dark`. [13]
-- `--accent` (indigo) marks only the Lemo mark, the focus ring and where you are: the current step, the live mic, and where a dragged thing will land. The slide on stage keeps an ink ring, because group rings already use colour.
+- `--accent` (indigo) marks only the Lemo mark, the focus ring and where you are: the current step, the live mic, and where a dragged thing will land. The slide on stage gets the indigo ring; groups are told apart by spacing, not colour.
 - `--red` and `--red-ink` mean recording or an error that blocks. Use `--red-ink` for red text.
 - `--green` means recorded.
 - `--line` and `--line-2` are hairlines. `--fill`, `--fill-hover` and `--hover` are the only tinted surfaces.
@@ -63,6 +63,7 @@
 - Use `icon-btn` for icon-only controls. They are transparent, 36px square (32px with `is-sm`), and show a fill on hover.
 - There are three sizes: `is-lg` (44), default (36) and `is-sm` (32). Buttons, icon buttons and fields of the same size are the same height, so a row of controls shares one centre line.
 - Show a disabled control as a faded version of its own colour. `base.css` handles this, so never restyle `:disabled`.
+- A button that must still explain itself while unavailable (its tooltip says why) uses `aria-disabled="true"` instead of `disabled`, and its handler returns early. It fades the same way.
 
 ## Tooltips
 

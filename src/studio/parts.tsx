@@ -1,5 +1,5 @@
 // Small pieces shared by the studio screens.
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon, type IconSize } from "../icons";
 
 export interface Camera {
@@ -96,4 +96,52 @@ export function ProjectMark({ title, logo, size = 28 }: { title: string; logo?: 
   ) : (
     <span className="st-pmark is-letter" style={{ width: size, height: size, fontSize: size * 0.5 }} aria-hidden="true">{letter}</span>
   );
+}
+
+/** A menu hung off `anchor`, opening above or below it and kept on screen. Focus moves in; Escape or a click elsewhere closes it. */
+export function Menu({ label, anchor, above = false, onClose, children }: {
+  label: string;
+  anchor: HTMLElement;
+  above?: boolean;
+  onClose(): void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useLayoutEffect(() => {
+    const el = ref.current!;
+    const place = () => {
+      const a = anchor.getBoundingClientRect();
+      const m = el.getBoundingClientRect();
+      el.style.left = `${Math.min(Math.max(a.left, 8), innerWidth - 8 - m.width)}px`;
+      el.style.top = `${above ? a.top - 8 - m.height : a.bottom + 8}px`;
+    };
+    place();
+    addEventListener("scroll", place, true);
+    addEventListener("resize", place);
+    return () => {
+      removeEventListener("scroll", place, true);
+      removeEventListener("resize", place);
+    };
+  }, [anchor, above]);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>("[aria-checked=true], button:not(:disabled), a")?.focus({ preventScroll: true });
+    const down = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !anchor.contains(t)) close.current();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      close.current();
+    };
+    window.addEventListener("pointerdown", down);
+    window.addEventListener("keydown", key, true);
+    return () => {
+      window.removeEventListener("pointerdown", down);
+      window.removeEventListener("keydown", key, true);
+    };
+  }, [anchor]);
+  return <div ref={ref} className="st-menu" role="menu" aria-label={label}>{children}</div>;
 }
