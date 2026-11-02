@@ -1,7 +1,9 @@
-// Everyone's camera along the top (small circles on a phone). The team hears everyone; only the presenter's mic goes
-// into the video, which the mic icon shows (live for the presenter, slashed for everyone else). A red ring marks
-// whoever is recording right now. On a phone the circles have no room for tools: tapping a teammate's opens a menu.
-import { useEffect, useRef, useState } from "react";
+// Everyone's camera along the top (small circles on a phone): your own first, then as many as fit, then a quiet "+N"
+// that opens the People list, where everyone is (their camera, Remove, and for you the camera switch and Leave).
+// The team hears everyone; only the presenter's mic goes into the video, which the mic icon shows (live for the
+// presenter, slashed for everyone else). A red ring marks whoever is recording right now. On a phone the circles
+// have no room for tools: tapping one opens the People list.
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { CameraToggle, firstName, initials, Menu, type Camera } from "./parts";
 import type { Person } from "./types";
@@ -24,34 +26,93 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
   /** Each remote camera's element, so the stage can show the presenter while following their take. */
   onVideo(id: string, el: HTMLVideoElement | null): void;
 }) {
-  const [menu, setMenu] = useState<{ person: Person; anchor: HTMLElement } | null>(null);
-  useEffect(() => {
-    if (locked) setMenu(null);
-  }, [locked]);
+  const row = useRef<HTMLDivElement>(null);
+  const [list, setList] = useState<HTMLElement | null>(null);
+  /** The row's width with every tile in it, and how many tiles fit in the width the top bar gives it. */
+  const [size, setSize] = useState<{ width: number; fit: number } | null>(null);
+  const team = people.length > 1;
+  const mine = people.find((p) => p.id === me.id);
+  const order = mine ? [mine, ...people.filter((p) => p !== mine)] : people;
+  const fit = Math.min(order.length, size?.fit ?? order.length);
+  const shown = new Set(order.slice(0, fit).map((p) => p.id));
+  // Whoever presents stays in view, so the red ring is never behind the "+N".
+  if (presenter && !shown.has(presenter) && fit > 1) {
+    shown.delete(order[fit - 1].id);
+    shown.add(presenter);
+  }
+  const more = order.length - fit;
+
+  // The row asks for the width of every tile; the top bar grants what it can spare, and the tiles that fit show.
+  // Hidden tiles stay mounted: their sound keeps playing and the stage can still follow their camera.
+  useLayoutEffect(() => {
+    const el = row.current!;
+    const measure = () => {
+      const s = getComputedStyle(el);
+      const tile = el.querySelector<HTMLElement>(".st-tile:not([hidden])")?.offsetWidth ?? 0;
+      const gap = parseFloat(s.columnGap) || 0;
+      const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);
+      const sound = el.querySelector<HTMLElement>(".st-cams-sound")?.offsetWidth ?? 0;
+      const plus = el.querySelector<HTMLElement>(".st-cams-more")?.offsetWidth || tile;
+      const extra = sound ? sound + gap : 0;
+      const all = people.length * tile + (people.length - 1) * gap;
+      const room = el.clientWidth - pad - extra;
+      const next = {
+        width: Math.ceil(pad + all + extra),
+        fit: all <= room + 0.5 ? people.length : Math.max(1, Math.floor((room - plus) / (tile + gap))),
+      };
+      setSize((cur) => (cur?.width === next.width && cur.fit === next.fit ? cur : next));
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    watch.observe(el.parentElement!);
+    return () => watch.disconnect();
+  }, [people.length, more > 0]);
+
+  // The list closes with the "+N" or circle it hangs from (everyone fits again, or that person left).
+  useLayoutEffect(() => {
+    if (list && !list.getClientRects().length) setList(null);
+  });
+
+  const open = (anchor: HTMLElement) => setList((a) => (a === anchor ? null : anchor));
   return (
-    <div className="st-cams" aria-label="People">
-      {people.map((p) => {
-        const mine = p.id === me.id;
+    <div ref={row} className="st-cams" aria-label="People" style={size ? { width: size.width } : undefined}>
+      {order.map((p) => {
+        const own = p.id === me.id;
         return (
           <Tile
             key={p.id}
             person={p}
-            mine={mine}
-            camera={mine ? camera : undefined}
-            stream={mine ? camera.stream : streams[p.id] ?? null}
-            off={mine ? !camera.on : !!camOff[p.id]}
-            failed={!mine && !!failed[p.id]}
+            mine={own}
+            hidden={!shown.has(p.id)}
+            camera={own ? camera : undefined}
+            stream={own ? camera.stream : streams[p.id] ?? null}
+            off={own ? !camera.on : !!camOff[p.id]}
+            failed={!own && !!failed[p.id]}
             presenting={p.id === presenter}
             recording={recording && p.id === presenter}
-            audible={!mine && !mutedAll}
+            audible={!own && !mutedAll}
             locked={locked}
             onRemove={() => onRemove(p.id)}
-            onMenu={mine ? undefined : (anchor) => setMenu((m) => (m?.anchor === anchor ? null : { person: p, anchor }))}
-            onVideo={mine ? undefined : (el) => onVideo(p.id, el)}
+            onOpen={open}
+            onVideo={own ? undefined : (el) => onVideo(p.id, el)}
           />
         );
       })}
-      {people.length > 1 && (
+      {more > 0 && (
+        <button
+          type="button"
+          className="btn is-quiet st-cams-more"
+          aria-haspopup="dialog"
+          aria-expanded={!!list}
+          aria-label={`+${more}, show everyone`}
+          data-tip="Everyone"
+          onClick={(e) => open(e.currentTarget)}
+        >
+          +{more}
+        </button>
+      )}
+      {team && (
         <button
           type="button"
           className="icon-btn st-cams-sound"
@@ -63,29 +124,52 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
           <Icon name={mutedAll ? "speaker-off" : "speaker"} />
         </button>
       )}
-      {menu && (
-        <Menu label={menu.person.name} anchor={menu.anchor} onClose={() => setMenu(null)}>
-          <button
-            type="button"
-            role="menuitem"
-            className="st-menu-item"
-            onClick={() => {
-              onRemove(menu.person.id);
-              setMenu(null);
-            }}
-          >
-            <Icon name="x" size={16} />
-            <span className="st-menu-name">Remove {firstName(menu.person.name)}</span>
-          </button>
+      {list && (
+        <Menu role="dialog" label="People" anchor={list} onClose={() => setList(null)}>
+          <ul className="st-people">
+            {order.map((p) => {
+              const own = p.id === me.id;
+              return (
+                <li key={p.id} className="st-people-row">
+                  <span className={`st-menu-dot${own ? " is-me" : ""}${recording && p.id === presenter ? " is-live" : ""}`} aria-hidden="true">{initials(p.name)}</span>
+                  <span className="st-menu-name">{own ? `${p.name} (you)` : p.name}</span>
+                  {p.id === presenter && (
+                    <span className="st-people-state is-live" role="img" aria-label="Presenting: this mic is recorded">
+                      <Icon name="mic" size={14} />
+                    </span>
+                  )}
+                  {!own && camOff[p.id] && (
+                    <span className="st-people-state" role="img" aria-label="Camera off">
+                      <Icon name="camera-off" size={14} />
+                    </span>
+                  )}
+                  {!own && failed[p.id] && !streams[p.id] && <span className="st-people-state">No video</span>}
+                  {own && <CameraToggle camera={camera} className="icon-btn is-sm" size={16} disabled={locked} />}
+                  <button
+                    type="button"
+                    className="icon-btn is-sm"
+                    disabled={locked}
+                    aria-label={own ? "Leave the room" : `Remove ${p.name}`}
+                    data-tip={own ? "Leave" : "Remove"}
+                    onClick={() => onRemove(p.id)}
+                  >
+                    <Icon name={own ? "leave" : "x"} size={16} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </Menu>
       )}
     </div>
   );
 }
 
-function Tile({ person, mine, camera, stream, off, failed, presenting, recording, audible, locked, onRemove, onMenu, onVideo }: {
+function Tile({ person, mine, hidden, camera, stream, off, failed, presenting, recording, audible, locked, onRemove, onOpen, onVideo }: {
   person: Person;
   mine: boolean;
+  /** Past the room the top bar has: only in the People list. */
+  hidden: boolean;
   /** This device's camera, on my own tile only. */
   camera?: Camera;
   stream: MediaStream | null;
@@ -96,8 +180,8 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, recording
   audible: boolean;
   locked: boolean;
   onRemove(): void;
-  /** A teammate's tile on a phone: the whole circle opens their menu. */
-  onMenu?: (anchor: HTMLElement) => void;
+  /** On a phone the whole circle opens the People list. */
+  onOpen(anchor: HTMLElement): void;
   onVideo?: (el: HTMLVideoElement | null) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -134,7 +218,7 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, recording
   const picture = usePicture(video, stream) && !off;
 
   return (
-    <figure className={`st-tile${recording ? " is-live" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}`}>
+    <figure hidden={hidden} className={`st-tile${recording ? " is-live" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}`}>
       <video ref={video} autoPlay playsInline muted />
       <audio ref={sound} autoPlay />
       {!picture && <span className="st-tile-face" aria-hidden="true">{initials(person.name)}</span>}
@@ -156,17 +240,14 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, recording
       >
         <Icon name="x" size={12} />
       </button>
-      {onMenu && (
-        <button
-          type="button"
-          className="st-tile-menu is-narrow"
-          disabled={locked}
-          aria-haspopup="menu"
-          aria-label={person.name}
-          data-tip={person.name}
-          onClick={(e) => onMenu(e.currentTarget)}
-        />
-      )}
+      <button
+        type="button"
+        className="st-tile-menu is-narrow"
+        aria-haspopup="dialog"
+        aria-label={person.name}
+        data-tip={person.name}
+        onClick={(e) => onOpen(e.currentTarget)}
+      />
     </figure>
   );
 }

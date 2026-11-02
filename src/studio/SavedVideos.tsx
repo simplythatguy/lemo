@@ -116,14 +116,14 @@ export function SavedVideos({ deck, room, upload }: {
       <button
         ref={trigger}
         type="button"
-        className={`st-saved-btn${open ? " is-open" : ""}`}
+        className={`st-saved-btn${open ? " is-open" : ""}${saved.length ? "" : " is-bare"}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label={`Saved videos, ${saved.length} of ${deck.groups.length}`}
+        aria-label={saved.length ? `Saved videos, ${saved.length} of ${deck.groups.length}` : "Saved videos"}
         data-tip="Saved videos"
       >
         <Icon name="saved" />
-        <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>
+        {saved.length > 0 && <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>}
       </button>
 
       {open && !playable && (

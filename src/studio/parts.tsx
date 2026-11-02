@@ -98,9 +98,10 @@ export function ProjectMark({ title, logo, size = 28 }: { title: string; logo?: 
   );
 }
 
-/** A menu hung off `anchor`, opening above or below it and kept on screen. Focus moves in; Escape or a click elsewhere closes it. */
-export function Menu({ label, anchor, above = false, onClose, children }: {
+/** A menu (or a small list of controls) hung off `anchor`, opening above or below it and kept on screen. Focus moves in; Escape or a click elsewhere closes it. */
+export function Menu({ label, anchor, role = "menu", above = false, onClose, children }: {
   label: string;
+  role?: "menu" | "dialog";
   anchor: HTMLElement;
   above?: boolean;
   onClose(): void;
@@ -143,5 +144,5 @@ export function Menu({ label, anchor, above = false, onClose, children }: {
       window.removeEventListener("keydown", key, true);
     };
   }, [anchor]);
-  return <div ref={ref} className="st-menu" role="menu" aria-label={label}>{children}</div>;
+  return <div ref={ref} className="st-menu" role={role} aria-label={label}>{children}</div>;
 }

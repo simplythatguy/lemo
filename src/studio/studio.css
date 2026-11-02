@@ -107,8 +107,8 @@
   }
 }
 
-/* Top bar: where you are on the left, the cameras centred, the room's controls on the right. The cameras shrink
-   and then scroll; the two sides never get covered, and the title keeps a few words before the cameras give way. */
+/* Top bar: where you are on the left, the cameras centred, the room's controls on the right. The two sides never
+   get covered, and the title keeps a few words before the cameras give way to a "+N". */
 .st-top {
   grid-area: top;
   display: grid;
@@ -171,16 +171,39 @@
   transition-duration: var(--dur-sheet);
 }
 
+/* Blocked, the name and icon fade as any unavailable control does, and what blocks it stays readable beside them. */
+.st-make[aria-disabled="true"],
+.st-menu-item[aria-disabled="true"] {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.st-make[aria-disabled="true"] > :not(.st-make-n),
+.st-menu-item[aria-disabled="true"] > :not(.st-menu-value) {
+  opacity: 0.4;
+}
+
+.st-make-n {
+  font-weight: var(--weight-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
 /* Cameras */
 
+/* Its width (every tile's) is set by Cams.tsx; the top bar may grant less, and then only the tiles that fit show. */
 .st-cams {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-8);
   min-width: 0;
+  max-width: 100%;
   padding: var(--space-8);
-  overflow-x: auto;
-  scrollbar-width: none;
+}
+
+.st-tile[hidden] {
+  display: none;
 }
 
 .st-tile {
@@ -340,6 +363,17 @@
   border-radius: inherit;
   background: none;
   cursor: pointer;
+}
+
+.st-cams .st-cams-more {
+  min-width: var(--control);
+  padding: 0 var(--space-8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Open: ink, not a fill. */
+.st-cams-more[aria-expanded="true"] {
+  color: var(--ink);
 }
 
 .st-cams-sound {
@@ -794,6 +828,14 @@
   color: var(--ink-3);
 }
 
+/* Beside Make the video on a phone it keeps to one line. */
+.st-dock-note:not(.is-live) {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .st-dock-note.is-live {
   font-weight: var(--weight-label);
   color: var(--ink);
@@ -862,7 +904,6 @@
 }
 
 .st-strip-who {
-  order: -1;
   align-self: flex-start;
   gap: var(--space-4);
   margin: 0 0 calc(var(--space-4) * -1) calc(var(--space-8) * -1);
@@ -984,7 +1025,7 @@
   cursor: not-allowed;
 }
 
-.st-menu-item:not(:disabled):hover,
+.st-menu-item:not(:disabled, [aria-disabled="true"]):hover,
 .st-menu .st-menu-item:focus-visible {
   background: var(--hover);
   outline: none;
@@ -1033,10 +1074,55 @@
   color: var(--on-dark);
 }
 
+.st-menu-dot.is-live {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--red);
+}
+
 .st-menu-dot.is-none {
   background: none;
   box-shadow: none;
   border: 1.25px dashed var(--ink-4);
+}
+
+/* The People list: one row per person, their state, and what can be done to them. */
+.st-people {
+  width: 280px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.st-people-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--control-lg);
+  padding: 0 0 0 var(--space-8);
+}
+
+.st-people-row .st-menu-dot {
+  flex: none;
+  margin-right: var(--space-4);
+}
+
+.st-people-row .st-menu-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.st-people-state {
+  display: grid;
+  place-items: center;
+  font-size: var(--text-13);
+  white-space: nowrap;
+  color: var(--ink-4);
+}
+
+.st-people-state.is-live {
+  color: var(--accent);
 }
 
 /* Between wide and stacked (720 to 1100 wide, landscape): the same two columns, a narrower script and a smaller clock. */
@@ -1107,6 +1193,11 @@
     width: 28px;
     height: 28px;
     margin-bottom: 0;
+  }
+  /* Narrow, so one more circle fits at 320; its touch area is still 44px. */
+  .st-cams .st-cams-more {
+    min-width: 0;
+    padding: 0 var(--space-4);
   }
   .st-tile figcaption,
   .st-tile-mic,

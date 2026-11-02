@@ -55,6 +55,22 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           const status = done ? `recorded ${clock(take.durationMs)}` : note?.toLowerCase() ?? "not recorded";
           return (
             <div key={g.id} className="st-strip-g" role="group" aria-label={g.name}>
+              <button
+                type="button"
+                className={`btn is-quiet is-sm st-strip-who${who ? "" : " is-none"}${done ? " is-done" : ""}`}
+                disabled={assignLocked}
+                aria-haspopup="menu"
+                aria-expanded={menu?.group === gi}
+                aria-label={who ? `${g.name}: ${who.name}, ${status}. Change speaker` : `${g.name}: ${status}, choose a speaker`}
+                onClick={(e) => {
+                  const anchor = e.currentTarget;
+                  setMenu((m) => (m?.anchor === anchor ? null : { group: gi, anchor }));
+                }}
+              >
+                {done && <Icon name="check" size={12} />}
+                <span className="st-strip-name">{who ? firstName(who.name) : "Nobody"}</span>
+                {note && <span className="st-strip-n">{note}</span>}
+              </button>
               <div className="st-strip-slides">
                 {g.slides.map((s, si) => {
                   const now = gi === group && si === slide;
@@ -73,23 +89,6 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                   );
                 })}
               </div>
-              {/* After the slides in the DOM, so a group's first button picks its first slide; CSS puts it on top. */}
-              <button
-                type="button"
-                className={`btn is-quiet is-sm st-strip-who${who ? "" : " is-none"}${done ? " is-done" : ""}`}
-                disabled={assignLocked}
-                aria-haspopup="menu"
-                aria-expanded={menu?.group === gi}
-                aria-label={who ? `${g.name}: ${who.name}, ${status}. Change speaker` : `${g.name}: ${status}, choose a speaker`}
-                onClick={(e) => {
-                  const anchor = e.currentTarget;
-                  setMenu((m) => (m?.anchor === anchor ? null : { group: gi, anchor }));
-                }}
-              >
-                {done && <Icon name="check" size={12} />}
-                <span className="st-strip-name">{who ? firstName(who.name) : "Nobody"}</span>
-                {note && <span className="st-strip-n">{note}</span>}
-              </button>
             </div>
           );
         })}

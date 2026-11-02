@@ -17,6 +17,13 @@
   transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
 }
 
+/* Nothing saved yet: the icon alone, no zero count. */
+.st-saved-btn.is-bare {
+  justify-content: center;
+  width: var(--control);
+  padding: 0;
+}
+
 .st-saved-btn svg {
   color: var(--ink-3);
 }
