@@ -83,7 +83,7 @@
 
 ## States
 
-- Empty: show the one action that fills the screen, with no text that explains it. [2]
+- Empty: show the one action that fills the screen, with no text that explains it. [2] Where a deck will go, hold that action in a `slot`: an empty 16:9 slide with the camera tile's place marked.
 - Loading: show progress in place, as a pulse on the thing that is loading or a bar with a number. Never use a full-screen spinner. [3]
 - Error: say what went wrong and how to fix it, next to the thing that failed, in `--red-ink`. A blocking error wins the eye over the primary action. [4]
 
