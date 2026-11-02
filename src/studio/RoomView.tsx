@@ -1,6 +1,7 @@
 // The room: cameras along the top; the stage beside the group's script, whose dock (time, actions, slide nav) ends level
 // with the stage; every slide along the bottom. On a phone the same parts stack, with the dock pinned to the bottom.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "../icons";
 import { startRecording, type Recording } from "./recorder";
 import { Render } from "./Render";
@@ -39,8 +40,9 @@ function dockOf(phase: Phase, following: boolean, assignee: string | null, me: s
     : "record";
 }
 
-/** The dock states whose own button is the room's one filled primary; Make the video stays quiet beside them. */
-const leadsTheRoom = (d: Dock) => d === "record" || d === "camera-off" || d === "review";
+/** The dock states whose own button is the room's one filled primary; Make the video stays quiet beside them. With every
+    group in, a camera that is off blocks nothing: Make the video leads and the camera comes back from its tile. */
+const leadsTheRoom = (d: Dock, allIn: boolean) => d === "record" || d === "review" || (d === "camera-off" && !allIn);
 
 const busy = (p: Phase) => p.k !== "idle";
 const complete = (t: TakeInfo | undefined) => !!t && t.received >= t.chunks;
@@ -148,13 +150,15 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const toRecord = deck.groups.filter((g) => !room.takes[g.id] && !saving.has(g.id) && progress[g.id] === undefined).length;
   /** Why Make the video cannot run yet, on the button itself. */
   const blocked = toRecord ? `${toRecord} to record` : allIn ? null : "Saving…";
-  const makeLeads = allIn && !rendering && !leadsTheRoom(dock) && !busy(phase);
+  const makeLeads = allIn && !rendering && !leadsTheRoom(dock, allIn) && !busy(phase);
   /** On a phone Make the video, once it leads, is the dock's button rather than a line in More. */
   const makeInDock = makeLeads && dock !== "watching";
   const makeVideo = () => {
     if (allIn && !busy(phase)) setRendering(true);
   };
   const recording = phase.k === "recording" || !!follow;
+  const stacked = useMedia(STACKED);
+  const [dockSlot, setDockSlot] = useState<HTMLDivElement | null>(null);
 
   return (
     <div className={`st-room${rendering ? " is-rendering" : ""}${busy(phase) ? " is-busy" : ""}`}>
@@ -162,9 +166,18 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         <div className="st-where">
           <Brand />
           <span className="st-deck-title" title={deck.title}>{deck.title}</span>
-          {/* Hidden, not removed, while a take runs here: leaving would end it, and the header must not shift. */}
+          {/* Hidden, not removed, while a take runs here: leaving would end it, and the header must not shift. The word,
+              or the icon alone where the top bar is tight. */}
           <a
-            className={`icon-btn st-edit-slides is-wide${busy(phase) ? " is-hidden" : ""}`}
+            className={`btn is-quiet is-sm st-edit-slides is-roomy is-wide${busy(phase) ? " is-hidden" : ""}`}
+            href={editLink(room.code)}
+            aria-hidden={busy(phase) || undefined}
+            tabIndex={busy(phase) ? -1 : undefined}
+          >
+            Edit slides
+          </a>
+          <a
+            className={`icon-btn st-edit-slides is-tight is-wide${busy(phase) ? " is-hidden" : ""}`}
             href={editLink(room.code)}
             aria-hidden={busy(phase) || undefined}
             tabIndex={busy(phase) ? -1 : undefined}
@@ -244,9 +257,11 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           onAssign={(personId) => assign(index, personId)}
           editing={editing}
           setEditing={setEditing}
+          allIn={allIn}
           makeLeads={makeLeads}
           makeInDock={makeInDock}
           onMake={makeVideo}
+          dockSlot={stacked ? dockSlot : null}
           onKept={markKept}
           apply={apply}
         />
@@ -269,8 +284,25 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         }}
         onAssign={assign}
       />
+      {/* Stacked, the dock sits under the strip, so it follows the strip in the page too (tab order, screen readers). */}
+      <div ref={setDockSlot} className="st-dock-slot" />
     </div>
   );
+}
+
+/** One column (phones, portrait tablets): the dock pinned under the strip. Matches studio.css. */
+const STACKED = "(max-width: 719px), (max-width: 1099px) and (orientation: portrait)";
+
+function useMedia(query: string): boolean {
+  const [on, setOn] = useState(() => matchMedia(query).matches);
+  useEffect(() => {
+    const m = matchMedia(query);
+    const change = () => setOn(m.matches);
+    change();
+    m.addEventListener("change", change);
+    return () => m.removeEventListener("change", change);
+  }, [query]);
+  return on;
 }
 
 /** On a phone the top bar keeps the mark, the title, the cameras and Saved; the room's other controls wait in here.
@@ -383,7 +415,7 @@ export function StageCanvas({ deck, onStage, children }: { deck: Deck; onStage(s
   );
 }
 
-function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, makeLeads, makeInDock, onMake, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -405,11 +437,15 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
   /** The transcript is open for editing (kept across groups). */
   editing: boolean;
   setEditing(on: boolean): void;
+  /** Every group is recorded and saved. */
+  allIn: boolean;
   /** Make the video is the room's one primary (in the top bar on a wide screen)... */
   makeLeads: boolean;
   /** ...and on a phone it sits first in the dock. */
   makeInDock: boolean;
   onMake(): void;
+  /** Where the dock goes when it does not sit under the script (stacked: after the strip). */
+  dockSlot: HTMLElement | null;
   /** My take of this group is safe on this device and on its way to the room. */
   onKept(groupId: string): void;
   apply(next: RoomState): void;
@@ -659,7 +695,7 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
     void v.play();
   };
 
-  // Keys: R record, Space/→ next slide, ← back, Enter stop, Esc cancel.
+  // Keys: R record (and retake), Space/→ next slide, ← back, Enter stop (and keep), Esc cancel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
@@ -671,16 +707,19 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
         e.preventDefault();
         cancel();
       } else if ((p.k === "recording" || p.k === "idle") && (e.key === " " || e.key === "ArrowRight")) {
-        if (p.k === "idle" && (e.key === " " || el.closest("button"))) return;
+        // Idle, Space belongs to the focused button; the arrows always change slides.
+        if (p.k === "idle" && e.key === " ") return;
         e.preventDefault();
         step(1);
       } else if ((p.k === "recording" || p.k === "idle") && e.key === "ArrowLeft") {
-        if (p.k === "idle" && el.closest("button")) return;
         e.preventDefault();
         step(-1);
       } else if (p.k === "recording" && e.key === "Enter") {
         e.preventDefault();
         void finish(false);
+      } else if (p.k === "review" && e.key === "Enter" && !e.repeat && !el.closest("button, a")) {
+        e.preventDefault();
+        void keep();
       } else if ((e.key === "r" || e.key === "R") && (p.k === "idle" || p.k === "review") && !e.repeat) {
         e.preventDefault();
         start();
@@ -688,7 +727,7 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cancel, finish, start, step]);
+  }, [cancel, finish, keep, start, step]);
 
   const current = phase.k === "recording" ? phase.slide : phase.k === "review" ? replaySlide : phase.k === "countdown" ? 0 : follow ? idleSlide : null;
   const onStage = current ?? preview;
@@ -736,6 +775,94 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
     : "planned";
   const alert = dock === "camera-error" || (dock === "review" && keepFailed);
 
+  const dockEl = (
+    <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
+      <div className="st-dock-time">
+        <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
+          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(left)}
+        </span>
+        {label && <span className={alert ? "st-error" : "st-clock-label"} role={alert ? "alert" : undefined}>{label}</span>}
+      </div>
+      {dock === "review" ? (
+        <div className="st-dock-side">
+          <button type="button" className="icon-btn" onClick={again} aria-label="Play again" data-tip="Play again">
+            <Icon name="play" size={16} />
+          </button>
+          {saving === null ? (
+            <button type="button" className="icon-btn" onClick={() => void saveVideo()} aria-label="Download this group's video" data-tip="Download this group's video">
+              <Icon name="download" size={16} />
+            </button>
+          ) : (
+            <span className="st-step-n" role="status" aria-label={`Rendering ${Math.round(saving * 100)}%`}>{Math.round(saving * 100)}%</span>
+          )}
+          <button type="button" className="icon-btn" onClick={() => setPhase({ k: "idle" })} aria-label="Discard take" data-tip="Discard take">
+            <Icon name="trash" size={16} />
+          </button>
+        </div>
+      ) : dock !== "countdown" && dock !== "watching" && nav}
+      <div className={`st-track${phase.k === "review" ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
+        <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, fill))})` }} />
+      </div>
+      <div className="st-dock-acts">
+        {makeInDock && (
+          <button type="button" className="btn is-primary is-lg is-narrow st-dock-make" onClick={onMake}>
+            <Icon name="film" size={16} />Make the video
+          </button>
+        )}
+        {dock === "record" && (
+          <button type="button" className="btn is-primary is-lg st-rec" onClick={start} disabled={!canRecord}>
+            <span className="st-dot" />Record{recordKey}
+          </button>
+        )}
+        {dock === "retake" && (
+          <button type="button" className="btn is-quiet is-lg" onClick={start} disabled={!canRecord}>
+            <Icon name="restart" size={16} />Retake{recordKey}
+          </button>
+        )}
+        {dock === "camera-off" && !allIn && (
+          <button type="button" className="btn is-primary is-lg" onClick={() => camera.turn(true)}>
+            <Icon name="camera" size={16} />Turn camera on
+          </button>
+        )}
+        {dock === "camera-error" && (
+          <button type="button" className="btn is-quiet is-lg" onClick={camera.retry}>
+            <Icon name="restart" size={16} />Try again
+          </button>
+        )}
+        {/* On a phone Make the video needs the whole row. */}
+        {dock === "theirs" && <span className={`st-dock-note${makeInDock ? " is-wide" : ""}`}>{firstName(assignee!.name)} records this</span>}
+        {/* The one thing to do here, unless Make the video leads the room. */}
+        {dock === "nobody" && (
+          <button type="button" className={`btn is-lg ${makeLeads ? "is-quiet" : "is-primary"}`} onClick={() => onAssign(me.id)}>Assign to me</button>
+        )}
+        {dock === "watching" && (
+          <span className="st-dock-note is-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Someone"} is recording</span>
+        )}
+        {dock === "countdown" && (
+          <button type="button" className="btn is-quiet is-lg" onClick={cancel}>
+            <Icon name="x" size={16} />Cancel<kbd className="kbd">Esc</kbd>
+          </button>
+        )}
+        {/* Stop takes Record's place and its fill: the one thing to do while the clock runs. */}
+        {dock === "recording" && (
+          <button type="button" className="btn is-primary is-lg" onClick={() => void finish(false)} aria-label="Stop">
+            <span className="st-square" />Stop<kbd className="kbd">Enter</kbd>
+          </button>
+        )}
+        {dock === "review" && (
+          <>
+            <button type="button" className="btn is-primary is-lg" onClick={() => void keep()}>
+              <Icon name="check" size={16} />Keep<kbd className="kbd">Enter</kbd>
+            </button>
+            <button type="button" className="btn is-quiet is-lg" onClick={start}>
+              <Icon name="restart" size={16} />Retake{recordKey}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <main className="st-body">
       <div className="st-desk">
@@ -775,90 +902,7 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
             />
           )}
 
-          <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
-            <div className="st-dock-time">
-              <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
-                {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(left)}
-              </span>
-              {label && <span className={alert ? "st-error" : "st-clock-label"} role={alert ? "alert" : undefined}>{label}</span>}
-            </div>
-            {dock === "review" ? (
-              <div className="st-dock-side">
-                <button type="button" className="icon-btn" onClick={again} aria-label="Play again" data-tip="Play again">
-                  <Icon name="play" size={16} />
-                </button>
-                {saving === null ? (
-                  <button type="button" className="icon-btn" onClick={() => void saveVideo()} aria-label="Download this group's video" data-tip="Download this group's video">
-                    <Icon name="download" size={16} />
-                  </button>
-                ) : (
-                  <span className="st-step-n" role="status" aria-label={`Rendering ${Math.round(saving * 100)}%`}>{Math.round(saving * 100)}%</span>
-                )}
-                <button type="button" className="icon-btn" onClick={() => setPhase({ k: "idle" })} aria-label="Discard take" data-tip="Discard">
-                  <Icon name="x" size={16} />
-                </button>
-              </div>
-            ) : dock !== "countdown" && dock !== "watching" && nav}
-            <div className={`st-track${phase.k === "review" ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
-              <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, fill))})` }} />
-            </div>
-            <div className="st-dock-acts">
-              {makeInDock && (
-                <button type="button" className="btn is-primary is-lg is-narrow st-dock-make" onClick={onMake}>
-                  <Icon name="film" size={16} />Make the video
-                </button>
-              )}
-              {dock === "record" && (
-                <button type="button" className="btn is-primary is-lg st-rec" onClick={start} disabled={!canRecord}>
-                  <span className="st-dot" />Record{recordKey}
-                </button>
-              )}
-              {dock === "retake" && (
-                <button type="button" className="btn is-quiet is-lg" onClick={start} disabled={!canRecord}>
-                  <Icon name="restart" size={16} />Retake{recordKey}
-                </button>
-              )}
-              {dock === "camera-off" && (
-                <button type="button" className="btn is-primary is-lg" onClick={() => camera.turn(true)}>
-                  <Icon name="camera" size={16} />Turn camera on
-                </button>
-              )}
-              {dock === "camera-error" && (
-                <button type="button" className="btn is-quiet is-lg" onClick={camera.retry}>
-                  <Icon name="restart" size={16} />Try again
-                </button>
-              )}
-              {dock === "theirs" && <span className="st-dock-note">{firstName(assignee!.name)} records this</span>}
-              {/* The one thing to do here, unless Make the video leads the room. */}
-              {dock === "nobody" && (
-                <button type="button" className={`btn is-lg ${makeLeads ? "is-quiet" : "is-primary"}`} onClick={() => onAssign(me.id)}>Assign to me</button>
-              )}
-              {dock === "watching" && (
-                <span className="st-dock-note is-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Someone"} is recording</span>
-              )}
-              {dock === "countdown" && (
-                <button type="button" className="btn is-quiet is-lg" onClick={cancel}>
-                  <Icon name="x" size={16} />Cancel<kbd className="kbd">Esc</kbd>
-                </button>
-              )}
-              {/* Stop takes Record's place and its fill: the one thing to do while the clock runs. */}
-              {dock === "recording" && (
-                <button type="button" className="btn is-primary is-lg" onClick={() => void finish(false)} aria-label="Stop">
-                  <span className="st-square" />Stop<kbd className="kbd">Enter</kbd>
-                </button>
-              )}
-              {dock === "review" && (
-                <>
-                  <button type="button" className="btn is-primary is-lg" onClick={() => void keep()}>
-                    <Icon name="check" size={16} />Keep
-                  </button>
-                  <button type="button" className="btn is-quiet is-lg" onClick={start}>
-                    <Icon name="restart" size={16} />Retake
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+          {dockSlot ? createPortal(dockEl, dockSlot) : dockEl}
         </section>
       </div>
     </main>

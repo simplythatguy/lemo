@@ -1,8 +1,7 @@
-// Everyone's camera along the top (small circles on a phone): your own first, then as many as fit, then a quiet "+N"
-// that opens the People list, where everyone is (their camera, Remove, and for you the camera switch and Leave).
-// The team hears everyone; only the presenter's mic goes into the video, which the mic icon shows (live for the
-// presenter, slashed for everyone else). A red ring marks whoever is recording right now. On a phone the circles
-// have no room for tools: tapping one opens the People list.
+// Everyone's camera along the top (small circles on a phone): your own first, then as many as fit, then a quiet "+N".
+// Any tile, circle or the "+N" opens the People list, the one place to remove someone or leave (and, on a phone, to
+// switch your camera). A camera with no picture is a dark tile with the person's initials. The team hears everyone;
+// only the presenter's mic goes into the video, and only their tile shows a mic. A red ring marks whoever is recording.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { CameraToggle, firstName, initials, Menu, type Camera } from "./parts";
@@ -88,12 +87,10 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
             camera={own ? camera : undefined}
             stream={own ? camera.stream : streams[p.id] ?? null}
             off={own ? !camera.on : !!camOff[p.id]}
-            failed={!own && !!failed[p.id]}
             presenting={p.id === presenter}
             recording={recording && p.id === presenter}
             audible={!own && !mutedAll}
             locked={locked}
-            onRemove={() => onRemove(p.id)}
             onOpen={open}
             onVideo={own ? undefined : (el) => onVideo(p.id, el)}
           />
@@ -165,7 +162,7 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
   );
 }
 
-function Tile({ person, mine, hidden, camera, stream, off, failed, presenting, recording, audible, locked, onRemove, onOpen, onVideo }: {
+function Tile({ person, mine, hidden, camera, stream, off, presenting, recording, audible, locked, onOpen, onVideo }: {
   person: Person;
   mine: boolean;
   /** Past the room the top bar has: only in the People list. */
@@ -174,13 +171,11 @@ function Tile({ person, mine, hidden, camera, stream, off, failed, presenting, r
   camera?: Camera;
   stream: MediaStream | null;
   off: boolean;
-  failed: boolean;
   presenting: boolean;
   recording: boolean;
   audible: boolean;
   locked: boolean;
-  onRemove(): void;
-  /** On a phone the whole circle opens the People list. */
+  /** The whole tile opens the People list. */
   onOpen(anchor: HTMLElement): void;
   onVideo?: (el: HTMLVideoElement | null) => void;
 }) {
@@ -221,33 +216,22 @@ function Tile({ person, mine, hidden, camera, stream, off, failed, presenting, r
     <figure hidden={hidden} className={`st-tile${recording ? " is-live" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}`}>
       <video ref={video} autoPlay playsInline muted />
       <audio ref={sound} autoPlay />
-      {!picture && <span className="st-tile-face" aria-hidden="true">{initials(person.name)}</span>}
-      <figcaption>
-        {firstName(person.name)}
-        {failed && !stream && <span className="st-tile-hint">No video</span>}
-      </figcaption>
-      <span className={`st-tile-mic${presenting ? " is-live" : ""}`} role="img" aria-label={presenting ? "Presenting: this mic is recorded" : "Not in the recording"}>
-        <Icon name={presenting ? "mic" : "mic-off"} size={12} />
-      </span>
-      {camera && <CameraToggle camera={camera} className="st-tile-cam" size={12} disabled={locked} />}
+      {/* No picture: the initials alone, with the full name in the tile's tooltip (and "No video" in the People list). */}
+      {picture ? <figcaption>{firstName(person.name)}</figcaption> : <span className="st-tile-face" aria-hidden="true">{initials(person.name)}</span>}
       <button
         type="button"
-        className="st-tile-x"
-        disabled={locked}
-        aria-label={mine ? "Leave the room" : `Remove ${person.name}`}
-        data-tip={mine ? "Leave" : "Remove"}
-        onClick={onRemove}
-      >
-        <Icon name="x" size={12} />
-      </button>
-      <button
-        type="button"
-        className="st-tile-menu is-narrow"
+        className="st-tile-menu"
         aria-haspopup="dialog"
         aria-label={person.name}
         data-tip={person.name}
         onClick={(e) => onOpen(e.currentTarget)}
       />
+      {presenting && (
+        <span className="st-tile-mic" role="img" aria-label="Presenting: this mic is recorded">
+          <Icon name="mic" size={12} />
+        </span>
+      )}
+      {camera && <CameraToggle camera={camera} className="st-tile-cam" size={14} disabled={locked} />}
     </figure>
   );
 }

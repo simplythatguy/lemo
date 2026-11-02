@@ -70,6 +70,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                 {done && <Icon name="check" size={12} />}
                 <span className="st-strip-name">{who ? firstName(who.name) : "Nobody"}</span>
                 {note && <span className="st-strip-n">{note}</span>}
+                <span className="st-strip-caret" aria-hidden="true" />
               </button>
               <div className="st-strip-slides">
                 {g.slides.map((s, si) => {
@@ -95,7 +96,8 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
       </div>
       {menu && (
         <Menu label="Speaker" anchor={menu.anchor} above onClose={() => setMenu(null)}>
-          {[...room.people.map((p) => ({ id: p.id as string | null, name: p.name })), { id: null, name: "Nobody" }].map((o) => {
+          {/* You first: the likeliest pick. */}
+          {[...room.people.filter((p) => p.id === me.id), ...room.people.filter((p) => p.id !== me.id), { id: null, name: "Nobody" }].map((o) => {
             const current = (room.assignments[deck.groups[menu.group].id] ?? null) === o.id;
             return (
               <button
