@@ -110,12 +110,12 @@
 
 /* The play glyph on the picture's left edge, where the text of the other rows starts. */
 .st-work-row > .st-transport > .icon-btn:first-child {
-  margin-left: calc((16px - var(--control)) / 2);
+  margin-left: calc((var(--space-16) - var(--control)) / 2);
 }
 
-/* The picture holds still when the render finishes or fails: the row under it also takes the meter's place. */
+/* The picture holds still when the render finishes or fails: the row under it also fills the meter and its gap. */
 .st-booth > .st-work-row {
-  margin-bottom: calc(4px + var(--space-12));
+  margin-bottom: var(--space-16);
 }
 
 /* The playback controls stand apart from what to do next. */
@@ -148,7 +148,7 @@
     align-content: flex-start;
   }
   .st-work-row > .st-transport > .icon-btn:last-child {
-    margin-right: calc((16px - var(--control)) / 2);
+    margin-right: calc((var(--space-16) - var(--control)) / 2);
   }
   .st-work-row:has(> .btn.is-primary) {
     flex-wrap: wrap;
