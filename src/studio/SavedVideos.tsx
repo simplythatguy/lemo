@@ -79,7 +79,8 @@ export function SavedVideos({ deck, room, upload }: {
   }, [open]);
 
   const saved = deck.groups.filter((g) => complete(room.takes[g.id]));
-  const recordedMs = saved.reduce((s, g) => s + room.takes[g.id].durationMs, 0);
+  // In whole seconds as each row shows them, so the rows add up to the total.
+  const recordedMs = saved.reduce((s, g) => s + Math.ceil(room.takes[g.id].durationMs / 1000) * 1000, 0);
 
   const save = (take: TakeInfo) => {
     if (saving[take.groupId] !== undefined) return;
