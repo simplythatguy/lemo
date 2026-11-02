@@ -186,8 +186,9 @@
   text-align: center;
 }
 
-/* The empty slides step is one composition, centred under the top bar. */
-.su-main:has(> .su-empty) {
+/* The empty slides step and the project step are each one composition, centred under the top bar while they fit; a
+   long team scrolls from the top. */
+.su-main:has(> .su-empty, > .su-project) {
   display: flex;
   flex-direction: column;
   min-height: calc(100dvh - var(--space-64));
@@ -438,8 +439,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-48);
+  width: 100%;
   max-width: 560px;
-  margin: var(--space-32) auto 0;
+  margin: auto;
 }
 
 .su-name-row {
@@ -469,10 +471,8 @@
   transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
 }
 
-/* No logo yet: the same dashed empty place as the slides' slot. */
 .su-logo-pick:not(.has-logo) {
-  border: 1.5px dashed var(--line-2);
-  background: var(--bg);
+  background: var(--fill);
   box-shadow: none;
 }
 
@@ -488,7 +488,7 @@
 
 @media (hover: hover) {
   .su-logo-pick:not(.has-logo):hover {
-    background: var(--fill);
+    background: var(--fill-hover);
     color: var(--ink-2);
   }
 }
@@ -511,6 +511,7 @@
 }
 
 .su-field {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -568,8 +569,11 @@
   box-shadow: 0 1px 0 var(--red);
 }
 
+/* In the gap the step already keeps under the name, so showing it never moves the centred block. */
 .su-field .su-error {
-  margin-top: var(--space-8);
+  position: absolute;
+  top: calc(100% + var(--space-8));
+  left: 0;
 }
 
 .su-team {
@@ -601,13 +605,15 @@
   translate: 0 -50%;
 }
 
-.su-team .su-error {
-  display: block;
-  margin-top: var(--space-8);
+.su-team-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  margin-top: var(--space-12);
 }
 
 .su-add {
-  margin: var(--space-12) 0 0 calc(var(--space-8) * -1);
+  margin-left: calc(var(--space-8) * -1);
 }
 
 /* —— Script —— */
@@ -785,7 +791,6 @@
   }
   .su-project {
     gap: var(--space-32);
-    margin-top: var(--space-16);
   }
 }
 
