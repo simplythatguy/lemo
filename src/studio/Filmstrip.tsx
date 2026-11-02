@@ -94,31 +94,29 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           );
         })}
       </div>
-      {menu && (
-        <Menu label="Speaker" anchor={menu.anchor} above onClose={() => setMenu(null)}>
-          {/* You first: the likeliest pick. */}
-          {[...room.people.filter((p) => p.id === me.id), ...room.people.filter((p) => p.id !== me.id), { id: null, name: "Nobody" }].map((o) => {
-            const current = (room.assignments[deck.groups[menu.group].id] ?? null) === o.id;
-            return (
-              <button
-                key={o.id ?? "none"}
-                type="button"
-                role="menuitemradio"
-                aria-checked={current}
-                className="st-menu-item"
-                onClick={() => {
-                  onAssign(menu.group, o.id);
-                  setMenu(null);
-                }}
-              >
-                <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
-                <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
-                {current && <Icon name="check" size={14} />}
-              </button>
-            );
-          })}
-        </Menu>
-      )}
+      <Menu label="Speaker" anchor={menu?.anchor ?? null} above onClose={() => setMenu(null)}>
+        {/* You first: the likeliest pick. */}
+        {menu && [...room.people.filter((p) => p.id === me.id), ...room.people.filter((p) => p.id !== me.id), { id: null, name: "Nobody" }].map((o) => {
+          const current = (room.assignments[deck.groups[menu.group].id] ?? null) === o.id;
+          return (
+            <button
+              key={o.id ?? "none"}
+              type="button"
+              role="menuitemradio"
+              aria-checked={current}
+              className="st-menu-item"
+              onClick={() => {
+                onAssign(menu.group, o.id);
+                setMenu(null);
+              }}
+            >
+              <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
+              <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
+              {current && <Icon name="check" size={14} />}
+            </button>
+          );
+        })}
+      </Menu>
     </>
   );
 }

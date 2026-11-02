@@ -1015,6 +1015,32 @@
   background: var(--surface);
   box-shadow: var(--shadow-pop);
   font-family: var(--font);
+  transform-origin: top left;
+  animation: st-menu-in var(--dur-control) var(--ease);
+}
+
+.st-menu.is-above {
+  transform-origin: bottom left;
+}
+
+/* Closing, it fades back toward its trigger and lets the pointer through. */
+.st-menu.is-closing {
+  pointer-events: none;
+  animation: st-menu-out var(--dur-control) var(--ease) forwards;
+}
+
+@keyframes st-menu-in {
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes st-menu-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
+  }
 }
 
 .st-menu-item {

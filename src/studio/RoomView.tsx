@@ -343,8 +343,8 @@ function More({ code, locked, make, blocked, total, onMake, team, mutedAll, onMu
       >
         <Icon name="more" size={20} />
       </button>
-      {anchor && (
-        <Menu label="More" anchor={anchor} onClose={close}>
+      <Menu label="More" anchor={anchor} onClose={close}>
+        {anchor && (<>
           <button
             type="button"
             role="menuitem"
@@ -383,8 +383,8 @@ function More({ code, locked, make, blocked, total, onMake, team, mutedAll, onMu
               <span className="st-menu-name">{mutedAll ? "Unmute the team" : "Mute the team"}</span>
             </button>
           )}
-        </Menu>
-      )}
+        </>)}
+      </Menu>
     </>
   );
 }

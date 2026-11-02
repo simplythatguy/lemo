@@ -121,8 +121,8 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
           <Icon name={mutedAll ? "speaker-off" : "speaker"} />
         </button>
       )}
-      {list && (
-        <Menu role="dialog" label="People" anchor={list} onClose={() => setList(null)}>
+      <Menu role="dialog" label="People" anchor={list} onClose={() => setList(null)}>
+        {list && (
           <ul className="st-people">
             {order.map((p) => {
               const own = p.id === me.id;
@@ -156,8 +156,8 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
               );
             })}
           </ul>
-        </Menu>
-      )}
+        )}
+      </Menu>
     </div>
   );
 }
