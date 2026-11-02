@@ -148,4 +148,7 @@
     order: 9;
     flex-basis: 100%;
   }
+  .st-work-row:has(> .btn.is-primary) > .btn.is-quiet {
+    margin-right: calc(var(--space-12) * -1);
+  }
 }
