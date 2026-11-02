@@ -101,6 +101,10 @@
   .st-room .is-narrow {
     display: none;
   }
+  /* The phone's Make the video steps aside, so the quiet action after it is the first one the eye meets. */
+  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet {
+    margin-left: calc(var(--space-12) * -1);
+  }
 }
 
 /* Top bar: where you are on the left, the cameras centred, the room's controls on the right. The cameras shrink
