@@ -209,8 +209,6 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
             team={room.people.length > 1}
             mutedAll={mutedAll}
             onMuteAll={setMutedAll}
-            camera={camera}
-            onLeave={() => remove(me.id)}
           />
         </div>
       </header>
@@ -267,8 +265,9 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   );
 }
 
-/** On a phone the top bar keeps the mark, the title, the cameras and Saved; everything else waits in here. */
-function More({ code, locked, canMake, total, onMake, team, mutedAll, onMuteAll, camera, onLeave }: {
+/** On a phone the top bar keeps the mark, the title, the cameras and Saved; the room's other controls wait in here.
+    Your camera and Leave are in the People list, which any circle opens. */
+function More({ code, locked, canMake, total, onMake, team, mutedAll, onMuteAll }: {
   code: string;
   /** A take is running here: nothing that would end it or move away from it. */
   locked: boolean;
@@ -278,8 +277,6 @@ function More({ code, locked, canMake, total, onMake, team, mutedAll, onMuteAll,
   team: boolean;
   mutedAll: boolean;
   onMuteAll(muted: boolean): void;
-  camera: Camera;
-  onLeave(): void;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [copied, setCopied] = useState(false);
@@ -336,14 +333,6 @@ function More({ code, locked, canMake, total, onMake, team, mutedAll, onMuteAll,
               <span className="st-menu-name">{mutedAll ? "Unmute the team" : "Mute the team"}</span>
             </button>
           )}
-          <button type="button" role="menuitem" className="st-menu-item" disabled={locked} onClick={act(() => camera.turn(!camera.on))}>
-            <Icon name={camera.on ? "camera-off" : "camera"} size={16} />
-            <span className="st-menu-name">{camera.on ? "Turn camera off" : "Turn camera on"}</span>
-          </button>
-          <button type="button" role="menuitem" className="st-menu-item" disabled={locked} onClick={act(onLeave)}>
-            <Icon name="leave" size={16} />
-            <span className="st-menu-name">Leave the room</span>
-          </button>
         </Menu>
       )}
     </>
@@ -654,7 +643,7 @@ function Booth({ deck, index, room, me, camera, dock, phase, setPhase, preview, 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.closest("input, select, textarea, [role=menu]") || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (el.closest("input, select, textarea, [role=menu], [role=dialog]") || e.metaKey || e.ctrlKey || e.altKey) return;
       // A saved take playing over the room has the keys.
       if (document.querySelector("[aria-modal=true]")) return;
       const p = phaseRef.current;
