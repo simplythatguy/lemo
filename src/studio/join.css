@@ -79,7 +79,7 @@
   }
 }
 
-/* The camera preview: 16:9, its toggle and the mic level on it. */
+/* The camera preview: 16:9, its toggle and the mic level on it. Without a picture it is a dark camera surface. */
 .st-cam {
   position: relative;
   display: grid;
@@ -87,8 +87,8 @@
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: var(--fill);
-  container-type: inline-size;
+  background: var(--ink);
+  color: var(--on-dark);
 }
 
 .st-cam video {
@@ -104,36 +104,30 @@
   opacity: 0;
 }
 
-/* Starting: the empty preview pulses, with only the camera toggle on it. */
+/* Starting: the surface breathes until the first frame. */
 .st-cam.is-starting::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--fill-hover);
-  animation: st-wait var(--dur-pulse) var(--ease) infinite alternate;
+  background: var(--on-dark);
+  opacity: 0;
+  animation: st-warm var(--dur-pulse) var(--ease) infinite alternate;
 }
 
-/* The face when the camera is off, and the icon in an error: one white circle. */
-.st-cam-icon {
+@keyframes st-warm {
+  to {
+    opacity: 0.08;
+  }
+}
+
+/* The name's initials until there is a picture: lifted clear of the camera toggle under it. */
+.st-cam-face {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
-  border-radius: var(--radius-full);
-  background: var(--bg);
-  font: var(--weight-label) var(--text-20)/1 var(--font);
-  color: var(--ink-2);
-}
-
-/* Lifted clear of the camera toggle under it. */
-.st-cam-icon.is-face {
   margin-bottom: var(--space-32);
-}
-
-.st-cam-error .st-cam-icon {
-  width: 48px;
-  height: 48px;
-  margin-bottom: var(--space-4);
+  font: var(--weight-title) var(--text-40)/1 var(--font);
+  letter-spacing: var(--tracking-title);
 }
 
 .st-cam-toggle {
@@ -161,7 +155,7 @@
 }
 
 .st-cam.is-empty .st-cam-toggle {
-  background: var(--bg);
+  background: var(--on-dark);
   color: var(--ink);
 }
 
@@ -176,21 +170,23 @@
   padding: var(--space-16);
   text-align: center;
   font-size: var(--text-13);
-  color: var(--ink-3);
+  color: var(--on-dark-2);
 }
 
 .st-cam-error strong {
-  font: var(--weight-label) var(--text-15)/1.3 var(--font);
-  color: var(--ink);
+  font: var(--weight-label) var(--text-17)/1.3 var(--font);
+  color: var(--on-dark);
 }
 
 .st-cam-error .btn {
-  margin-top: var(--space-8);
+  margin-top: var(--space-12);
+  color: var(--on-dark);
 }
 
-@container (max-width: 320px) {
-  .st-cam-error .st-cam-icon {
-    display: none;
+@media (hover: hover) {
+  .st-cam-error .btn:hover {
+    background: var(--on-dark-wash);
+    color: var(--on-dark);
   }
 }
 
@@ -257,7 +253,6 @@
 .st-name {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
 }
 
 .st-field {
@@ -293,14 +288,38 @@
   box-shadow: 0 1px 0 var(--focus);
 }
 
-/* Teammates who have not joined yet, one tap each; their text lines up with the field's. */
+/* Teammates who have not joined yet, one tap each; their text lines up with the field's.
+   The row folds away once nothing matches the name, so the column re-centres smoothly instead of keeping a gap. */
 .st-suggest {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transition-property: grid-template-rows, padding-top, opacity, visibility;
+  transition-duration: var(--dur-sheet);
+  transition-timing-function: var(--ease);
+}
+
+.st-suggest.is-open {
+  grid-template-rows: 1fr;
+  padding-top: var(--space-8);
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
+}
+
+.st-suggest > div {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  min-height: var(--control-sm);
+  min-height: 0;
   column-gap: var(--space-4);
   margin-left: calc(var(--space-8) * -1);
+}
+
+.st-suggest.is-open > div {
+  min-height: var(--control-sm);
 }
 
 .st-suggest-note {

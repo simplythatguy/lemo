@@ -176,6 +176,10 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   const here = !!typed && taken.includes(typed);
   const notHere = deck.team.map((n) => n.trim()).filter((n) => n && !taken.includes(n.toLowerCase()));
   const suggested = notHere.filter((n) => n.toLowerCase() !== typed && n.toLowerCase().startsWith(typed));
+  // The row keeps its last names while it folds away, so it closes smoothly instead of emptying first.
+  const [shown, setShown] = useState(suggested);
+  if (suggested.length && suggested.join("\n") !== shown.join("\n")) setShown(suggested);
+  const open = here || suggested.length > 0;
   async function go() {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -199,15 +203,12 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
           <video ref={preview} autoPlay muted playsInline onPlaying={(e) => setPainted(e.currentTarget.srcObject as MediaStream | null)} />
           {camera.error ? (
             <div className="st-cam-error" role="alert">
-              <span className="st-cam-icon"><Icon name="camera-off" size={20} /></span>
               <strong>{camera.error}</strong>
               <span>{CAMERA_FIX[camera.error]}</span>
               <button type="button" className="btn is-quiet is-sm" onClick={camera.retry}><Icon name="restart" size={16} />Try again</button>
             </div>
-          ) : !camera.on && (
-            <span className="st-cam-icon is-face" aria-hidden="true">
-              {name.trim() ? initials(name) : <Icon name="camera-off" size={20} />}
-            </span>
+          ) : !picture && !!name.trim() && (
+            <span className="st-cam-face" aria-hidden="true">{initials(name)}</span>
           )}
           {!camera.error && <CameraToggle camera={camera} className="st-cam-toggle" size={20} />}
           <MicLevel stream={camera.stream} />
@@ -221,15 +222,14 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
             <span>Name</span>
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" required />
           </label>
-          {/* Kept while typing filters it, so Join does not jump. */}
-          {(here || notHere.length > 0) && (
-            <div className="st-suggest">
+          <div className={`st-suggest${open ? " is-open" : ""}`}>
+            <div>
               {here && <span className="st-suggest-note">Already in the room</span>}
-              {suggested.map((n) => (
+              {(open ? suggested : shown).map((n) => (
                 <button key={n} type="button" className="btn is-quiet is-sm" onClick={() => setName(n)}>{n}</button>
               ))}
             </div>
-          )}
+          </div>
         </div>
         {error && <p className="st-error" role="alert">{error}</p>}
         <button type="submit" className="btn is-primary is-lg st-join-go" disabled={!name.trim() || busy || !camera.stream}>
