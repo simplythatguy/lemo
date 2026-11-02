@@ -6,7 +6,7 @@ import { firstName, slug, StartButton } from "./parts";
 import { startPlayback } from "./playback";
 import { takeMedia } from "./Render";
 import { createStage, exportVideo, preload, stageKey } from "./stage";
-import { clock, targetMs } from "./timing";
+import { clock } from "./timing";
 import { Transport } from "./Transport";
 import type { Cue, Deck, RoomState, TakeInfo, TakeMedia } from "./types";
 import "./savedVideos.css";
@@ -80,7 +80,6 @@ export function SavedVideos({ deck, room, upload }: {
 
   const saved = deck.groups.filter((g) => complete(room.takes[g.id]));
   const recordedMs = saved.reduce((s, g) => s + room.takes[g.id].durationMs, 0);
-  const plannedMs = deck.groups.reduce((s, g) => s + targetMs(g), 0);
 
   const save = (take: TakeInfo) => {
     if (saving[take.groupId] !== undefined) return;
@@ -126,22 +125,18 @@ export function SavedVideos({ deck, room, upload }: {
         <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>
       </button>
 
-      {open && (
+      {open && !playable && (
         <>
           <div className="st-saved-dim" aria-hidden="true" />
           <aside ref={panel} className="st-saved" aria-label="Saved videos" style={at ?? undefined}>
             <header className="st-saved-head">
               <h2 className="st-saved-title">Saved</h2>
-              <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} disabled={!saved.length} aria-busy={all !== null}
-                aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
-                <Icon name="download" size={16} />{all === null ? "Download all" : `Rendering ${Math.round(all * 100)}%`}
-              </button>
               <button type="button" className="icon-btn is-sm" onClick={() => setOpen(false)} aria-label="Close" data-tip="Close">
                 <Icon name="x" size={16} />
               </button>
             </header>
             <p className="st-saved-sum">
-              {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)} of {clock(plannedMs)}
+              {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)}
             </p>
             <ol className="st-saved-list">
               {deck.groups.map((g, gi) => {
@@ -180,6 +175,12 @@ export function SavedVideos({ deck, room, upload }: {
                 );
               })}
             </ol>
+            {saved.length > 0 && (
+              <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} aria-busy={all !== null}
+                aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
+                <Icon name="download" size={16} />{all === null ? "Download all" : `Rendering ${Math.round(all * 100)}%`}
+              </button>
+            )}
           </aside>
         </>
       )}
