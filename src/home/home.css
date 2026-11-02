@@ -188,7 +188,7 @@ a.hm-card:active .hm-cover {
   }
 }
 
-/* No demos on this device: the page name, a blank deck, New demo and the room code, as one centred column. */
+/* No demos on this device: the page name, New demo and the room code, as one centred column. */
 .hm-page.is-empty {
   display: flex;
   flex-direction: column;

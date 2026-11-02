@@ -1,6 +1,6 @@
 // Step 1: the slides. Drop a PDF or PowerPoint anywhere (or choose one); a grid of the rendered slides to reorder, prune
-// and group. A click selects a slide; selected slides become one group. A bar under the slides ties a group together,
-// starting at the group's range.
+// and group. A click selects a slide; selected slides become one group or are removed. A bar under the slides ties a
+// group together, starting at the group's range.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { order, type Draft } from "./draft";
@@ -36,12 +36,29 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
   const canUngroup = touched.some((g) => g.slides.length > 1);
   const clear = () => setPicked(new Set());
 
+  /** Removes the selected slides; a keyboard user stays in the grid, on the slide that took the first one's place. */
+  const remove = () => {
+    const inGrid = !!document.activeElement?.closest(".su-grid");
+    const at = Math.min(ids.indexOf(selected[0]), ids.length - selected.length - 1);
+    selected.forEach(onRemove);
+    clear();
+    if (inGrid && at >= 0) requestAnimationFrame(() => document.querySelectorAll<HTMLElement>(".su-grid .su-cell")[at]?.focus());
+  };
+  const keys = useRef({ clear, remove });
+  keys.current = { clear, remove };
+
   useEffect(() => {
-    if (!selected.length) return;
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setPicked(new Set());
-    window.addEventListener("keydown", esc);
-    return () => window.removeEventListener("keydown", esc);
-  }, [selected.length]);
+    if (!selected.length || importing) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") keys.current.clear();
+      else if ((e.key === "Delete" || e.key === "Backspace") && !(e.target as HTMLElement).closest("input, textarea, [contenteditable]")) {
+        e.preventDefault();
+        keys.current.remove();
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [selected.length, importing]);
 
   const pick = () => input.current?.click();
   const picker = (
@@ -60,14 +77,14 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
 
   if (!ids.length && !importing) {
     return (
-      <div className={`su-empty${fileOver ? " is-over" : ""}`}>
+      <div className="su-empty">
         {picker}
-        <h1 className="su-title">{fileOver ? "Drop to add" : "Add your slides"}</h1>
-        <span className="blank-deck" aria-hidden="true"><i /><i /><i><Icon name="upload" size={28} /></i></span>
+        <h1 className="su-title">Add your slides</h1>
         <button type="button" className="btn is-primary is-lg" onClick={pick}>
           <Icon name="upload" size={16} />Choose a file
         </button>
         {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">16:9 PDF or PowerPoint</p>}
+        {fileOver && <Drop label="Drop to add" />}
       </div>
     );
   }
@@ -99,6 +116,9 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
                 Ungroup
               </button>
             )}
+            <button type="button" className="btn is-quiet is-sm" onClick={remove} aria-keyshortcuts="Delete Backspace">
+              Remove
+            </button>
             {canGroup && (
               <button type="button" className="btn is-quiet is-sm" onClick={() => (onGroup(selected), clear())}>
                 <Icon name="link" size={16} />Group {selected.length}
@@ -115,14 +135,20 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
         )}
       </div>
       {error && <p className="su-error" role="alert">{error}</p>}
-      {importing ? <Progress importing={importing} /> : <Grid draft={draft} ids={ids} picked={picked} setPicked={setPicked} onRemove={onRemove} onMove={onMove} />}
-      {fileOver && (
-        <div className="su-drop" aria-hidden="true">
-          <div className="su-target">
-            <Icon name="upload" size={28} />Drop to replace
-          </div>
-        </div>
-      )}
+      {importing ? <Progress importing={importing} /> : <Grid draft={draft} ids={ids} picked={picked} setPicked={setPicked} onMove={onMove} />}
+      {fileOver && <Drop label="Drop to replace" />}
+    </div>
+  );
+}
+
+/** While a file is dragged over the step: where it lands. */
+function Drop({ label }: { label: string }) {
+  return (
+    <div className="su-drop" aria-hidden="true">
+      <div className="su-target">
+        <Icon name="upload" size={28} />
+        {label}
+      </div>
     </div>
   );
 }
@@ -163,12 +189,11 @@ function useColumns(grid: React.RefObject<HTMLOListElement | null>): number {
   return cols;
 }
 
-function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
+function Grid({ draft, ids, picked, setPicked, onMove }: {
   draft: Draft;
   ids: string[];
   picked: ReadonlySet<string>;
   setPicked(next: ReadonlySet<string>): void;
-  onRemove(id: string): void;
   onMove(from: number, to: number): void;
 }) {
   const [drag, setDrag] = useState<number | null>(null);
@@ -249,22 +274,10 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
           }}
           tabIndex={0}
           aria-label={`Slide ${i + 1}${group.has(id) ? ", grouped" : ""}${picked.has(id) ? ", selected" : ""}`}
-          aria-keyshortcuts="Space Alt+ArrowLeft Alt+ArrowRight"
+          aria-keyshortcuts="Space Alt+ArrowLeft Alt+ArrowRight Delete"
         >
           <div className="su-thumb">
             <Thumb slide={draft.slides[id]} />
-            <button
-              type="button"
-              className="su-remove"
-              aria-label={`Remove slide ${i + 1}`}
-              data-tip="Remove"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(id);
-              }}
-            >
-              <Icon name="x" size={12} />
-            </button>
           </div>
           <span className="su-label">{label(i) && <span className="su-n">{label(i)}</span>}</span>
         </li>

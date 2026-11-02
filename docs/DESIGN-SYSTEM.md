@@ -86,7 +86,7 @@
 
 ## States
 
-- Empty: one centred column of the title, a `blank-deck` (three blank slides fanned out) and the one action that fills the screen, with no text that explains it. [2] Never put the action inside a frame. A file dragged over fans the deck wider and marks its top slide in the accent.
+- Empty page: one vertically centred column of the title, the one action that fills the screen and at most one quiet line, with no illustration and no text that explains it. [2] Never put the action inside a frame. Where a file can be dropped, the drop target shows only while a file is dragged.
 - Loading: show progress in place, as a pulse on the thing that is loading or a bar with a number. Never use a full-screen spinner. [3]
 - Error: say what went wrong and how to fix it, next to the thing that failed, in `--red-ink`. A blocking error wins the eye over the primary action. [4]
 
