@@ -98,21 +98,61 @@ export function ProjectMark({ title, logo, size = 28 }: { title: string; logo?: 
   );
 }
 
-/** A menu (or a small list of controls) hung off `anchor`, opening above or below it and kept on screen. Focus moves in; Escape or a click elsewhere closes it. */
+/** A menu (or a small list of controls) hung off `anchor`, opening above or below it and kept on screen. Focus moves in;
+    Escape, a pick or a click elsewhere closes it, and focus goes back to `anchor`. A click elsewhere only closes it: it
+    never also presses what is under it. Render it always; with `anchor` null it plays its exit, then unmounts. */
 export function Menu({ label, anchor, role = "menu", above = false, onClose, children }: {
   label: string;
   role?: "menu" | "dialog";
-  anchor: HTMLElement;
+  anchor: HTMLElement | null;
   above?: boolean;
   onClose(): void;
+  children: React.ReactNode;
+}) {
+  // What it showed when it was last open, so the exit has something to fade.
+  const last = useRef<{ anchor: HTMLElement; children: React.ReactNode } | null>(null);
+  const [, rerender] = useState(0);
+  if (anchor) last.current = { anchor, children };
+  const shown = last.current;
+  if (!shown) return null;
+  return (
+    <MenuSurface
+      label={label}
+      role={role}
+      anchor={shown.anchor}
+      above={above}
+      closing={!anchor}
+      onClose={onClose}
+      onExited={() => {
+        last.current = null;
+        rerender((n) => n + 1);
+      }}
+    >
+      {shown.children}
+    </MenuSurface>
+  );
+}
+
+function MenuSurface({ label, role, anchor, above, closing, onClose, onExited, children }: {
+  label: string;
+  role: "menu" | "dialog";
+  anchor: HTMLElement;
+  above: boolean;
+  closing: boolean;
+  onClose(): void;
+  onExited(): void;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  const exited = useRef(onExited);
+  exited.current = onExited;
+  const attached = () => anchor.isConnected && anchor.getClientRects().length > 0;
   useLayoutEffect(() => {
     const el = ref.current!;
     const place = () => {
+      if (!attached()) return;
       const a = anchor.getBoundingClientRect();
       const m = el.getBoundingClientRect();
       el.style.left = `${Math.min(Math.max(a.left, 8), innerWidth - 8 - m.width)}px`;
@@ -127,10 +167,21 @@ export function Menu({ label, anchor, role = "menu", above = false, onClose, chi
     };
   }, [anchor, above]);
   useEffect(() => {
+    if (closing) return;
     ref.current?.querySelector<HTMLElement>("[aria-checked=true], button:not(:disabled), a")?.focus({ preventScroll: true });
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!ref.current?.contains(t) && !anchor.contains(t)) close.current();
+      if (ref.current?.contains(t) || anchor.contains(t)) return;
+      // Not the focus move, and not the click that follows: on a phone that tap would also change the slide under it.
+      e.preventDefault();
+      const swallow = (c: MouseEvent) => {
+        c.preventDefault();
+        c.stopPropagation();
+      };
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      // A tap that turns into a scroll sends no click.
+      window.setTimeout(() => window.removeEventListener("click", swallow, true), 600);
+      close.current();
     };
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -143,6 +194,36 @@ export function Menu({ label, anchor, role = "menu", above = false, onClose, chi
       window.removeEventListener("pointerdown", down);
       window.removeEventListener("keydown", key, true);
     };
-  }, [anchor]);
-  return <div ref={ref} className="st-menu" role={role} aria-label={label}>{children}</div>;
+  }, [anchor, closing]);
+  useLayoutEffect(() => {
+    if (!closing) return;
+    const el = ref.current!;
+    const giveBack = () => {
+      const at = document.activeElement;
+      if (attached() && (!at || at === document.body || el.contains(at))) anchor.focus({ preventScroll: true });
+    };
+    giveBack();
+    // Its trigger is gone (that person left, everyone fits again): nothing to fade back into.
+    const motion = attached() ? el.getAnimations() : [];
+    let live = true;
+    void Promise.all(motion.map((a) => a.finished)).then(() => {
+      if (!live) return;
+      giveBack();
+      exited.current();
+    }, () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [closing]);
+  return (
+    <div
+      ref={ref}
+      className={`st-menu${above ? " is-above" : ""}${closing ? " is-closing" : ""}`}
+      role={role}
+      aria-label={label}
+      inert={closing || undefined}
+    >
+      {children}
+    </div>
+  );
 }

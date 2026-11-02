@@ -94,42 +94,42 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           );
         })}
       </div>
-      {menu && (
-        <Menu label="Speaker" anchor={menu.anchor} above onClose={() => setMenu(null)}>
-          {/* You first: the likeliest pick. */}
-          {[...room.people.filter((p) => p.id === me.id), ...room.people.filter((p) => p.id !== me.id), { id: null, name: "Nobody" }].map((o) => {
-            const current = (room.assignments[deck.groups[menu.group].id] ?? null) === o.id;
-            return (
-              <button
-                key={o.id ?? "none"}
-                type="button"
-                role="menuitemradio"
-                aria-checked={current}
-                className="st-menu-item"
-                onClick={() => {
-                  onAssign(menu.group, o.id);
-                  setMenu(null);
-                }}
-              >
-                <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
-                <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
-                {current && <Icon name="check" size={14} />}
-              </button>
-            );
-          })}
-        </Menu>
-      )}
+      <Menu label="Speaker" anchor={menu?.anchor ?? null} above onClose={() => setMenu(null)}>
+        {/* You first: the likeliest pick. */}
+        {menu && [...room.people.filter((p) => p.id === me.id), ...room.people.filter((p) => p.id !== me.id), { id: null, name: "Nobody" }].map((o) => {
+          const current = (room.assignments[deck.groups[menu.group].id] ?? null) === o.id;
+          return (
+            <button
+              key={o.id ?? "none"}
+              type="button"
+              role="menuitemradio"
+              aria-checked={current}
+              className="st-menu-item"
+              onClick={() => {
+                onAssign(menu.group, o.id);
+                setMenu(null);
+              }}
+            >
+              <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
+              <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
+              {current && <Icon name="check" size={14} />}
+            </button>
+          );
+        })}
+      </Menu>
     </>
   );
 }
 
 function Thumb({ deck, group, slide }: { deck: Deck; group: number; slide: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const [painted, setPainted] = useState(false);
   useEffect(() => {
     const c = canvas.current!;
     c.width = 256;
     c.height = 144;
-    void renderThumb(c, deck, group, slide).catch(() => undefined);
+    void renderThumb(c, deck, group, slide).then(() => setPainted(true), () => undefined);
   }, [deck, group, slide]);
-  return <canvas ref={canvas} aria-hidden="true" />;
+  // The first paint fades in rather than popping into an empty frame.
+  return <canvas ref={canvas} className={painted ? "is-painted" : undefined} aria-hidden="true" />;
 }

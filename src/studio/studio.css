@@ -214,6 +214,7 @@
 
 /* Its width (every tile's) is set by Cams.tsx; the top bar may grant less, and then only the tiles that fit show. */
 .st-cams {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -225,6 +226,30 @@
 
 .st-tile[hidden] {
   display: none;
+}
+
+/* Someone arriving fades in; someone leaving fades out where they were while the row closes up (Cams.tsx). */
+.st-tile,
+.st-cams .st-cams-more {
+  animation: st-tile-in var(--dur-control) var(--ease);
+}
+
+.st-tile.is-leaving {
+  position: absolute;
+  pointer-events: none;
+  animation: st-tile-out var(--dur-control) var(--ease) forwards;
+}
+
+@keyframes st-tile-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes st-tile-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .st-tile {
@@ -393,13 +418,12 @@
   container-type: size;
 }
 
-/* Where the width caps the stage short of the row's height (1024x768), the script column still gets room to read: it
-   reaches below the stage, which then starts level with the group's title. */
+/* The pair shares one top and one bottom edge: the script column is exactly as tall as the stage, and its words
+   scroll when the width keeps the stage short (1024x768). */
 .st-desk {
   display: grid;
   grid-template-columns: min(100cqw - clamp(288px, 28vw, 440px) - var(--space-32), 100cqh * 16 / 9) clamp(288px, 28vw, 440px);
   align-items: start;
-  min-height: min(100cqh, 480px);
   column-gap: var(--space-32);
 }
 
@@ -759,6 +783,18 @@
   color: var(--ink-4);
 }
 
+/* A kept take: its length, then a green check and "recorded". */
+.st-clock-label.is-done {
+  color: var(--ink-3);
+}
+
+.st-clock-label.is-done svg {
+  margin-right: var(--space-4);
+  vertical-align: -2px;
+  color: var(--green);
+  animation: st-tick var(--dur-sheet) var(--ease);
+}
+
 .st-dock-time .st-error {
   min-width: 0;
   font-size: var(--text-13);
@@ -824,6 +860,28 @@
 
 .st-dock-acts > .btn.is-quiet:first-child {
   margin-left: calc(var(--space-12) * -1);
+}
+
+/* Controls pulled into line with the column's edge show hover in ink: a fill would reach past that edge. */
+@media (hover: hover) {
+  .st-dock-acts > .btn.is-quiet:first-child:not(:disabled):hover,
+  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet:not(:disabled):hover,
+  .st-dock-side .icon-btn:not(:disabled):hover,
+  .st-script-head .st-script-edit:not(:disabled):hover {
+    background: none;
+    color: var(--ink);
+  }
+}
+
+/* The next group to record, after a take is kept: its name gives way before the arrow does. */
+.st-dock-next {
+  min-width: 0;
+}
+
+.st-dock-next span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .st-dock-note {
@@ -901,6 +959,11 @@
 
 .st-strip.is-locked {
   opacity: 0.5;
+}
+
+/* Making the video is the one job on screen: the speakers and slides wait until it closes. */
+.st-room.is-rendering .st-strip {
+  display: none;
 }
 
 .st-strip-g {
@@ -986,6 +1049,12 @@
   display: block;
   width: 100%;
   height: 100%;
+  opacity: 0;
+  transition: opacity var(--dur-control) var(--ease);
+}
+
+.st-thumb canvas.is-painted {
+  opacity: 1;
 }
 
 .st-thumb:disabled {
@@ -1015,6 +1084,32 @@
   background: var(--surface);
   box-shadow: var(--shadow-pop);
   font-family: var(--font);
+  transform-origin: top left;
+  animation: st-menu-in var(--dur-control) var(--ease);
+}
+
+.st-menu.is-above {
+  transform-origin: bottom left;
+}
+
+/* Closing, it fades back toward its trigger and lets the pointer through. */
+.st-menu.is-closing {
+  pointer-events: none;
+  animation: st-menu-out var(--dur-control) var(--ease) forwards;
+}
+
+@keyframes st-menu-in {
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes st-menu-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
+  }
 }
 
 .st-menu-item {
@@ -1181,8 +1276,8 @@
     padding: 0;
   }
   .st-room.is-rendering {
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas: "top top top" ". body ." "strip strip strip";
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "top top top" ". body .";
   }
   .st-body,
   .st-desk,
@@ -1234,10 +1329,12 @@
     margin: 0;
     padding: var(--space-16) var(--space-16) var(--space-4);
   }
+  /* Its last line fades out above the strip, never cut by the strip's edge. */
   .st-script {
     grid-area: script;
     margin: 0;
-    padding: var(--space-8) var(--space-4) var(--space-16);
+    padding: var(--space-8) var(--space-4) var(--space-48);
+    mask-image: linear-gradient(black calc(100% - var(--space-48)), transparent calc(100% - var(--space-8)));
   }
   .st-strip {
     gap: var(--space-24);
