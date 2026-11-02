@@ -49,7 +49,7 @@ export function Project({ draft, setDraft, show, makeUrl }: {
         <div className="su-logo">
           <button
             type="button"
-            className={`su-logo-pick${draft.logo ? " has-logo" : ""}`}
+            className={`su-logo-pick${draft.logo ? " has-logo" : named ? "" : " is-blank"}`}
             onClick={() => logoInput.current?.click()}
             aria-label={draft.logo ? "Change logo" : "Add logo"}
             data-tip={draft.logo ? "Change logo" : "Add logo"}

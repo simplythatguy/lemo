@@ -39,7 +39,7 @@ export function Script({ draft, deck, length, onSay }: {
                 <div key={id} className="su-row">
                   <div className="su-thumb is-sm"><Thumb slide={draft.slides[id]} /></div>
                   <textarea
-                    className="su-say"
+                    className={`su-say${draft.script[id] ? "" : " is-empty"}`}
                     value={draft.script[id] ?? ""}
                     placeholder={id === prompted ? "What you say on this slide" : undefined}
                     aria-label={`Slide ${first + k + 1}: what you say`}
