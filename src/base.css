@@ -65,6 +65,8 @@
   --control-sm: 32px;
   --control: 36px;
   --control-lg: 44px;
+  /* The widest a one-column (stacked) screen grows before it centres. */
+  --column: 600px;
 
   --shadow-pop: 0 1px 2px rgba(18, 18, 23, 0.04), 0 4px 12px rgba(18, 18, 23, 0.06), 0 16px 40px rgba(18, 18, 23, 0.08);
 
