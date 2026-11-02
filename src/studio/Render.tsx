@@ -7,6 +7,7 @@ import { exportVideo, preload } from "./stage";
 import { takeCache } from "./takeCache";
 import { clock, INTRO_MS, OUTRO_MS } from "./timing";
 import type { Deck, RoomState, TakeInfo, TakeMedia } from "./types";
+import "./render.css";
 
 type State =
   | { k: "working"; label: string; fraction: number; leftMs?: number }

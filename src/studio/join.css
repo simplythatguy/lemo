@@ -1,0 +1,263 @@
+/* —— Join and sign in —— */
+
+.st-join {
+  width: min(480px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.st-join-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  min-width: 0;
+  margin: 0;
+  font: var(--weight-title) var(--text-28)/1.2 var(--font);
+  letter-spacing: var(--tracking-title);
+  color: var(--ink);
+}
+
+.st-join-title > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A room without slides: the mark and one way forward. */
+.st-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-32);
+}
+
+.st-empty .st-brand {
+  gap: var(--space-12);
+  font-size: var(--text-28);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
+}
+
+.st-empty .st-brand .st-mark {
+  width: 28px;
+  height: 28px;
+}
+
+.st-empty .st-join-actions {
+  justify-content: center;
+}
+
+.st-cam {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--fill);
+}
+
+.st-cam video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.st-cam.is-empty video {
+  opacity: 0;
+}
+
+.st-cam .st-tile-face {
+  width: 72px;
+  height: 72px;
+  font-size: var(--text-28);
+}
+
+.st-cam-toggle {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  display: grid;
+  place-items: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--shade);
+  color: var(--on-dark);
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: background var(--dur-control) var(--ease);
+}
+
+.st-cam-toggle:hover {
+  background: var(--shade-hover);
+}
+
+.st-cam.is-empty .st-cam-toggle {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.st-cam-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  font-size: var(--text-14);
+  color: var(--ink-2);
+}
+
+.st-level {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+}
+
+.st-level > div {
+  height: 100%;
+  background: var(--glass);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-meter) linear;
+}
+
+.st-devices {
+  display: flex;
+  gap: var(--space-24);
+  margin-top: calc(var(--space-12) * -1);
+}
+
+.st-device {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: var(--ink-3);
+}
+
+.st-device select {
+  appearance: none;
+  min-width: 0;
+  max-width: 200px;
+  padding: var(--space-4) var(--space-16) var(--space-4) 0;
+  border: 0;
+  border-radius: var(--radius-tag);
+  background: transparent var(--chevron) no-repeat right 2px center;
+  font: var(--weight-body) var(--text-13)/1.3 var(--font);
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.st-device select:disabled {
+  cursor: default;
+  background-image: none;
+}
+
+.st-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.st-field > span {
+  font-size: var(--text-13);
+  color: var(--ink-3);
+}
+
+.st-field input,
+.st-code-join input {
+  height: var(--control);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 0;
+  background: transparent;
+  font: var(--weight-body) var(--text-17)/1 var(--font);
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
+}
+
+/* Team names are suggested as you type; the browser's list arrow stays out of the line. */
+.st-field input::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
+.st-page .st-field input:focus-visible,
+.st-page .st-code-join input:focus-visible {
+  outline: none;
+}
+
+.st-field input:focus,
+.st-code-join input:focus {
+  border-bottom-color: var(--focus);
+  box-shadow: 0 1px 0 var(--focus);
+}
+
+.st-join-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.st-code-join {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.st-code-join input {
+  width: 112px;
+  font-size: var(--text-14);
+  letter-spacing: var(--tracking-code);
+  text-transform: uppercase;
+}
+
+.st-code-join input::placeholder {
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-4);
+}
+
+/* The room code: a grey pill that copies the room link. */
+.st-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--control-sm);
+  padding: 0 var(--space-12);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--fill);
+  font: var(--weight-label) var(--text-13)/1 var(--font);
+  letter-spacing: var(--tracking-code);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
+}
+
+.st-copy svg {
+  color: var(--ink-4);
+}
+
+@media (hover: hover) {
+  .st-copy:hover {
+    background: var(--fill-hover);
+    color: var(--ink);
+  }
+}

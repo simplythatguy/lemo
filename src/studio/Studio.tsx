@@ -9,6 +9,7 @@ import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, sav
 import { Room } from "./RoomView";
 import type { Deck } from "./types";
 import "./studio.css";
+import "./join.css";
 
 /** The room's deck, as the same object until its content changes: the poll hands over a fresh copy every 2 s. */
 function useStableDeck(deck: Deck | null | undefined): Deck | null {

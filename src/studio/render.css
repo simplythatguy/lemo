@@ -1,0 +1,79 @@
+/* —— Make the video: the render screen takes the middle row —— */
+
+.st-render {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+  container-type: size;
+}
+
+.st-booth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: min(1100px, 100%, calc((100cqh - 128px) * 16 / 9));
+  padding-top: var(--space-8);
+}
+
+.st-booth-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--control);
+  margin-left: calc(var(--space-8) * -1);
+}
+
+.st-booth-head .icon-btn {
+  color: var(--ink-2);
+}
+
+.st-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  min-height: var(--control-lg);
+  flex-shrink: 0;
+}
+
+.st-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-left: auto;
+  font: var(--weight-body) var(--text-15)/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.st-result {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.st-work {
+  min-width: 120px;
+  font-size: var(--text-14);
+  color: var(--ink-2);
+}
+
+.st-meter {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--fill);
+}
+
+.st-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transform-origin: left;
+  transition: transform var(--dur-control) linear;
+}
