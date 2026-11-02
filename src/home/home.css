@@ -139,12 +139,9 @@ a.hm-card:active .hm-cover {
   object-fit: cover;
 }
 
-.hm-cover.slot {
+/* A demo with no slides yet: a blank slide, white like one. */
+.hm-cover.is-blank {
   background: var(--bg);
-}
-
-.hm-cover.slot::after {
-  box-shadow: none;
 }
 
 .hm-name,
@@ -191,8 +188,27 @@ a.hm-card:active .hm-cover {
   }
 }
 
-.hm-grid > .slot {
-  grid-column: 1;
+/* No demos on this device: the page name, a blank deck, New demo and the room code, as one centred column. */
+.hm-page.is-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-24);
+  padding-block: var(--space-48);
+}
+
+.hm-page.is-empty .hm-title {
+  flex: none;
+}
+
+.hm-page.is-empty .hm-join {
+  margin-top: var(--space-8);
+}
+
+.hm-page.is-empty .hm-join-error {
+  right: 50%;
+  translate: 50% 0;
 }
 
 @media (max-width: 600px) {
