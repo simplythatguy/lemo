@@ -792,11 +792,8 @@
   }
 }
 
-/* No keyboard on a touch screen: the key hints go. A one-line segment is still a full finger's height. */
+/* A one-line segment is still a full finger's height. */
 @media (pointer: coarse) {
-  .st-dock .kbd {
-    display: none;
-  }
   .st-seg-hit {
     min-height: var(--control-lg);
   }

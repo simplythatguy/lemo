@@ -20,7 +20,7 @@
 
 ## Radii
 
-- `--radius-tag` (6) is for kbd keys and tags.
+- `--radius-tag` (6) is for tags and tooltips.
 - `--radius-control` (10) is for buttons, fields, icon buttons and transcript rows.
 - `--radius-card` (14) is for cards, slide thumbnails, the stage, camera tiles and the rows of the demo list.
 - `--radius-sheet` (20) is for sheets, dialogs, menus and popovers.
@@ -63,6 +63,7 @@
 - Use `icon-btn` for icon-only controls. They are transparent, 36px square (32px with `is-sm`), and show a fill on hover.
 - There are three sizes: `is-lg` (44), default (36) and `is-sm` (32). Buttons, icon buttons and fields of the same size are the same height, so a row of controls shares one centre line.
 - Show a disabled control as a faded version of its own colour. `base.css` handles this, so never restyle `:disabled`.
+- A desktop button may name its key after its label in a `kbd`: the app font at 12px, faded, with no chip or border. Touch screens hide it.
 - A button that must still explain itself while unavailable (its tooltip says why) uses `aria-disabled="true"` instead of `disabled`, and its handler returns early. It fades the same way.
 
 ## Tooltips
