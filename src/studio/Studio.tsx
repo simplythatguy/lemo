@@ -202,7 +202,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
               <span className="st-cam-icon"><Icon name="camera-off" size={20} /></span>
               <strong>{camera.error}</strong>
               <span>{CAMERA_FIX[camera.error]}</span>
-              <button type="button" className="btn is-secondary is-sm" onClick={camera.retry}>Try again</button>
+              <button type="button" className="btn is-quiet is-sm" onClick={camera.retry}><Icon name="restart" size={16} />Try again</button>
             </div>
           ) : !camera.on && (
             <span className="st-cam-icon is-face" aria-hidden="true">

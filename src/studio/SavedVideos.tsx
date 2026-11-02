@@ -136,9 +136,6 @@ export function SavedVideos({ deck, room, upload }: {
                 <Icon name="x" size={16} />
               </button>
             </header>
-            <p className="st-saved-sum">
-              {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)}
-            </p>
             <ol className="st-saved-list">
               {deck.groups.map((g, gi) => {
                 const take = room.takes[g.id];
@@ -177,10 +174,15 @@ export function SavedVideos({ deck, room, upload }: {
               })}
             </ol>
             {saved.length > 0 && (
-              <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} aria-busy={all !== null}
-                aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
-                <Icon name="download" size={16} />{all === null ? "Download all" : `Rendering ${Math.round(all * 100)}%`}
-              </button>
+              <footer className="st-saved-foot">
+                <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} aria-busy={all !== null}
+                  aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
+                  <Icon name="download" size={16} />{all === null ? "Download all" : `Rendering ${Math.round(all * 100)}%`}
+                </button>
+                <span className="st-saved-sum">
+                  {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)}
+                </span>
+              </footer>
             )}
           </aside>
         </>
@@ -216,6 +218,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   const [loaded, setLoaded] = useState<number | null>(0);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [refused, setRefused] = useState(false);
   const group = deck.groups[index];
   const length = take.durationMs;
@@ -224,6 +227,9 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   current.current = take;
   const latestDeck = useRef(deck);
   latestDeck.current = deck;
+  // A teammate's retake swaps the video under the player; the sound stays as it was set.
+  const mutedNow = useRef(muted);
+  mutedNow.current = muted;
   const painted = stageKey(deck);
 
   useEffect(() => {
@@ -239,7 +245,9 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
     let url = "";
     const v = document.createElement("video");
     v.playsInline = true;
+    v.muted = mutedNow.current;
     v.addEventListener("playing", () => setRefused(false));
+    v.addEventListener("volumechange", () => setMuted(v.muted));
     void (async () => {
       let got = 0;
       const media: TakeMedia = await takeMedia(room, take, (n) => {
@@ -310,6 +318,10 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
     const v = video.current;
     if (v) v.currentTime = ms / 1000;
   };
+  const mute = () => {
+    const v = video.current;
+    if (v) v.muted = !v.muted;
+  };
 
   return (
     <div className="st-play" role="dialog" aria-modal="true" aria-label={group.name} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -329,7 +341,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
           )}
           {refused && <StartButton onStart={toggle} />}
         </div>
-        <Transport length={length} elapsed={elapsed} paused={paused} ready={loaded === null} onToggle={toggle} onSeek={seekTo}>
+        <Transport length={length} elapsed={elapsed} paused={paused} muted={muted} ready={loaded === null} onToggle={toggle} onSeek={seekTo} onMute={mute}>
           {saving === undefined ? (
             <button type="button" className="icon-btn" onClick={onSave} aria-label={`Download ${group.name}`} data-tip="Download">
               <Icon name="download" size={16} />
