@@ -214,6 +214,7 @@
 
 /* Its width (every tile's) is set by Cams.tsx; the top bar may grant less, and then only the tiles that fit show. */
 .st-cams {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -225,6 +226,30 @@
 
 .st-tile[hidden] {
   display: none;
+}
+
+/* Someone arriving fades in; someone leaving fades out where they were while the row closes up (Cams.tsx). */
+.st-tile,
+.st-cams .st-cams-more {
+  animation: st-tile-in var(--dur-control) var(--ease);
+}
+
+.st-tile.is-leaving {
+  position: absolute;
+  pointer-events: none;
+  animation: st-tile-out var(--dur-control) var(--ease) forwards;
+}
+
+@keyframes st-tile-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes st-tile-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .st-tile {

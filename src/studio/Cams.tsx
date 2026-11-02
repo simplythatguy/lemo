@@ -2,7 +2,7 @@
 // Any tile, circle or the "+N" opens the People list, the one place to remove someone or leave (and, on a phone, to
 // switch your camera). A camera with no picture is a dark tile with the person's initials. The team hears everyone;
 // only the presenter's mic goes into the video, and only their tile shows a mic. A red ring marks whoever is recording.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { CameraToggle, firstName, initials, Menu, type Camera } from "./parts";
 import type { Person } from "./types";
@@ -27,12 +27,12 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
 }) {
   const row = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<HTMLElement | null>(null);
-  /** The row's width with every tile in it, and how many tiles fit in the width the top bar gives it. */
-  const [size, setSize] = useState<{ width: number; fit: number } | null>(null);
+  /** How many tiles fit in the width the top bar grants: Infinity while every tile does. */
+  const [room, setRoom] = useState(Infinity);
   const team = people.length > 1;
   const mine = people.find((p) => p.id === me.id);
   const order = mine ? [mine, ...people.filter((p) => p !== mine)] : people;
-  const fit = Math.min(order.length, size?.fit ?? order.length);
+  const fit = Math.min(order.length, room);
   const shown = new Set(order.slice(0, fit).map((p) => p.id));
   // Whoever presents stays in view, so the red ring is never behind the "+N".
   if (presenter && !shown.has(presenter) && fit > 1) {
@@ -41,32 +41,78 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
   }
   const more = order.length - fit;
 
+  // Someone who leaves fades out where they were while the others close the gap.
+  const [leaving, setLeaving] = useState<Person[]>([]);
+  const [before, setBefore] = useState(people);
+  if (before !== people) {
+    setBefore(people);
+    const gone = before.filter((p) => !people.some((q) => q.id === p.id));
+    if (gone.length) setLeaving((l) => [...l, ...gone]);
+  }
+  const fading = leaving.filter((p) => !people.some((q) => q.id === p.id));
+
+  // Where every tile and button was painted before the team changed, so they glide to their new places.
+  const lineup = order.map((p) => p.id).join();
+  const glide = useRef<{ team: string; from: Map<string, DOMRect> | null }>({ team: lineup, from: null });
+  if (lineup !== glide.current.team && !glide.current.from && row.current) glide.current.from = placesIn(row.current);
+
   // The row asks for the width of every tile; the top bar grants what it can spare, and the tiles that fit show.
   // Hidden tiles stay mounted: their sound keeps playing and the stage can still follow their camera.
+  const measure = useCallback(() => {
+    const el = row.current!;
+    const s = getComputedStyle(el);
+    const tile = el.querySelector<HTMLElement>(".st-tile:not([hidden], .is-leaving)")?.offsetWidth ?? 0;
+    const gap = parseFloat(s.columnGap) || 0;
+    const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);
+    const sound = el.querySelector<HTMLElement>(".st-cams-sound")?.offsetWidth ?? 0;
+    const plus = el.querySelector<HTMLElement>(".st-cams-more")?.offsetWidth || tile;
+    const extra = sound ? sound + gap : 0;
+    const all = people.length * tile + (people.length - 1) * gap;
+    el.style.width = `${Math.ceil(pad + all + extra)}px`;
+    const granted = el.clientWidth - pad - extra;
+    const next = all <= granted + 0.5 ? Infinity : Math.max(1, Math.floor((granted - plus) / (tile + gap)));
+    setRoom(next);
+    return next;
+  }, [people.length]);
+
   useLayoutEffect(() => {
     const el = row.current!;
-    const measure = () => {
-      const s = getComputedStyle(el);
-      const tile = el.querySelector<HTMLElement>(".st-tile:not([hidden])")?.offsetWidth ?? 0;
-      const gap = parseFloat(s.columnGap) || 0;
-      const pad = parseFloat(s.paddingLeft) + parseFloat(s.paddingRight);
-      const sound = el.querySelector<HTMLElement>(".st-cams-sound")?.offsetWidth ?? 0;
-      const plus = el.querySelector<HTMLElement>(".st-cams-more")?.offsetWidth || tile;
-      const extra = sound ? sound + gap : 0;
-      const all = people.length * tile + (people.length - 1) * gap;
-      const room = el.clientWidth - pad - extra;
-      const next = {
-        width: Math.ceil(pad + all + extra),
-        fit: all <= room + 0.5 ? people.length : Math.max(1, Math.floor((room - plus) / (tile + gap))),
-      };
-      setSize((cur) => (cur?.width === next.width && cur.fit === next.fit ? cur : next));
-    };
-    measure();
-    const watch = new ResizeObserver(measure);
+    const watch = new ResizeObserver(() => void measure());
     watch.observe(el);
     watch.observe(el.parentElement!);
     return () => watch.disconnect();
-  }, [people.length, more > 0]);
+  }, [measure]);
+
+  useLayoutEffect(() => {
+    const el = row.current!;
+    // A first pass with a stale fit is never painted: glide from what was, once the row has settled.
+    if (measure() !== room) return;
+    const g = glide.current;
+    if (g.team === lineup) return;
+    const from = g.from;
+    glide.current = { team: lineup, from: null };
+    if (!from) return;
+    const box = el.getBoundingClientRect();
+    const unseen: string[] = [];
+    for (const t of el.querySelectorAll<HTMLElement>(".st-tile.is-leaving")) {
+      const was = from.get(t.dataset.place!);
+      if (!was) unseen.push(t.dataset.place!);
+      else {
+        t.style.left = `${was.left - box.left}px`;
+        t.style.top = `${was.top - box.top}px`;
+      }
+    }
+    // They were behind the "+N": nothing on screen to fade.
+    if (unseen.length) setLeaving((l) => l.filter((p) => !unseen.includes(p.id)));
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const root = getComputedStyle(document.documentElement);
+    const timing = { duration: parseFloat(root.getPropertyValue("--dur-sheet")), easing: root.getPropertyValue("--ease").trim() };
+    for (const [key, now] of placesIn(el)) {
+      const was = from.get(key);
+      const dx = was ? was.left - now.left : 0;
+      if (Math.abs(dx) > 0.5) el.querySelector<HTMLElement>(`[data-place="${key}"]`)?.animate({ translate: [`${dx}px 0`, "0 0"] }, timing);
+    }
+  });
 
   // The list closes with the "+N" or circle it hangs from (everyone fits again, or that person left).
   useLayoutEffect(() => {
@@ -75,7 +121,7 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
 
   const open = (anchor: HTMLElement) => setList((a) => (a === anchor ? null : anchor));
   return (
-    <div ref={row} className="st-cams" aria-label="People" style={size ? { width: size.width } : undefined}>
+    <div ref={row} className="st-cams" aria-label="People">
       {order.map((p) => {
         const own = p.id === me.id;
         return (
@@ -96,9 +142,27 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
           />
         );
       })}
+      {fading.map((p) => (
+        <Tile
+          key={p.id}
+          person={p}
+          mine={false}
+          hidden={false}
+          leaving
+          stream={streams[p.id] ?? null}
+          off={!!camOff[p.id]}
+          presenting={false}
+          recording={false}
+          audible={false}
+          locked
+          onOpen={() => undefined}
+          onGone={() => setLeaving((l) => l.filter((q) => q.id !== p.id))}
+        />
+      ))}
       {more > 0 && (
         <button
           type="button"
+          data-place="more"
           className="btn is-quiet st-cams-more"
           aria-haspopup="dialog"
           aria-expanded={!!list}
@@ -112,6 +176,7 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
       {team && (
         <button
           type="button"
+          data-place="sound"
           className="icon-btn st-cams-sound"
           aria-pressed={mutedAll}
           aria-label={mutedAll ? "Unmute the team" : "Mute the team on this laptop"}
@@ -162,11 +227,13 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
   );
 }
 
-function Tile({ person, mine, hidden, camera, stream, off, presenting, recording, audible, locked, onOpen, onVideo }: {
+function Tile({ person, mine, hidden, leaving, camera, stream, off, presenting, recording, audible, locked, onOpen, onVideo, onGone }: {
   person: Person;
   mine: boolean;
   /** Past the room the top bar has: only in the People list. */
   hidden: boolean;
+  /** They left: the tile fades out where it was, then `onGone`. */
+  leaving?: boolean;
   /** This device's camera, on my own tile only. */
   camera?: Camera;
   stream: MediaStream | null;
@@ -178,6 +245,7 @@ function Tile({ person, mine, hidden, camera, stream, off, presenting, recording
   /** The whole tile opens the People list. */
   onOpen(anchor: HTMLElement): void;
   onVideo?: (el: HTMLVideoElement | null) => void;
+  onGone?: () => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -213,7 +281,14 @@ function Tile({ person, mine, hidden, camera, stream, off, presenting, recording
   const picture = usePicture(video, stream) && !off;
 
   return (
-    <figure hidden={hidden} className={`st-tile${recording ? " is-live" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}`}>
+    <figure
+      hidden={hidden}
+      data-place={person.id}
+      className={`st-tile${recording ? " is-live" : ""}${picture ? "" : " is-empty"}${mine ? " is-mine" : ""}${off ? " is-off" : ""}${leaving ? " is-leaving" : ""}`}
+      inert={leaving || undefined}
+      aria-hidden={leaving || undefined}
+      onAnimationEnd={leaving ? (e) => e.animationName === "st-tile-out" && onGone?.() : undefined}
+    >
       <video ref={video} autoPlay playsInline muted />
       <audio ref={sound} autoPlay />
       {/* No picture: the initials alone, with the full name in the tile's tooltip (and "No video" in the People list). */}
@@ -234,6 +309,13 @@ function Tile({ person, mine, hidden, camera, stream, off, presenting, recording
       {camera && <CameraToggle camera={camera} className="st-tile-cam" size={14} disabled={locked} />}
     </figure>
   );
+}
+
+/** Where each tile and button of the row is on screen, by its `data-place`. */
+function placesIn(row: HTMLElement): Map<string, DOMRect> {
+  const at = new Map<string, DOMRect>();
+  for (const el of row.querySelectorAll<HTMLElement>("[data-place]:not(.is-leaving)")) if (el.getClientRects().length) at.set(el.dataset.place!, el.getBoundingClientRect());
+  return at;
 }
 
 /** Whether `stream` is painting frames into the element: false with no stream, before the first frame, and while the track is muted or ended. */
