@@ -1,6 +1,6 @@
 // Every saved take, in deck order (the order of the final video), for the whole room: play it, download it.
 // Groups can be recorded in any order; the numbered rows always follow the deck.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Icon } from "../icons";
 import { firstName, slug, StartButton } from "./parts";
 import { startPlayback } from "./playback";
@@ -33,6 +33,23 @@ async function download(deck: Deck, room: string, takes: TakeInfo[], name: strin
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** Keeps a surface in the page while its exit animation plays: `leaving` is set from the close until it ends. */
+function usePresence(shown: boolean, surface: RefObject<HTMLElement | null>) {
+  const [mounted, setMounted] = useState(shown);
+  if (shown && !mounted) setMounted(true);
+  const leaving = mounted && !shown;
+  useEffect(() => {
+    if (!leaving) return;
+    let alive = true;
+    const exits = surface.current?.getAnimations().map((a) => a.finished) ?? [];
+    void Promise.all(exits).catch(() => undefined).then(() => alive && setMounted(false));
+    return () => {
+      alive = false;
+    };
+  }, [leaving, surface]);
+  return { mounted, leaving };
+}
+
 export function SavedVideos({ deck, room, upload }: {
   deck: Deck;
   room: RoomState;
@@ -46,6 +63,10 @@ export function SavedVideos({ deck, room, upload }: {
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
   const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const list = usePresence(open, panel);
+  /** The row's Play that opened the player: focus goes back to it. */
+  const opener = useRef<HTMLElement | null>(null);
+  const player = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -64,6 +85,15 @@ export function SavedVideos({ deck, room, upload }: {
       window.removeEventListener("pointerdown", away);
     };
   }, [open, playing]);
+
+  // Focus goes to the first row's Play (or Close) on open, and back to the trigger when it was in the list.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    const p = panel.current;
+    if (open) (p?.querySelector<HTMLElement>(".st-saved-list button") ?? p?.querySelector<HTMLElement>(".st-saved-head button"))?.focus({ preventScroll: true });
+    else if (wasOpen.current && (p?.contains(document.activeElement) || document.activeElement === document.body)) trigger.current?.focus({ preventScroll: true });
+    wasOpen.current = open;
+  }, [open]);
 
   // Wide screens hang the popover under its trigger; phones get a bottom sheet from CSS.
   useLayoutEffect(() => {
@@ -106,11 +136,20 @@ export function SavedVideos({ deck, room, upload }: {
   };
 
   const playingIndex = deck.groups.findIndex((g) => g.id === playing);
-  const playable = playingIndex >= 0 && !!room.takes[playing!];
-  // The group or its take went away under the player: it closes, and Escape closes the list again.
+  const playable = open && playingIndex >= 0 && !!room.takes[playing!];
+  // The group or its take went away under the player, or the list closed: it closes, and Escape closes the list again.
   useEffect(() => {
     if (playing !== null && !playable) setPlaying(null);
   }, [playing, playable]);
+  const shown = usePresence(playable, player);
+  // The take on screen stays the same while the player plays its exit.
+  const [last, setLast] = useState(playing);
+  if (playing !== null && playing !== last) setLast(playing);
+  const lastIndex = deck.groups.findIndex((g) => g.id === last);
+  const lastTake = last === null ? undefined : room.takes[last];
+  useEffect(() => {
+    if (playing === null && opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+  }, [playing]);
   return (
     <>
       <button
@@ -126,10 +165,16 @@ export function SavedVideos({ deck, room, upload }: {
         {saved.length > 0 && <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>}
       </button>
 
-      {open && !playable && (
+      {list.mounted && (
         <>
-          <div className="st-saved-dim" aria-hidden="true" />
-          <aside ref={panel} className="st-saved" aria-label="Saved videos" style={at ?? undefined}>
+          <div className={`st-saved-dim${playable ? " is-under" : ""}${list.leaving ? " is-leaving" : ""}`} aria-hidden="true" />
+          <aside
+            ref={panel}
+            className={`st-saved${playable ? " is-under" : ""}${list.leaving ? " is-leaving" : ""}`}
+            aria-label="Saved videos"
+            inert={playable || list.leaving}
+            style={at ?? undefined}
+          >
             <header className="st-saved-head">
               <h2 className="st-saved-title">Saved</h2>
               <button type="button" className="icon-btn is-sm" onClick={() => setOpen(false)} aria-label="Close" data-tip="Close">
@@ -156,7 +201,10 @@ export function SavedVideos({ deck, room, upload }: {
                     <span className="st-saved-acts">
                       {done && take && (
                         <>
-                          <button type="button" className="icon-btn is-sm" onClick={() => setPlaying(g.id)} aria-label={`Play ${g.name}`} data-tip="Play">
+                          <button type="button" className="icon-btn is-sm" onClick={(e) => {
+                            opener.current = e.currentTarget;
+                            setPlaying(g.id);
+                          }} aria-label={`Play ${g.name}`} data-tip="Play">
                             <Icon name="play" size={16} />
                           </button>
                           {s === undefined ? (
@@ -188,14 +236,16 @@ export function SavedVideos({ deck, room, upload }: {
         </>
       )}
 
-      {playable && (
+      {shown.mounted && lastTake && lastIndex >= 0 && (
         <Player
+          root={player}
+          leaving={shown.leaving}
           deck={deck}
           room={room.code}
-          index={playingIndex}
-          take={room.takes[playing!]}
-          saving={saving[playing!]}
-          onSave={() => save(room.takes[playing!])}
+          index={lastIndex}
+          take={lastTake}
+          saving={saving[lastTake.groupId]}
+          onSave={() => save(lastTake)}
           onClose={() => setPlaying(null)}
         />
       )}
@@ -204,7 +254,9 @@ export function SavedVideos({ deck, room, upload }: {
 }
 
 /** The take replayed on its own stage: its video is the camera tile and its cues switch the slides. */
-function Player({ deck, room, index, take, saving, onSave, onClose }: {
+function Player({ root, leaving, deck, room, index, take, saving, onSave, onClose }: {
+  root: RefObject<HTMLDivElement | null>;
+  leaving: boolean;
   deck: Deck;
   room: string;
   index: number;
@@ -231,6 +283,11 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   const mutedNow = useRef(muted);
   mutedNow.current = muted;
   const painted = stageKey(deck);
+  const box = useRef<HTMLDivElement>(null);
+  // A press that starts on the dim and ends there closes; a drag out of the player does not.
+  const downOnDim = useRef(false);
+
+  useEffect(() => box.current?.focus({ preventScroll: true }), []);
 
   useEffect(() => {
     const take = current.current;
@@ -301,6 +358,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   };
 
   useEffect(() => {
+    if (leaving) return;
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -324,8 +382,16 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   };
 
   return (
-    <div className="st-play" role="dialog" aria-modal="true" aria-label={group.name} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="st-play-box">
+    <div
+      ref={root}
+      className={`st-play${leaving ? " is-leaving" : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={group.name}
+      onPointerDown={(e) => (downOnDim.current = e.target === e.currentTarget)}
+      onClick={(e) => downOnDim.current && e.target === e.currentTarget && onClose()}
+    >
+      <div ref={box} className="st-play-box" tabIndex={-1}>
         <header className="st-play-head">
           <h2 className="st-play-title">{group.name}</h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close" data-tip="Close">

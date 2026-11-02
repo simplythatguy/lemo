@@ -181,6 +181,8 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(true);
   const [muted, setMuted] = useState(false);
+  // Hidden until its first frame is on screen, or it waits on its Play button over the poster: until then it paints a grey slab.
+  const [showing, setShowing] = useState(false);
   useEffect(() => {
     const v = video.current;
     if (!v) return;
@@ -195,7 +197,12 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
     // In full screen the browser's own controls take over: the row under the video is not there.
     const full = () => (v.controls = document.fullscreenElement === v);
     v.addEventListener("fullscreenchange", full);
-    void startPlayback(v).then((ok) => alive && setRefused(!ok));
+    void startPlayback(v).then((ok) => {
+      if (!alive) return;
+      setRefused(!ok);
+      if (ok && "requestVideoFrameCallback" in v) v.requestVideoFrameCallback(() => alive && setShowing(true));
+      else setShowing(true);
+    });
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
@@ -223,7 +230,7 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
 
   return (
     <>
-      <div className="st-stage st-result">
+      <div className={`st-stage st-result${showing ? " is-showing" : ""}`}>
         <video ref={video} src={url} poster={poster || undefined} playsInline onClick={toggle} onPlaying={() => setRefused(false)}
           onVolumeChange={(e) => setMuted(e.currentTarget.muted)} />
         {refused && <StartButton onStart={toggle} />}
