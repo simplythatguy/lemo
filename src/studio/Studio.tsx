@@ -261,7 +261,7 @@ function DevicePicker({ icon, label, devices, value, onChange }: {
   );
 }
 
-/** A thin bar along the camera tile's bottom edge that moves with the microphone. */
+/** A short bar in the camera tile's corner that moves with the microphone. */
 function MicLevel({ stream }: { stream: MediaStream | null }) {
   const bar = useRef<HTMLDivElement>(null);
   useEffect(() => {

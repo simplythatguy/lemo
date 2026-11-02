@@ -190,17 +190,21 @@
   }
 }
 
+/* The mic level: a short neutral bar on the toggle's centre line, inset from the corner, readable on any picture. */
 .st-level {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
+  left: var(--space-16);
+  bottom: calc(var(--space-12) + (var(--control-lg) - 4px) / 2);
+  width: var(--space-48);
+  height: 4px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--shade);
 }
 
 .st-level > div {
   height: 100%;
-  background: var(--accent);
+  background: var(--on-dark);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform var(--dur-meter) linear;
