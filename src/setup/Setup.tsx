@@ -256,7 +256,7 @@ export function Setup({ code: editCode }: { code?: string }) {
   }
 
   return (
-    <div className={`su-page${fileOver ? " is-file-over" : ""}`}>
+    <div className="su-page">
       <header className="su-top">
         <a
           className="icon-btn"
@@ -297,6 +297,7 @@ export function Setup({ code: editCode }: { code?: string }) {
             draft={draft}
             importing={importing}
             error={fileError}
+            fileOver={fileOver}
             onFile={(f) => void onFile(f)}
             onRemove={(id) => setDraft((d) => removeSlide(d, id))}
             onMove={(from, to) => setDraft((d) => moveSlide(d, from, to))}
@@ -314,14 +315,6 @@ export function Setup({ code: editCode }: { code?: string }) {
           />
         )}
       </main>
-      {fileOver && (
-        <div className="su-drop" aria-hidden="true">
-          <div className="su-drop-target">
-            <Icon name="upload" size={28} />
-            {slidesMissing(draft) ? "Drop to add" : "Drop to replace"}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

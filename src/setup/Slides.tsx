@@ -1,5 +1,6 @@
 // Step 1: the slides. Drop a PDF or PowerPoint anywhere (or choose one); a grid of the rendered slides to reorder, prune
-// and group. A click selects a slide; selected slides become one group. A bar under the slides ties a group together.
+// and group. A click selects a slide; selected slides become one group. A bar under the slides ties a group together,
+// starting at the group's range.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { order, type Draft } from "./draft";
@@ -14,10 +15,12 @@ export interface Importing {
   done: string[];
 }
 
-export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGroup, onUngroup }: {
+export function Slides({ draft, importing, error, fileOver, onFile, onRemove, onMove, onGroup, onUngroup }: {
   draft: Draft;
   importing: Importing | null;
   error: string | null;
+  /** A file is being dragged over the page; dropping it adds or replaces the slides. */
+  fileOver: boolean;
   onFile(file: File): void;
   onRemove(id: string): void;
   onMove(from: number, to: number): void;
@@ -60,11 +63,15 @@ export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGr
       <div className="su-empty">
         {picker}
         <h1 className="su-title">Add your slides</h1>
-        <div className="slot">
-          <button type="button" className="btn is-primary is-lg" onClick={pick}>
-            <Icon name="upload" size={16} />Choose a file
-          </button>
-        </div>
+        {fileOver ? (
+          <Target label="Drop to add" />
+        ) : (
+          <div className="slot">
+            <button type="button" className="btn is-primary is-lg" onClick={pick}>
+              <Icon name="upload" size={16} />Choose a file
+            </button>
+          </div>
+        )}
         {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">PDF or PowerPoint · 16:9</p>}
       </div>
     );
@@ -114,6 +121,21 @@ export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGr
       </div>
       {error && <p className="su-error" role="alert">{error}</p>}
       {importing ? <Progress importing={importing} /> : <Grid draft={draft} ids={ids} picked={picked} setPicked={setPicked} onRemove={onRemove} onMove={onMove} />}
+      {fileOver && (
+        <div className="su-drop">
+          <Target label="Drop to replace" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Where a dragged file lands: the empty slot itself, marked. */
+function Target({ label }: { label: string }) {
+  return (
+    <div className="slot is-target" aria-hidden="true">
+      <Icon name="upload" size={28} />
+      {label}
     </div>
   );
 }
@@ -189,6 +211,13 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
   draft.groups.forEach((g) => g.slides.length > 1 && g.slides.forEach((s) => group.set(s, g.slides)));
   /** The bar reaches across the gap to the next slide when that slide is in the same group and on the same row. */
   const joined = (i: number) => (i + 1) % cols !== 0 && !!group.get(ids[i])?.includes(ids[i + 1]);
+  /** A group's slides read as one range ("3–5"), named again where the group wraps onto the next row. */
+  const label = (i: number) => {
+    const g = group.get(ids[i]);
+    if (!g) return String(i + 1);
+    const first = i - g.indexOf(ids[i]);
+    return first === i || i % cols === 0 ? `${first + 1}–${first + g.length}` : "";
+  };
   return (
     <ol className="su-grid" ref={grid}>
       {ids.map((id, i) => (
@@ -237,7 +266,6 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
         >
           <div className="su-thumb">
             <Thumb slide={draft.slides[id]} />
-            <span className="su-check" aria-hidden="true"><Icon name="check" size={12} /></span>
             <button
               type="button"
               className="su-remove"
@@ -251,7 +279,7 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
               <Icon name="x" size={12} />
             </button>
           </div>
-          <span className="su-label"><span className="su-n">{i + 1}</span></span>
+          <span className="su-label">{label(i) && <span className="su-n">{label(i)}</span>}</span>
         </li>
       ))}
     </ol>
