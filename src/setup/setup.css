@@ -308,31 +308,9 @@
   }
 }
 
-/* A selected slide: an ink ring and a check. */
+/* A selected slide: an ink ring, outside the slide so it never covers it. */
 .su-cell.is-picked .su-thumb {
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink);
-}
-
-.su-check {
-  position: absolute;
-  top: var(--space-8);
-  left: var(--space-8);
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-full);
-  background: var(--ink);
-  color: var(--on-dark);
-  opacity: 0;
-  scale: 0.6;
-  transition: opacity var(--dur-control) var(--ease), scale var(--dur-control) var(--ease);
-  pointer-events: none;
-}
-
-.su-cell.is-picked .su-check {
-  opacity: 1;
-  scale: 1;
 }
 
 .su-label {
@@ -362,10 +340,19 @@
   color: var(--ink-2);
 }
 
+.su-cell.is-picked .su-n {
+  color: var(--ink);
+}
+
 .su-cell.is-joined .su-label::after {
   margin-right: calc(var(--space-24) * -1);
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
+}
+
+.su-cell.is-grouped .su-label:not(:has(.su-n))::after {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .su-remove {
@@ -395,8 +382,12 @@
   background: var(--shade-hover);
 }
 
+/* Touch has no hover: a slide's remove shows once the slide is selected. */
 @media (hover: none) {
-  .su-remove {
+  .su-cell:not(.is-picked) .su-remove {
+    visibility: hidden;
+  }
+  .su-cell.is-picked .su-remove {
     opacity: 1;
   }
 }
@@ -417,31 +408,29 @@
   transition: transform var(--dur-progress) var(--ease);
 }
 
-/* A file dragged over the page: the page dims and one card says where it lands. */
+/* A file dragged over the page lands in the slot: in place when there are no slides, over the slides when it replaces them. */
+.slot.is-target {
+  align-content: center;
+  gap: var(--space-12);
+  border: 2px solid var(--accent);
+  background: var(--accent-wash);
+  font: var(--weight-label) var(--text-15)/1 var(--font);
+  color: var(--accent);
+}
+
 .su-drop {
   position: fixed;
-  inset: 0;
-  z-index: 40;
+  inset: var(--space-64) 0 0;
+  z-index: 5;
   display: grid;
   place-items: center;
   padding: var(--space-24);
-  background: var(--scrim);
+  background: var(--bg);
   pointer-events: none;
 }
 
-.su-drop-target {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-12);
+.su-drop .slot {
   width: min(560px, 100%);
-  aspect-ratio: 16 / 9;
-  border-radius: var(--radius-sheet);
-  background: var(--bg);
-  box-shadow: var(--shadow-pop), inset 0 0 0 2px var(--accent);
-  font: var(--weight-label) var(--text-15)/1 var(--font);
-  color: var(--accent);
 }
 
 /* —— Project —— */
@@ -479,6 +468,13 @@
   cursor: pointer;
   overflow: hidden;
   transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
+}
+
+/* No logo yet: the same dashed empty place as the slides' slot. */
+.su-logo-pick:not(.has-logo) {
+  border: 1.5px dashed var(--line-2);
+  background: var(--bg);
+  box-shadow: none;
 }
 
 .su-logo-pick.has-logo {
@@ -590,10 +586,20 @@
   list-style: none;
 }
 
+/* Every name line runs to the project line's right edge; its remove sits inside the line, at its end. */
 .su-team li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
+  position: relative;
+}
+
+.su-team li:has(> .icon-btn) input {
+  padding-right: var(--control-sm);
+}
+
+.su-team li > .icon-btn {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--space-8) * -1);
+  translate: 0 -50%;
 }
 
 .su-team .su-error {
