@@ -1,6 +1,6 @@
 // Every slide in deck order, each its own tile. A thin ring in the group's colour ties a group's slides together; the speaker's initials sit on each slide.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { initials } from "./parts";
 import { renderThumb } from "./stage";
 import { clock, targetMs } from "./timing";
@@ -65,7 +65,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                 <span className="st-thumb-tag is-up" aria-label={`Uploading, ${Math.round(up * 100)}%`}>{Math.round(up * 100)}%</span>
               ) : take ? (
                 <span className="st-thumb-tag" aria-label={`Recorded, ${clock(take.durationMs)}`}>
-                  <Icon name="check" size={12} stroke={2.4} />{clock(take.durationMs)}
+                  <Icon name="check" size={12} />{clock(take.durationMs)}
                 </span>
               ) : null}
               {g.slides.map((s, si) => {
@@ -88,7 +88,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                       disabled={assignLocked}
                       aria-label={who ? `${g.name}: ${who.name}. Change speaker` : `${g.name}: choose a speaker`}
                       aria-haspopup="menu"
-                      title={who?.name ?? "Choose a speaker"}
+                      data-tip={who?.name ?? "Choose a speaker"}
                       onClick={(e) => {
                         const anchor = e.currentTarget;
                         setMenu((m) => (m?.anchor === anchor ? null : { group: gi, anchor }));
@@ -167,7 +167,7 @@ function AssignMenu({ people, me, current, anchor, onPick, onClose }: {
         <button key={o.id ?? "none"} type="button" role="menuitemradio" aria-checked={o.id === current} className="st-menu-item" onClick={() => onPick(o.id)}>
           <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
           <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
-          {o.id === current && <Icon name="check" size={14} stroke={2.2} />}
+          {o.id === current && <Icon name="check" size={14} />}
         </button>
       ))}
     </div>

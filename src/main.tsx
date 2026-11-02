@@ -3,6 +3,7 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/inter/opsz.css";
 import "./base.css";
+import { Tooltip } from "./Tooltip";
 
 const Home = lazy(() => import("./home/Home").then((m) => ({ default: m.Home })));
 const Setup = lazy(() => import("./setup/Setup").then((m) => ({ default: m.Setup })));
@@ -24,5 +25,6 @@ createRoot(document.getElementById("root")!).render(
     <Suspense fallback={null}>
       <Route />
     </Suspense>
+    <Tooltip />
   </StrictMode>,
 );

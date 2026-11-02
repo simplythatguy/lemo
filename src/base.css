@@ -1,72 +1,142 @@
-/* Tokens and the two shared controls (buttons, icon buttons). Light, monotone: colour only identifies. */
+/* The single source of Lemo's look: tokens, the button system, the tooltip and touch targets. Light only.
+   Rules and sources are in docs/DESIGN-SYSTEM.md. Screen CSS uses these tokens and never raw values. */
 :root {
-  --cf-accent: #5266eb;
-  --cf-bg: #ffffff;
-  --cf-surface: #ffffff;
-  --cf-raise: #ffffff;
-  --cf-blocking: #e5484d;
-  --cf-blocking-ink: #b42318;
-  --cf-done: #18a058;
-  --cf-ease: cubic-bezier(0.2, 0, 0, 1);
-  --cf-fill: #f0f1f5;
-  --cf-fill-hover: #e6e7ee;
-  --cf-focus: #5266eb;
-  --cf-font: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --cf-mono: ui-monospace, "SF Mono", monospace;
-  --cf-hover: #f7f7f9;
-  --cf-line: #ebebee;
-  --cf-line-2: #e0e0e5;
-  --cf-r-card: 12px;
-  --cf-r-ctl: 10px;
-  --cf-shadow-pop: 0 4px 12px rgba(18, 18, 23, 0.08), 0 1px 2px rgba(18, 18, 23, 0.04);
-  --cf-text: #121217;
-  --cf-text-2: #4f4e54;
-  --cf-text-3: #6b6a70;
-  --cf-text-4: #8a898e;
-  --cf-primary-bg: #121217;
-  --cf-primary-hover: #2a2a31;
-  --cf-primary-text: #ffffff;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --ink: #121217;
+  --ink-2: #4f4e54;
+  --ink-3: #6b6a70;
+  --ink-4: #7d7c82;
+  --line: #ebebee;
+  --line-2: #e0e0e5;
+  --fill: #f0f1f5;
+  --fill-hover: #e6e7ee;
+  --hover: #f7f7f9;
+  --wash: rgba(18, 18, 23, 0.06);
+  --edge: rgba(18, 18, 23, 0.08);
+  --primary: var(--ink);
+  --primary-hover: #2a2a31;
+  --on-dark: #ffffff;
+  --on-dark-2: rgba(255, 255, 255, 0.72);
+  --on-dark-line: rgba(255, 255, 255, 0.28);
+  --shade: rgba(18, 18, 23, 0.5);
+  --shade-hover: rgba(18, 18, 23, 0.7);
+  --scrim: rgba(18, 18, 23, 0.32);
+  --glass: rgba(255, 255, 255, 0.92);
+  --veil: rgba(255, 255, 255, 0.7);
+  --accent: #5266eb;
+  --accent-wash: rgba(82, 102, 235, 0.05);
+  --focus: var(--accent);
+  --red: #e5484d;
+  --red-ink: #b42318;
+  --green: #18a058;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%237d7c82' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  --font: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", monospace;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-15: 15px;
+  --text-17: 17px;
+  --text-20: 20px;
+  --text-28: 28px;
+  --text-40: 40px;
+  --weight-body: 450;
+  --weight-label: 520;
+  --weight-title: 600;
+  --tracking-title: -0.02em;
+  --tracking-code: 0.06em;
+
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  --radius-tag: 6px;
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-sheet: 20px;
+  --radius-full: 999px;
+
+  --control-sm: 32px;
+  --control: 36px;
+  --control-lg: 44px;
+
+  --shadow-pop: 0 1px 2px rgba(18, 18, 23, 0.04), 0 4px 12px rgba(18, 18, 23, 0.06), 0 16px 40px rgba(18, 18, 23, 0.08);
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-control: 150ms;
+  --dur-sheet: 220ms;
+  --dur-meter: 80ms;
+  --dur-progress: 250ms;
+  --dur-pulse: 1.4s;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; background: var(--cf-bg); color: var(--cf-text); font-family: var(--cf-font); -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-weight: var(--weight-body); -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--cf-focus); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-.cf-btn {
-  display: inline-flex; align-items: center; gap: 10px; height: 38px; padding: 0 18px;
-  border-radius: var(--cf-r-ctl); border: 1px solid var(--cf-line-2); background: transparent; color: var(--cf-text);
-  font: 520 14px/1 var(--cf-font); white-space: nowrap; flex-shrink: 0; cursor: pointer; text-decoration: none;
-  transition-property: scale, background-color, color, opacity; transition-duration: 150ms; transition-timing-function: ease-out;
+/* Buttons: every button names its role (primary, secondary, quiet) and optionally a size (is-lg, is-sm). */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-8);
+  height: var(--control); padding: 0 var(--space-16);
+  border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--ink);
+  font: var(--weight-label) var(--text-14)/1 var(--font); white-space: nowrap; flex-shrink: 0; cursor: pointer; text-decoration: none;
+  transition-property: scale, background-color, color, opacity; transition-duration: var(--dur-control); transition-timing-function: var(--ease);
 }
-.cf-btn:not(:disabled):active { scale: 0.96; }
-.cf-btn.is-primary { background: var(--cf-primary-bg); color: var(--cf-primary-text); border-color: var(--cf-primary-bg); }
-.cf-btn.is-danger { color: var(--cf-blocking-ink); border-color: rgba(180, 35, 24, 0.32); }
-.cf-btn.is-ghost { border-color: transparent; color: var(--cf-text-2); padding: 0 12px; }
-.cf-btn.is-sm { height: 32px; font-size: 13px; padding: 0 14px; gap: 8px; border-radius: 9px; }
-.cf-btn.is-ghost.is-sm { padding: 0 10px; }
-.cf-btn.is-xs { height: 26px; padding: 0 10px; font-size: 12px; gap: 6px; border-radius: 7px; }
-.cf-btn.is-lg { height: 46px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
-.cf-btn.is-center { justify-content: center; width: 100%; }
-.cf-btn.is-grow { flex: 1; justify-content: center; }
-.cf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.cf-kbd { font: 500 11px/1 var(--cf-mono); padding: 4px 6px; border-radius: 6px; border: 1px solid var(--cf-line-2); color: var(--cf-text-3); }
-.cf-btn.is-primary .cf-kbd { border-color: rgba(255, 255, 255, 0.28); color: rgba(255, 255, 255, 0.75); }
+.btn:not(:disabled):active { scale: 0.96; }
+.btn.is-primary { background: var(--primary); border-color: var(--primary); color: var(--on-dark); }
+.btn.is-secondary { border-color: var(--line-2); }
+.btn.is-quiet { padding: 0 var(--space-12); color: var(--ink-2); }
+.btn.is-lg { height: var(--control-lg); padding: 0 var(--space-24); font-size: var(--text-15); }
+.btn.is-sm { height: var(--control-sm); padding: 0 var(--space-12); font-size: var(--text-13); }
+.btn.is-quiet.is-sm { padding: 0 var(--space-8); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.cf-icon-btn {
-  width: 36px; height: 36px; flex: none; border-radius: 12px; border: 1px solid var(--cf-line); background: transparent;
-  color: var(--cf-text-2); display: grid; place-items: center; cursor: pointer;
-  transition-property: scale, background-color, color; transition-duration: 150ms; transition-timing-function: ease-out;
+.kbd { min-width: 20px; padding: var(--space-4); border-radius: var(--radius-tag); border: 1px solid var(--line-2); font: var(--weight-label) var(--text-12)/1 var(--mono); color: var(--ink-3); }
+.btn.is-primary .kbd { border-color: var(--on-dark-line); color: var(--on-dark-2); }
+
+/* Icon-only: transparent, square, always an aria-label and a data-tip. */
+.icon-btn {
+  display: grid; place-items: center; flex: none; width: var(--control); height: var(--control); padding: 0;
+  border: 0; border-radius: var(--radius-control); background: transparent; color: var(--ink-2); cursor: pointer;
+  transition-property: scale, background-color, color, opacity; transition-duration: var(--dur-control); transition-timing-function: var(--ease);
 }
-.cf-icon-btn.is-sm { width: 30px; height: 30px; border-radius: 10px; }
-.cf-icon-btn.is-xs { width: 24px; height: 24px; border-radius: 8px; border-color: transparent; }
-.cf-icon-btn.is-plain { border-color: transparent; }
-.cf-icon-btn:not(:disabled):active { scale: 0.96; }
+.icon-btn.is-sm { width: var(--control-sm); height: var(--control-sm); }
+.icon-btn:not(:disabled):active { scale: 0.96; }
+.icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 @media (hover: hover) {
-  .cf-btn:not(:disabled):hover { background: rgba(17, 24, 39, 0.06); }
-  .cf-btn.is-primary:not(:disabled):hover { background: var(--cf-primary-hover); }
-  .cf-btn.is-danger:not(:disabled):hover { background: rgba(180, 35, 24, 0.06); }
-  .cf-btn.is-ghost:not(:disabled):hover { color: var(--cf-text); }
-  .cf-icon-btn:hover { color: var(--cf-text); background: rgba(17, 24, 39, 0.06); }
+  .btn:not(:disabled):hover, .icon-btn:not(:disabled):hover { background: var(--wash); color: var(--ink); }
+  .btn.is-primary:not(:disabled):hover { background: var(--primary-hover); color: var(--on-dark); }
+}
+
+/* On touch, every control's hit area is at least 44px even where the visible control is smaller. */
+@media (pointer: coarse) {
+  :where(.btn, .icon-btn, [data-tip]) { position: relative; }
+  :where(.btn, .icon-btn, [data-tip])::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: max(100%, var(--control-lg)); height: max(100%, var(--control-lg)); translate: -50% -50%;
+  }
+}
+
+.tip {
+  position: fixed; inset: auto; margin: 0; padding: var(--space-4) var(--space-8);
+  border: 0; border-radius: var(--radius-tag); background: var(--ink); color: var(--on-dark);
+  font: var(--weight-label) var(--text-12)/1.4 var(--font); white-space: nowrap; pointer-events: none;
+  opacity: 1; transition: opacity var(--dur-control) var(--ease);
+}
+@starting-style { .tip:popover-open { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
 }

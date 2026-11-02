@@ -1,19 +1,9 @@
 // Everyone's camera along the top. The team hears everyone; only the presenter's mic goes into the video,
 // which the mic icon shows (live for the presenter, slashed for everyone else).
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { CameraToggle, firstName, initials, type Camera } from "./parts";
 import type { Person } from "./types";
-
-// Lucide shapes (ISC licence), like icons.tsx.
-const MIC = <><path d="M12 19v3" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><rect x="9" y="2" width="6" height="13" rx="3" /></>;
-const MIC_OFF = <><path d="M12 19v3" /><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" /><path d="M16.95 16.95A7 7 0 0 1 5 12v-2" /><path d="M18.89 13.23A7 7 0 0 0 19 12v-2" /><path d="m2 2 20 20" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12" /></>;
-const SPEAKER = <><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z" /><path d="M16 9a5 5 0 0 1 0 6" /><path d="M19.4 18.4a9 9 0 0 0 0-12.8" /></>;
-const SPEAKER_OFF = <><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z" /><path d="m22 9-6 6" /><path d="m16 9 6 6" /></>;
-
-const Glyph = ({ d, size = 14 }: { d: React.ReactNode; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>
-);
 
 export function Cams({ people, me, camera, streams, failed, camOff, presenter, mutedAll, locked, onMuteAll, onRemove, onVideo }: {
   people: Person[];
@@ -55,13 +45,13 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, m
       {people.length > 1 && (
         <button
           type="button"
-          className="cf-icon-btn st-cams-sound"
+          className="icon-btn st-cams-sound"
           aria-pressed={mutedAll}
           aria-label={mutedAll ? "Unmute the team" : "Mute the team on this laptop"}
-          title={mutedAll ? "Unmute" : "Mute"}
+          data-tip={mutedAll ? "Unmute" : "Mute"}
           onClick={() => onMuteAll(!mutedAll)}
         >
-          <Glyph d={mutedAll ? SPEAKER_OFF : SPEAKER} size={17} />
+          <Icon name={mutedAll ? "speaker-off" : "speaker"} />
         </button>
       )}
     </div>
@@ -125,18 +115,18 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, audible, 
         {failed && !stream && <span className="st-tile-hint">No video</span>}
       </figcaption>
       <span className={`st-tile-mic${presenting ? " is-live" : ""}`} role="img" aria-label={presenting ? "Presenting: this mic is recorded" : "Not in the recording"}>
-        <Glyph d={presenting ? MIC : MIC_OFF} size={12} />
+        <Icon name={presenting ? "mic" : "mic-off"} size={12} />
       </span>
-      {camera && <CameraToggle camera={camera} className="st-tile-cam" size={11} disabled={locked} />}
+      {camera && <CameraToggle camera={camera} className="st-tile-cam" size={12} disabled={locked} />}
       <button
         type="button"
         className="st-tile-x"
         disabled={locked}
         aria-label={mine ? "Leave the room" : `Remove ${person.name}`}
-        title={mine ? "Leave" : "Remove"}
+        data-tip={mine ? "Leave" : "Remove"}
         onClick={onRemove}
       >
-        <Icon name="x" size={11} stroke={2.4} />
+        <Icon name="x" size={12} />
       </button>
     </figure>
   );

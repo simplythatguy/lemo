@@ -1,6 +1,6 @@
 // Step 2: the project's name, logo and team, as the intro and outro cards show them.
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { removeMember, type Draft, type Pic } from "./draft";
 import { squareLogo } from "./logo";
 
@@ -47,13 +47,13 @@ export function Project({ draft, setDraft, show, makeUrl }: {
             className={`su-logo-pick${draft.logo ? " has-logo" : ""}`}
             onClick={() => logoInput.current?.click()}
             aria-label={draft.logo ? "Change logo" : "Add logo"}
-            title={draft.logo ? "Change logo" : "Add logo"}
+            data-tip={draft.logo ? "Change logo" : "Add logo"}
           >
-            {draft.logo ? <img src={draft.logo.src} alt="" /> : <Icon name="image" size={24} stroke={1.6} />}
+            {draft.logo ? <img src={draft.logo.src} alt="" /> : <Icon name="image" size={28} />}
           </button>
           {draft.logo && (
-            <button type="button" className="su-logo-x" aria-label="Remove logo" title="Remove logo" onClick={removeLogo}>
-              <Icon name="x" size={12} stroke={2.4} />
+            <button type="button" className="su-logo-x" aria-label="Remove logo" data-tip="Remove logo" onClick={removeLogo}>
+              <Icon name="x" size={12} />
             </button>
           )}
           <input
@@ -126,7 +126,7 @@ export function Project({ draft, setDraft, show, makeUrl }: {
                 }}
               />
               {draft.team.length > 1 && (
-                <button type="button" className="cf-icon-btn is-xs" aria-label={`Remove ${name || `member ${i + 1}`}`} title="Remove" onClick={() => setDraft((d) => removeMember(d, i))}>
+                <button type="button" className="icon-btn is-sm" aria-label={`Remove ${name || `member ${i + 1}`}`} data-tip="Remove" onClick={() => setDraft((d) => removeMember(d, i))}>
                   <Icon name="x" size={14} />
                 </button>
               )}
@@ -134,8 +134,8 @@ export function Project({ draft, setDraft, show, makeUrl }: {
           ))}
         </ol>
         {show.team && !draft.team.some((t) => t.trim()) && <em className="su-error">Add at least one name</em>}
-        <button type="button" className="cf-btn is-ghost is-sm su-add" onClick={() => addMember(draft.team.length - 1)} disabled={draft.team.length >= 12}>
-          <Icon name="plus" size={15} />Add
+        <button type="button" className="btn is-quiet is-sm su-add" onClick={() => addMember(draft.team.length - 1)} disabled={draft.team.length >= 12}>
+          <Icon name="plus" size={16} />Add
         </button>
       </fieldset>
     </div>

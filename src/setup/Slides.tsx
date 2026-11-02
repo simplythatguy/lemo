@@ -2,7 +2,7 @@
 // and group. A click selects a slide; selected slides become one group. A ring in the group's colour ties a group together.
 import { useEffect, useRef, useState } from "react";
 import { groupColor } from "../studio/Filmstrip";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { order, type Draft } from "./draft";
 import { Thumb } from "./Thumb";
 
@@ -60,9 +60,9 @@ export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGr
     return (
       <div className="su-empty">
         {picker}
-        <span className="su-empty-icon"><Icon name="upload" size={28} stroke={1.6} /></span>
+        <span className="su-empty-icon"><Icon name="upload" size={28} /></span>
         <h1 className="su-title">Add your slides</h1>
-        <button type="button" className="cf-btn is-primary is-lg" onClick={pick}>Choose a file</button>
+        <button type="button" className="btn is-primary is-lg" onClick={pick}>Choose a file</button>
         {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">PDF or PowerPoint · 16:9</p>}
       </div>
     );
@@ -81,22 +81,22 @@ export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGr
         {selected.length > 0 && !importing ? (
           <>
             {canUngroup && (
-              <button type="button" className="cf-btn is-ghost is-sm" onClick={() => (onUngroup(selected), clear())}>
+              <button type="button" className="btn is-quiet is-sm" onClick={() => (onUngroup(selected), clear())}>
                 Ungroup
               </button>
             )}
             {canGroup && (
-              <button type="button" className="cf-btn is-sm" onClick={() => (onGroup(selected), clear())}>
-                <Icon name="link" size={15} />Group {selected.length}
+              <button type="button" className="btn is-secondary is-sm" onClick={() => (onGroup(selected), clear())}>
+                <Icon name="link" size={16} />Group {selected.length}
               </button>
             )}
-            <button type="button" className="cf-icon-btn is-plain" aria-label="Clear selection" title="Clear selection" onClick={clear}>
+            <button type="button" className="icon-btn" aria-label="Clear selection" data-tip="Clear selection" onClick={clear}>
               <Icon name="x" size={16} />
             </button>
           </>
         ) : (
-          <button type="button" className="cf-btn is-ghost is-sm" onClick={pick} disabled={!!importing}>
-            <Icon name="upload" size={15} />Replace
+          <button type="button" className="btn is-quiet is-sm" onClick={pick} disabled={!!importing}>
+            <Icon name="upload" size={16} />Replace
           </button>
         )}
       </div>
@@ -212,18 +212,18 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
         >
           <div className="su-thumb">
             <Thumb slide={draft.slides[id]} />
-            <span className="su-check" aria-hidden="true"><Icon name="check" size={13} stroke={2.6} /></span>
+            <span className="su-check" aria-hidden="true"><Icon name="check" size={12} /></span>
             <button
               type="button"
               className="su-remove"
               aria-label={`Remove slide ${i + 1}`}
-              title="Remove"
+              data-tip="Remove"
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove(id);
               }}
             >
-              <Icon name="x" size={14} stroke={2.2} />
+              <Icon name="x" size={14} />
             </button>
           </div>
           <span className="su-n">{i + 1}</span>

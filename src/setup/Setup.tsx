@@ -5,7 +5,7 @@ import { roomApi, RoomError } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
 import { VIDEO_LIMIT_MS } from "../studio/types";
 import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { importSlides, SlideFileError } from "./importSlides";
 import { Project } from "./Project";
 import { saveDraft } from "./save";
@@ -211,7 +211,7 @@ export function Setup({ code: editCode }: { code?: string }) {
             <>
               <h1 className="su-title">{load.kind === "missing" ? `No room ${editCode}` : "Can't open this room"}</h1>
               {load.kind === "failed" && <p className="su-error">{load.message}</p>}
-              <a className="cf-btn" href="/">Demos</a>
+              <a className="btn is-secondary" href="/">Demos</a>
             </>
           )}
         </div>
@@ -232,8 +232,8 @@ export function Setup({ code: editCode }: { code?: string }) {
             <>
               <p className="su-error" role="alert">{error}</p>
               <div className="su-row-actions">
-                <button type="button" className="cf-btn" onClick={() => setSaving(null)}>Back</button>
-                <button type="button" className="cf-btn is-primary" onClick={() => void save()}>Try again</button>
+                <button type="button" className="btn is-secondary" onClick={() => setSaving(null)}>Back</button>
+                <button type="button" className="btn is-primary" onClick={() => void save()}>Try again</button>
               </div>
             </>
           ) : (
@@ -248,16 +248,16 @@ export function Setup({ code: editCode }: { code?: string }) {
     <div className={`su-page${fileOver ? " is-file-over" : ""}`}>
       <header className="su-top">
         <a
-          className="cf-icon-btn is-plain"
+          className="icon-btn"
           href={exit}
           aria-label={editing ? "Back to the room" : "Close"}
-          title={editing ? "Back to the room" : "Close"}
+          data-tip={editing ? "Back to the room" : "Close"}
           onClick={(e) => {
             if (dirty && !confirm(editing ? "Leave without saving?" : "Discard this demo?")) e.preventDefault();
             else setDirty(false);
           }}
         >
-          <Icon name={editing ? "back" : "x"} size={18} />
+          <Icon name={editing ? "back" : "x"} size={20} />
         </a>
         <nav className="su-steps" aria-label="Steps">
           {STEPS.map((s, i) => (
@@ -275,12 +275,12 @@ export function Setup({ code: editCode }: { code?: string }) {
             </span>
           )}
           {last || editing ? (
-            <button type="button" className="cf-btn is-primary" onClick={() => void save()} disabled={!!importing}>
+            <button type="button" className="btn is-primary" onClick={() => void save()} disabled={!!importing}>
               {editing ? "Save" : "Create"}
             </button>
           ) : (
-            <button type="button" className="cf-btn is-primary" onClick={() => go(STEPS[index + 1].key)} disabled={step === "slides" && (slidesMissing(draft) || !!importing)}>
-              Next<Icon name="arrow" size={15} />
+            <button type="button" className="btn is-primary" onClick={() => go(STEPS[index + 1].key)} disabled={step === "slides" && (slidesMissing(draft) || !!importing)}>
+              Next<Icon name="arrow" size={16} />
             </button>
           )}
         </div>
@@ -310,7 +310,7 @@ export function Setup({ code: editCode }: { code?: string }) {
       </main>
       {fileOver && (
         <div className="su-drop" aria-hidden="true">
-          <span><Icon name="upload" size={28} stroke={1.6} /></span>
+          <span><Icon name="upload" size={28} /></span>
         </div>
       )}
     </div>

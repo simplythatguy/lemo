@@ -1,6 +1,6 @@
 // Small pieces shared by the studio screens.
 import { useState } from "react";
-import { Icon } from "./icons";
+import { Icon, type IconSize } from "../icons";
 
 export interface Camera {
   stream: MediaStream | null;
@@ -16,7 +16,7 @@ export interface Camera {
 }
 
 /** Turns this device's camera off (its light goes out) and on again. */
-export function CameraToggle({ camera, className, size, disabled }: { camera: Camera; className: string; size: number; disabled?: boolean }) {
+export function CameraToggle({ camera, className, size, disabled }: { camera: Camera; className: string; size: IconSize; disabled?: boolean }) {
   return (
     <button
       type="button"
@@ -24,7 +24,7 @@ export function CameraToggle({ camera, className, size, disabled }: { camera: Ca
       disabled={disabled}
       aria-pressed={!camera.on}
       aria-label={camera.on ? "Turn camera off" : "Turn camera on"}
-      title={camera.on ? "Camera off" : "Camera on"}
+      data-tip={camera.on ? "Camera off" : "Camera on"}
       onClick={() => camera.turn(!camera.on)}
     >
       <Icon name={camera.on ? "camera" : "camera-off"} size={size} />
@@ -35,8 +35,8 @@ export function CameraToggle({ camera, className, size, disabled }: { camera: Ca
 /** Over the stage when startPlayback was refused: one click plays it. */
 export function StartButton({ onStart }: { onStart(): void }) {
   return (
-    <button type="button" className="st-start" onClick={onStart} aria-label="Play" title="Play">
-      <Icon name="play" size={30} />
+    <button type="button" className="st-start" onClick={onStart} aria-label="Play" data-tip="Play">
+      <Icon name="play" size={28} />
     </button>
   );
 }
@@ -62,7 +62,7 @@ export function CopyLink({ code }: { code: string }) {
     <button
       type="button"
       className="st-copy"
-      title="Copy the room link"
+      data-tip="Copy the room link"
       aria-label={`Room ${code}, copy link`}
       onClick={() => {
         void navigator.clipboard?.writeText(roomLink(code)).then(() => {
@@ -80,7 +80,7 @@ export function CopyLink({ code }: { code: string }) {
 /** The app's mark, a link home to every demo this device knows. `named` adds the product name beside it. */
 export function Brand({ named = false }: { named?: boolean }) {
   return (
-    <a className="st-brand" href="/" aria-label="Lemo" title="My demos">
+    <a className="st-brand" href="/" aria-label="Lemo" data-tip="My demos">
       <span className="st-mark" aria-hidden="true" />
       {named && <span aria-hidden="true">Lemo</span>}
     </a>

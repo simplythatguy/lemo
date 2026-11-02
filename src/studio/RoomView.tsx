@@ -1,6 +1,6 @@
 // The room: cameras along the top, the timer on the left, the slide in the centre, the transcript on the right, every slide along the bottom.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { startRecording, type Recording } from "./recorder";
 import { Render, takeMedia } from "./Render";
 import { roomApi } from "./room";
@@ -118,13 +118,12 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         <span className="st-deck-title" title={deck.title}>{deck.title}</span>
         {/* Hidden, not removed, while a take runs here: leaving would end it, and the header must not shift. */}
         <a
-          className={`cf-btn is-ghost is-sm st-edit-slides${busy(phase) ? " is-hidden" : ""}`}
+          className={`btn is-quiet is-sm st-edit-slides${busy(phase) ? " is-hidden" : ""}`}
           href={editLink(room.code)}
-          title="Edit slides"
           aria-hidden={busy(phase) || undefined}
           tabIndex={busy(phase) ? -1 : undefined}
         >
-          <Icon name="slides" size={15} />Edit slides
+          <Icon name="slides" size={16} />Edit slides
         </a>
       </div>
       <Cams
@@ -150,12 +149,12 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         {!rendering && (
           <button
             type="button"
-            className={`cf-btn${missing.length ? "" : " is-primary"}`}
+            className={`btn ${missing.length ? "is-secondary" : "is-primary"}`}
             disabled={missing.length > 0 || busy(phase)}
             title={missing.length ? `Missing: ${missing.map((g) => g.name).join(", ")}` : undefined}
             onClick={() => setRendering(true)}
           >
-            <Icon name="film" size={15} />
+            <Icon name="film" size={16} />
             Make the video
           </button>
         )}
@@ -578,47 +577,47 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
           {phase.k === "idle" && (follow ? (
             <span className="st-who-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Recording"}</span>
           ) : mine ? (
-            <button type="button" className={`cf-btn is-lg st-rec${take ? "" : " is-primary"}`} onClick={start} disabled={!camera.stream || !camera.on || !stage || last < 0} title={camera.on ? undefined : "Camera off"}>
-              <span className="st-dot" />{take ? "Retake" : "Record"}<kbd className="cf-kbd">R</kbd>
+            <button type="button" className={`btn is-lg st-rec ${take ? "is-secondary" : "is-primary"}`} onClick={start} disabled={!camera.stream || !camera.on || !stage || last < 0} title={camera.on ? undefined : "Camera off"}>
+              <span className="st-dot" />{take ? "Retake" : "Record"}<kbd className="kbd">R</kbd>
             </button>
           ) : assignee ? (
             <span className="st-blocked"><span className="st-who-chip">{initials(assignee.name)}</span>{firstName(assignee.name)} records this</span>
           ) : (
-            <button type="button" className="cf-btn is-lg" onClick={() => onAssign(me.id)}>
+            <button type="button" className="btn is-secondary is-lg" onClick={() => onAssign(me.id)}>
               <span className="st-who-chip is-none" aria-hidden="true" />Assign to me
             </button>
           ))}
           {phase.k === "idle" && !follow && canSave && (
-            <button type="button" className="cf-btn is-lg" onClick={() => void saveVideo()} disabled={saving !== null}>
+            <button type="button" className="btn is-secondary is-lg" onClick={() => void saveVideo()} disabled={saving !== null}>
               <Icon name="download" size={16} />{saving === null ? "Download video" : `Rendering ${Math.round(saving * 100)}%`}
             </button>
           )}
           {phase.k === "review" && saving !== null && <span className="st-step-n">Rendering {Math.round(saving * 100)}%</span>}
           {phase.k === "review" && keepFailed && <p className="st-error" role="alert">Not saved</p>}
           {phase.k === "countdown" && (
-            <button type="button" className="cf-btn is-lg" onClick={cancel}>Cancel<kbd className="cf-kbd">Esc</kbd></button>
+            <button type="button" className="btn is-secondary is-lg" onClick={cancel}>Cancel<kbd className="kbd">Esc</kbd></button>
           )}
           {phase.k === "recording" && (
-            <button type="button" className="cf-btn is-lg st-stopbtn" onClick={() => void finish(false)} aria-label="Stop">
-              <span className="st-square" />Stop<kbd className="cf-kbd">Enter</kbd>
+            <button type="button" className="btn is-secondary is-lg st-stopbtn" onClick={() => void finish(false)} aria-label="Stop">
+              <span className="st-square" />Stop<kbd className="kbd">Enter</kbd>
             </button>
           )}
           {phase.k === "review" && (
             <>
-              <button type="button" className="cf-btn is-primary is-lg" onClick={() => void keep()}>
-                <Icon name="check" size={16} stroke={2.2} />Keep
+              <button type="button" className="btn is-primary is-lg" onClick={() => void keep()}>
+                <Icon name="check" size={16} />Keep
               </button>
-              <button type="button" className="cf-btn is-lg" onClick={start}>
-                <Icon name="restart" size={15} />Retake
+              <button type="button" className="btn is-secondary is-lg" onClick={start}>
+                <Icon name="restart" size={16} />Retake
               </button>
               <span className="st-review-more">
-                <button type="button" className="cf-icon-btn" onClick={() => void saveVideo()} disabled={saving !== null} aria-label="Download this group's video" title="Download this group's video">
+                <button type="button" className="icon-btn" onClick={() => void saveVideo()} disabled={saving !== null} aria-label="Download this group's video" data-tip="Download this group's video">
                   <Icon name="download" size={16} />
                 </button>
-                <button type="button" className="cf-icon-btn" onClick={again} aria-label="Play again" title="Play again">
+                <button type="button" className="icon-btn" onClick={again} aria-label="Play again" data-tip="Play again">
                   <Icon name="play" size={16} />
                 </button>
-                <button type="button" className="cf-icon-btn" onClick={() => setPhase({ k: "idle" })} aria-label="Discard take" title="Discard">
+                <button type="button" className="icon-btn" onClick={() => setPhase({ k: "idle" })} aria-label="Discard take" data-tip="Discard">
                   <Icon name="x" size={16} />
                 </button>
               </span>
@@ -627,12 +626,12 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
         </div>
 
         <div className="st-steps">
-          <button type="button" className="cf-icon-btn" onClick={() => step(-1)} disabled={phase.k === "countdown" || phase.k === "review" || following || onStage === 0} aria-label="Previous slide" title="Previous slide (←)">
-            <Icon name="prev" size={18} />
+          <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={phase.k === "countdown" || phase.k === "review" || following || onStage === 0} aria-label="Previous slide" data-tip="Previous slide (←)">
+            <Icon name="prev" size={20} />
           </button>
           <span className="st-step-n">{onStage + 1} / {last + 1}</span>
-          <button type="button" className="cf-icon-btn" onClick={() => step(1)} disabled={phase.k === "countdown" || phase.k === "review" || following || onStage === last} aria-label="Next slide" title="Next slide (→)">
-            <Icon name="next" size={18} />
+          <button type="button" className="icon-btn" onClick={() => step(1)} disabled={phase.k === "countdown" || phase.k === "review" || following || onStage === last} aria-label="Next slide" data-tip="Next slide (→)">
+            <Icon name="next" size={20} />
           </button>
         </div>
       </aside>
@@ -654,14 +653,14 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
           {script.failed && <span className="st-error" role="alert">Not saved</span>}
           <button
             type="button"
-            className={`cf-icon-btn is-sm is-plain st-script-edit${writing ? " is-on" : ""}`}
+            className={`icon-btn is-sm st-script-edit${writing ? " is-on" : ""}`}
             onClick={() => setEditing(!editing)}
             disabled={!canEdit}
             aria-pressed={writing}
             aria-label={writing ? "Done editing" : "Edit transcript"}
-            title={writing ? "Done" : "Edit transcript"}
+            data-tip={writing ? "Done" : "Edit transcript"}
           >
-            <Icon name={writing ? "check" : "pencil"} size={15} stroke={writing ? 2.2 : 1.8} />
+            <Icon name={writing ? "check" : "pencil"} size={16} />
           </button>
         </header>
         {writing ? (
@@ -700,7 +699,7 @@ function Transcript({ script, current, picked, onPick }: { script: string[]; cur
             <span className="st-seg-text">
               {text}
               {i < last ? (
-                <span className="st-next" role="img" aria-label="Next slide"><Icon name="next-arrow" size={15} stroke={2.2} /></span>
+                <span className="st-next" role="img" aria-label="Next slide"><Icon name="arrow" size={16} /></span>
               ) : (
                 <span className="st-stop" role="img" aria-label="Stop" />
               )}

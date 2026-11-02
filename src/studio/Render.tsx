@@ -1,6 +1,6 @@
 // Make the video: fetch every take this device lacks, then render intro + takes + outro in real time.
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { slug } from "./parts";
 import { roomApi } from "./room";
 import { exportVideo, preload } from "./stage";
@@ -126,8 +126,8 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
   return (
     <div className="st-booth">
       <header className="st-booth-head">
-        <button type="button" className="cf-icon-btn" onClick={onClose} aria-label="Back to the room" title="Back">
-          <Icon name="back" size={18} />
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="Back to the room" data-tip="Back">
+          <Icon name="back" size={20} />
         </button>
         <h1 className="st-title">The video</h1>
       </header>
@@ -135,7 +135,7 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
         <>
           <video className="st-result" src={state.url} poster={state.poster || undefined} controls playsInline />
           <div className="st-bar">
-            <a className="cf-btn is-primary is-lg" href={state.url} download={`${slug(deck.title)}-demo.${ext}`}>
+            <a className="btn is-primary is-lg" href={state.url} download={`${slug(deck.title)}-demo.${ext}`}>
               <Icon name="download" size={16} />Download
             </a>
             <span className="st-timer">{clock(state.ms)}</span>
@@ -154,12 +154,12 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
                   <span style={{ transform: `scaleX(${state.fraction})` }} />
                 </span>
                 {state.leftMs !== undefined && <span className="st-timer" aria-label={`${clock(state.leftMs)} left`}>{clock(state.leftMs)}</span>}
-                <button type="button" className="cf-btn" onClick={onClose}>Cancel</button>
+                <button type="button" className="btn is-secondary" onClick={onClose}>Cancel</button>
               </>
             ) : (
               <>
                 <p className="st-error" role="alert">{state.message}</p>
-                <button type="button" className="cf-btn" onClick={onClose}>Back</button>
+                <button type="button" className="btn is-secondary" onClick={onClose}>Back</button>
               </>
             )}
           </div>

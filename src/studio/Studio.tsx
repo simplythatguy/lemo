@@ -1,7 +1,7 @@
 // /r/CODE: the team records the presentation one slide group at a time. Join → room (record, review, keep) → render.
 // The deck lives on the server with the room; /r/CODE/edit sets it up.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import type { Camera } from "./parts";
 import { Brand, CameraToggle, CopyLink, editLink, initials, ProjectMark } from "./parts";
 import { listDevices, liveVideo, openCamera, stopStream } from "./recorder";
@@ -129,7 +129,7 @@ function NoSlides({ code }: { code: string }) {
       <div className="st-empty">
         <Brand named />
         <div className="st-join-actions">
-          <a className="cf-btn is-primary is-lg" href={editLink(code)}>
+          <a className="btn is-primary is-lg" href={editLink(code)}>
             <Icon name="slides" size={16} />Add slides
           </a>
           <CopyLink code={code} />
@@ -186,10 +186,10 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
           {camera.error && (
             <div className="st-cam-error">
               <span>{camera.error}</span>
-              <button type="button" className="cf-btn is-sm" onClick={camera.retry}>Try again</button>
+              <button type="button" className="btn is-secondary is-sm" onClick={camera.retry}>Try again</button>
             </div>
           )}
-          <CameraToggle camera={camera} className="st-cam-toggle" size={18} />
+          <CameraToggle camera={camera} className="st-cam-toggle" size={20} />
           <MicLevel stream={camera.stream} />
         </div>
         <div className="st-devices">
@@ -205,7 +205,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
         </datalist>
         {error && <p className="st-error" role="alert">{error}</p>}
         <div className="st-join-actions">
-          <button type="submit" className="cf-btn is-primary is-lg" disabled={!name.trim() || busy || !camera.stream}>
+          <button type="submit" className="btn is-primary is-lg" disabled={!name.trim() || busy || !camera.stream}>
             Join
           </button>
           <CopyLink code={code} />
@@ -224,7 +224,7 @@ function DevicePicker({ icon, label, devices, value, onChange }: {
 }) {
   return (
     <label className="st-device" title={label}>
-      <Icon name={icon} size={15} />
+      <Icon name={icon} size={16} />
       <select aria-label={label} value={value ?? ""} onChange={(e) => onChange(e.target.value)} disabled={!devices.length}>
         {!devices.length && <option value="">{label}</option>}
         {devices.map((d, i) => (

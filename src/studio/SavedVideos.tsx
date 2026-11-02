@@ -2,7 +2,7 @@
 // Groups can be recorded in any order; the numbered rows always follow the deck.
 import { useEffect, useRef, useState } from "react";
 import { groupColor } from "./Filmstrip";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { initials, slug, StartButton } from "./parts";
 import { startPlayback } from "./playback";
 import { takeMedia } from "./Render";
@@ -110,9 +110,9 @@ export function SavedVideos({ deck, room, upload }: {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={`Saved videos, ${saved.length} of ${deck.groups.length}`}
-        title="Saved videos"
+        data-tip="Saved videos"
       >
-        <StackIcon />
+        <Icon name="saved" />
         <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>
       </button>
 
@@ -121,11 +121,11 @@ export function SavedVideos({ deck, room, upload }: {
           <header className="st-saved-head">
             <h2 className="st-saved-title">Saved</h2>
             <span className="st-saved-head-acts">
-              <button type="button" className="cf-btn is-sm" onClick={saveAll} disabled={all !== null || !saved.length}
+              <button type="button" className="btn is-secondary is-sm" onClick={saveAll} disabled={all !== null || !saved.length}
                 aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
                 <Icon name="download" size={14} />{all === null ? "Download all" : `${Math.round(all * 100)}%`}
               </button>
-              <button type="button" className="cf-icon-btn" onClick={() => setOpen(false)} aria-label="Close" title="Close">
+              <button type="button" className="icon-btn" onClick={() => setOpen(false)} aria-label="Close" data-tip="Close">
                 <Icon name="x" size={16} />
               </button>
             </span>
@@ -168,12 +168,12 @@ export function SavedVideos({ deck, room, upload }: {
                   </span>
                   {done && take && (
                     <span className="st-saved-acts">
-                      <button type="button" className="cf-icon-btn" onClick={() => setPlaying(g.id)} aria-label={`Play ${g.name}`} title="Play">
-                        <Icon name="play" size={15} />
+                      <button type="button" className="icon-btn" onClick={() => setPlaying(g.id)} aria-label={`Play ${g.name}`} data-tip="Play">
+                        <Icon name="play" size={16} />
                       </button>
                       {s === undefined ? (
-                        <button type="button" className="cf-icon-btn" onClick={() => save(take)} aria-label={`Download ${g.name}`} title="Download">
-                          <Icon name="download" size={15} />
+                        <button type="button" className="icon-btn" onClick={() => save(take)} aria-label={`Download ${g.name}`} data-tip="Download">
+                          <Icon name="download" size={16} />
                         </button>
                       ) : (
                         <span className="st-saved-pct" role="status" aria-label={`Rendering ${g.name}, ${Math.round(s * 100)}%`}>{Math.round(s * 100)}%</span>
@@ -321,7 +321,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
           <span className="st-saved-i">{index + 1}</span>
           <span className="st-saved-dot" style={{ background: groupColor(index) }} aria-hidden="true" />
           <h2 className="st-play-title">{group.name}</h2>
-          <button type="button" className="cf-icon-btn" onClick={onClose} aria-label="Close" title="Close">
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close" data-tip="Close">
             <Icon name="x" size={16} />
           </button>
         </header>
@@ -331,15 +331,15 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
           {refused && <StartButton onStart={toggle} />}
         </div>
         <div className="st-play-bar">
-          <button type="button" className="cf-icon-btn" onClick={toggle} disabled={loaded !== null} aria-label={paused ? "Play" : "Pause"} title={paused ? "Play" : "Pause"}>
-            {paused ? <Icon name="play" size={16} /> : <PauseIcon />}
+          <button type="button" className="icon-btn" onClick={toggle} disabled={loaded !== null} aria-label={paused ? "Play" : "Pause"} data-tip={paused ? "Play" : "Pause"}>
+            {paused ? <Icon name="play" size={16} /> : <Icon name="pause" />}
           </button>
           <div className="st-play-track" onPointerDown={seek} role="slider" aria-label="Seek" aria-valuemin={0} aria-valuemax={Math.round(length / 1000)} aria-valuenow={Math.round(elapsed / 1000)}>
             <span style={{ transform: `scaleX(${length ? Math.min(1, elapsed / length) : 0})` }} />
           </div>
           <span className="st-play-time">{clock(elapsed)}<small> / {clock(length)}</small></span>
           {saving === undefined ? (
-            <button type="button" className="cf-icon-btn" onClick={onSave} aria-label={`Download ${group.name}`} title="Download">
+            <button type="button" className="icon-btn" onClick={onSave} aria-label={`Download ${group.name}`} data-tip="Download">
               <Icon name="download" size={16} />
             </button>
           ) : (
@@ -350,18 +350,3 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
     </div>
   );
 }
-
-const StackIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="9" width="18" height="12" rx="2" />
-    <path d="M6 5.5h12M9 2h6" />
-    <path d="m10.5 12.5 4 2.5-4 2.5z" fill="currentColor" stroke="none" />
-  </svg>
-);
-
-const PauseIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <rect x="6" y="4.5" width="4" height="15" rx="1" />
-    <rect x="14" y="4.5" width="4" height="15" rx="1" />
-  </svg>
-);

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { forgetRoom, knownRooms, RoomError, roomApi, validCode, type KnownRoom } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
 import type { RoomState } from "../studio/types";
-import { Icon } from "../setup/icons";
+import { Icon } from "../icons";
 import "./home.css";
 
 type Row = { code: string; seenAt: number; room?: RoomState; offline?: boolean };
@@ -37,15 +37,15 @@ export function Home() {
         <h1 className="hm-title">Demos</h1>
         <Join />
         {!empty && (
-          <a className="cf-btn is-primary is-sm" href="/new">
-            <Icon name="plus" size={15} />New
+          <a className="btn is-primary is-sm" href="/new">
+            <Icon name="plus" size={16} />New
           </a>
         )}
       </header>
       {empty ? (
         <div className="hm-empty">
-          <a className="cf-btn is-primary is-lg" href="/new">
-            <Icon name="plus" size={17} />New demo
+          <a className="btn is-primary is-lg" href="/new">
+            <Icon name="plus" size={16} />New demo
           </a>
         </div>
       ) : (
@@ -123,8 +123,8 @@ function Join() {
         spellCheck={false}
         enterKeyHint="go"
       />
-      <button type="submit" className="cf-icon-btn is-xs" aria-label="Join" title="Join" disabled={!code}>
-        <Icon name="arrow" size={15} />
+      <button type="submit" className="icon-btn is-sm" aria-label="Join" data-tip="Join" disabled={!code}>
+        <Icon name="arrow" size={16} />
       </button>
     </form>
   );

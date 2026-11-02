@@ -36,7 +36,7 @@ Open http://127.0.0.1:5173. The web app runs on port 5173 and the room server on
 | `server` | The room server: rooms, people, slide images, takes in 3 MB chunks, and the connection handshake between cameras. SQLite locally, Postgres online |
 | `api` | The Vercel function that runs the room server |
 
-The API is described in [docs/api.md](docs/api.md). Why a take sometimes needs a click before it plays with sound, and how to test that, is in [docs/playback.md](docs/playback.md). `npm test` runs the server tests, `npm run build` typechecks and builds, and `npm run smoke` starts `npm run dev` and saves a room through it. CI runs all of them on Windows, macOS and Linux for every pull request.
+The API is described in [docs/api.md](docs/api.md). Why a take sometimes needs a click before it plays with sound, and how to test that, is in [docs/playback.md](docs/playback.md). The design rules and tokens are in [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md). `npm test` runs the server tests, `npm run build` typechecks and builds, and `npm run smoke` starts `npm run dev` and saves a room through it. CI runs all of them on Windows, macOS and Linux for every pull request.
 
 ## Limits
 
