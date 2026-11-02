@@ -161,19 +161,21 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const preview = useRef<HTMLVideoElement>(null);
+  // The stream the preview has painted a frame of: until then the slot stays in its starting state.
+  const [painted, setPainted] = useState<MediaStream | null>(null);
   useEffect(() => setName((n) => n || initialName), [initialName]);
   useEffect(() => {
     if (preview.current) preview.current.srcObject = camera.stream;
   }, [camera.stream]);
 
-  const picture = !!camera.stream && camera.on;
+  const picture = camera.on && !!camera.stream?.getVideoTracks().length && painted === camera.stream;
+  const starting = camera.on && !picture && !camera.error;
   const camId = camera.stream?.getVideoTracks()[0]?.getSettings().deviceId;
   const micId = camera.stream?.getAudioTracks()[0]?.getSettings().deviceId;
   const typed = name.trim().toLowerCase();
   const here = !!typed && taken.includes(typed);
-  const suggested = deck.team
-    .map((n) => n.trim())
-    .filter((n) => n && !taken.includes(n.toLowerCase()) && n.toLowerCase() !== typed && n.toLowerCase().startsWith(typed));
+  const notHere = deck.team.map((n) => n.trim()).filter((n) => n && !taken.includes(n.toLowerCase()));
+  const suggested = notHere.filter((n) => n.toLowerCase() !== typed && n.toLowerCase().startsWith(typed));
   async function go() {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -193,8 +195,8 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
           <ProjectMark title={deck.title} logo={deck.logo} size={32} />
           <span>{deck.title}</span>
         </h1>
-        <div className={`st-cam${picture ? "" : " is-empty"}`}>
-          <video ref={preview} autoPlay muted playsInline />
+        <div className={`st-cam${picture ? "" : " is-empty"}${starting ? " is-starting" : ""}`}>
+          <video ref={preview} autoPlay muted playsInline onPlaying={(e) => setPainted(e.currentTarget.srcObject as MediaStream | null)} />
           {camera.error ? (
             <div className="st-cam-error" role="alert">
               <span className="st-cam-icon"><Icon name="camera-off" size={20} /></span>
@@ -202,7 +204,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
               <span>{CAMERA_FIX[camera.error]}</span>
               <button type="button" className="btn is-secondary is-sm" onClick={camera.retry}>Try again</button>
             </div>
-          ) : !picture && (
+          ) : !camera.on && (
             <span className="st-cam-icon is-face" aria-hidden="true">
               {name.trim() ? initials(name) : <Icon name="camera-off" size={20} />}
             </span>
@@ -219,7 +221,8 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
             <span>Name</span>
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" required />
           </label>
-          {(here || suggested.length > 0) && (
+          {/* Kept while typing filters it, so Join does not jump. */}
+          {(here || notHere.length > 0) && (
             <div className="st-suggest">
               {here && <span className="st-suggest-note">Already in the room</span>}
               {suggested.map((n) => (

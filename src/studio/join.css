@@ -104,6 +104,15 @@
   opacity: 0;
 }
 
+/* Starting: the empty preview pulses, with only the camera toggle on it. */
+.st-cam.is-starting::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--fill-hover);
+  animation: st-wait var(--dur-pulse) var(--ease) infinite alternate;
+}
+
 /* The face when the camera is off, and the icon in an error: one white circle. */
 .st-cam-icon {
   display: grid;
@@ -289,6 +298,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  min-height: var(--control-sm);
   column-gap: var(--space-4);
   margin-left: calc(var(--space-8) * -1);
 }

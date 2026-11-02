@@ -39,6 +39,7 @@
 - `--green` means recorded.
 - `--line` and `--line-2` are hairlines. `--fill`, `--fill-hover` and `--hover` are the only tinted surfaces.
 - `--shade`, `--scrim`, `--glass` and `--veil` sit over video, slides and the page. Never use them as decoration.
+- `--dim` is the one dim behind a modal (the player, a phone sheet): dark enough to read as a dim, never a grey fog.
 - The app has no dark theme. Do not add dark tokens.
 
 ## Depth
