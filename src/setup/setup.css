@@ -186,25 +186,23 @@
   text-align: center;
 }
 
+/* The empty slides step is one composition, centred under the top bar. */
+.su-main:has(> .su-empty) {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--space-64));
+  padding-block: var(--space-32);
+}
+
 /* —— Slides —— */
 
 .su-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: var(--space-24);
-  min-height: calc(100dvh - var(--space-64) - var(--space-32) * 2);
+  margin: auto;
   text-align: center;
-}
-
-/* The empty step is one composition, centred under the top bar with no scroll. */
-.su-main:has(> .su-empty) {
-  padding-bottom: var(--space-32);
-}
-
-.su-empty .slot {
-  width: min(560px, 100%);
 }
 
 .su-slides > .su-error {
@@ -408,11 +406,16 @@
   transition: transform var(--dur-progress) var(--ease);
 }
 
-/* A file dragged over the page lands in the slot: in place when there are no slides, over the slides when it replaces them. */
-.slot.is-target {
-  align-content: center;
+/* A file dragged over slides that are already there: where it lands, over them, since it replaces them. */
+.su-target {
+  display: grid;
+  place-content: center;
+  justify-items: center;
   gap: var(--space-12);
+  width: min(560px, 100%);
+  aspect-ratio: 16 / 9;
   border: 2px solid var(--accent);
+  border-radius: var(--radius-card);
   background: var(--accent-wash);
   font: var(--weight-label) var(--text-15)/1 var(--font);
   color: var(--accent);
@@ -427,10 +430,6 @@
   padding: var(--space-24);
   background: var(--bg);
   pointer-events: none;
-}
-
-.su-drop .slot {
-  width: min(560px, 100%);
 }
 
 /* —— Project —— */

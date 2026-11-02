@@ -33,35 +33,36 @@ export function Home() {
     return () => ctl.abort();
   }, []);
 
-  const empty = rows.length === 0;
+  if (rows.length === 0) {
+    return (
+      <div className="hm-page is-empty">
+        <h1 className="hm-title">Demos</h1>
+        <span className="blank-deck" aria-hidden="true"><i /><i /><i /></span>
+        <a className="btn is-primary is-lg" href="/new">
+          <Icon name="plus" size={16} />New demo
+        </a>
+        <Join />
+      </div>
+    );
+  }
   return (
     <div className="hm-page">
       <header className="hm-top">
         <h1 className="hm-title">Demos</h1>
         <Join />
-        {!empty && (
-          <a className="btn is-primary hm-new" href="/new">
-            <Icon name="plus" size={16} />
-            <span>
-              New<span className="hm-new-more"> demo</span>
-            </span>
-          </a>
-        )}
+        <a className="btn is-primary hm-new" href="/new">
+          <Icon name="plus" size={16} />
+          <span>
+            New<span className="hm-new-more"> demo</span>
+          </span>
+        </a>
       </header>
       <ul className="hm-grid">
-        {empty ? (
-          <li className="slot">
-            <a className="btn is-primary is-lg" href="/new">
-              <Icon name="plus" size={16} />New demo
-            </a>
+        {rows.map((r) => (
+          <li key={r.code}>
+            <Card row={r} />
           </li>
-        ) : (
-          rows.map((r) => (
-            <li key={r.code}>
-              <Card row={r} />
-            </li>
-          ))
-        )}
+        ))}
       </ul>
     </div>
   );
@@ -100,7 +101,7 @@ function Card({ row }: { row: Row }) {
           <Cover deck={room.deck} />
         </span>
       ) : (
-        <span className="hm-cover slot" />
+        <span className="hm-cover is-blank" />
       )}
       <span className="hm-name">{title}</span>
       <span className="hm-line">{room ? meta(room) : "Offline"}</span>

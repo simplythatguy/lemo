@@ -60,19 +60,14 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
 
   if (!ids.length && !importing) {
     return (
-      <div className="su-empty">
+      <div className={`su-empty${fileOver ? " is-over" : ""}`}>
         {picker}
-        <h1 className="su-title">Add your slides</h1>
-        {fileOver ? (
-          <Target label="Drop to add" />
-        ) : (
-          <div className="slot">
-            <button type="button" className="btn is-primary is-lg" onClick={pick}>
-              <Icon name="upload" size={16} />Choose a file
-            </button>
-          </div>
-        )}
-        {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">PDF or PowerPoint · 16:9</p>}
+        <h1 className="su-title">{fileOver ? "Drop to add" : "Add your slides"}</h1>
+        <span className="blank-deck" aria-hidden="true"><i /><i /><i><Icon name="upload" size={28} /></i></span>
+        <button type="button" className="btn is-primary is-lg" onClick={pick}>
+          <Icon name="upload" size={16} />Choose a file
+        </button>
+        {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">16:9 PDF or PowerPoint</p>}
       </div>
     );
   }
@@ -122,20 +117,12 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
       {error && <p className="su-error" role="alert">{error}</p>}
       {importing ? <Progress importing={importing} /> : <Grid draft={draft} ids={ids} picked={picked} setPicked={setPicked} onRemove={onRemove} onMove={onMove} />}
       {fileOver && (
-        <div className="su-drop">
-          <Target label="Drop to replace" />
+        <div className="su-drop" aria-hidden="true">
+          <div className="su-target">
+            <Icon name="upload" size={28} />Drop to replace
+          </div>
         </div>
       )}
-    </div>
-  );
-}
-
-/** Where a dragged file lands: the empty slot itself, marked. */
-function Target({ label }: { label: string }) {
-  return (
-    <div className="slot is-target" aria-hidden="true">
-      <Icon name="upload" size={28} />
-      {label}
     </div>
   );
 }

@@ -127,12 +127,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
   }
 }
 
-/* An empty 16:9 place for a deck: a blank slide with a dashed edge, waiting for its one action. */
-.slot {
-  position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9;
-  border: 1.5px dashed var(--line-2); border-radius: var(--radius-card); background: var(--bg);
-}
-
 /* A deck with nothing in it yet: three blank slides fanned out. A file dragged over fans them wider and marks the top one
    as where it lands. */
 .blank-deck { position: relative; display: block; flex: none; width: 168px; aspect-ratio: 16 / 9; margin: var(--space-8) 0 var(--space-24); }
