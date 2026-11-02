@@ -1,5 +1,5 @@
-// Every slide in deck order, grouped: spacing separates the groups, and one quiet row above each says who records it
-// and, once kept, how long its take is. That row is also the way to change the group's speaker.
+// Every slide in deck order, grouped: spacing separates the groups, and one quiet row above each says who records it,
+// Saving… while a kept take is on its way, and then how long it is. That row is also the way to change the group's speaker.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { firstName, initials, Menu } from "./parts";
@@ -7,7 +7,7 @@ import { renderThumb } from "./stage";
 import { clock } from "./timing";
 import type { Deck, Person, RoomState } from "./types";
 
-export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, upload, onPick, onAssign }: {
+export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, upload, saving, onPick, onAssign }: {
   deck: Deck;
   room: RoomState;
   me: Person;
@@ -19,6 +19,8 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
   /** No changing speakers (my own take is running). */
   assignLocked: boolean;
   upload: Record<string, number>;
+  /** Groups this device kept a take of that the room has not shown yet. */
+  saving: Set<string>;
   onPick(group: number, slide: number): void;
   onAssign(group: number, personId: string | null): void;
 }) {
@@ -47,9 +49,12 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           const who = room.people.find((p) => p.id === room.assignments[g.id]);
           const take = room.takes[g.id];
           const up = upload[g.id] ?? (take && take.received < take.chunks ? take.received / take.chunks : undefined);
-          const status = up !== undefined ? `uploading ${Math.round(up * 100)}%` : take ? `recorded ${clock(take.durationMs)}` : "not recorded";
+          const pending = up !== undefined || saving.has(g.id);
+          const done = !!take && !pending;
+          const note = pending ? (up ? `Saving ${Math.round(up * 100)}%` : "Saving…") : done ? clock(take.durationMs) : null;
+          const status = pending ? note!.toLowerCase() : done ? `recorded ${clock(take.durationMs)}` : "not recorded";
           return (
-            <div key={g.id} className={`st-strip-g${gi === group ? " is-current" : ""}`} role="group" aria-label={g.name}>
+            <div key={g.id} className="st-strip-g" role="group" aria-label={g.name}>
               <div className="st-strip-slides">
                 {g.slides.map((s, si) => {
                   const now = gi === group && si === slide;
@@ -71,7 +76,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
               {/* After the slides in the DOM, so a group's first button picks its first slide; CSS puts it on top. */}
               <button
                 type="button"
-                className={`btn is-quiet is-sm st-strip-who${who ? "" : " is-none"}${take && up === undefined ? " is-done" : ""}`}
+                className={`btn is-quiet is-sm st-strip-who${who ? "" : " is-none"}${done ? " is-done" : ""}`}
                 disabled={assignLocked}
                 aria-haspopup="menu"
                 aria-expanded={menu?.group === gi}
@@ -81,9 +86,9 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                   setMenu((m) => (m?.anchor === anchor ? null : { group: gi, anchor }));
                 }}
               >
-                {take && up === undefined && <Icon name="check" size={12} />}
+                {done && <Icon name="check" size={12} />}
                 <span className="st-strip-name">{who ? firstName(who.name) : "Nobody"}</span>
-                {up !== undefined ? <span className="st-strip-n">{Math.round(up * 100)}%</span> : take ? <span className="st-strip-n">{clock(take.durationMs)}</span> : null}
+                {note && <span className="st-strip-n">{note}</span>}
               </button>
             </div>
           );

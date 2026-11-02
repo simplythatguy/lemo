@@ -1,9 +1,9 @@
 // Everyone's camera along the top (small circles on a phone). The team hears everyone; only the presenter's mic goes
 // into the video, which the mic icon shows (live for the presenter, slashed for everyone else). A red ring marks
-// whoever is recording right now.
+// whoever is recording right now. On a phone the circles have no room for tools: tapping a teammate's opens a menu.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
-import { CameraToggle, firstName, initials, type Camera } from "./parts";
+import { CameraToggle, firstName, initials, Menu, type Camera } from "./parts";
 import type { Person } from "./types";
 
 export function Cams({ people, me, camera, streams, failed, camOff, presenter, recording, mutedAll, locked, onMuteAll, onRemove, onVideo }: {
@@ -24,6 +24,10 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
   /** Each remote camera's element, so the stage can show the presenter while following their take. */
   onVideo(id: string, el: HTMLVideoElement | null): void;
 }) {
+  const [menu, setMenu] = useState<{ person: Person; anchor: HTMLElement } | null>(null);
+  useEffect(() => {
+    if (locked) setMenu(null);
+  }, [locked]);
   return (
     <div className="st-cams" aria-label="People">
       {people.map((p) => {
@@ -42,6 +46,7 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
             audible={!mine && !mutedAll}
             locked={locked}
             onRemove={() => onRemove(p.id)}
+            onMenu={mine ? undefined : (anchor) => setMenu((m) => (m?.anchor === anchor ? null : { person: p, anchor }))}
             onVideo={mine ? undefined : (el) => onVideo(p.id, el)}
           />
         );
@@ -58,11 +63,27 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
           <Icon name={mutedAll ? "speaker-off" : "speaker"} />
         </button>
       )}
+      {menu && (
+        <Menu label={menu.person.name} anchor={menu.anchor} onClose={() => setMenu(null)}>
+          <button
+            type="button"
+            role="menuitem"
+            className="st-menu-item"
+            onClick={() => {
+              onRemove(menu.person.id);
+              setMenu(null);
+            }}
+          >
+            <Icon name="x" size={16} />
+            <span className="st-menu-name">Remove {firstName(menu.person.name)}</span>
+          </button>
+        </Menu>
+      )}
     </div>
   );
 }
 
-function Tile({ person, mine, camera, stream, off, failed, presenting, recording, audible, locked, onRemove, onVideo }: {
+function Tile({ person, mine, camera, stream, off, failed, presenting, recording, audible, locked, onRemove, onMenu, onVideo }: {
   person: Person;
   mine: boolean;
   /** This device's camera, on my own tile only. */
@@ -75,6 +96,8 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, recording
   audible: boolean;
   locked: boolean;
   onRemove(): void;
+  /** A teammate's tile on a phone: the whole circle opens their menu. */
+  onMenu?: (anchor: HTMLElement) => void;
   onVideo?: (el: HTMLVideoElement | null) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -133,6 +156,17 @@ function Tile({ person, mine, camera, stream, off, failed, presenting, recording
       >
         <Icon name="x" size={12} />
       </button>
+      {onMenu && (
+        <button
+          type="button"
+          className="st-tile-menu is-narrow"
+          disabled={locked}
+          aria-haspopup="menu"
+          aria-label={person.name}
+          data-tip={person.name}
+          onClick={(e) => onMenu(e.currentTarget)}
+        />
+      )}
     </figure>
   );
 }

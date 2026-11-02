@@ -5,12 +5,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
-  height: var(--control-sm);
+  height: var(--control);
   padding: 0 var(--space-12);
   border: 0;
-  border-radius: var(--radius-full);
-  background: var(--fill);
-  font: var(--weight-label) var(--text-13)/1 var(--font);
+  border-radius: var(--radius-control);
+  background: none;
+  font: var(--weight-label) var(--text-14)/1 var(--font);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   cursor: pointer;
@@ -25,19 +25,15 @@
   color: var(--ink-4);
 }
 
-.st-saved-btn.is-open {
-  background: var(--ink);
-  color: var(--on-dark);
-}
-
-.st-saved-btn.is-open svg,
-.st-saved-btn.is-open .st-saved-n span {
-  color: var(--on-dark-2);
+/* Open: ink, not a fill. */
+.st-saved-btn.is-open,
+.st-saved-btn.is-open svg {
+  color: var(--ink);
 }
 
 @media (hover: hover) {
-  .st-saved-btn:not(.is-open):hover {
-    background: var(--fill-hover);
+  .st-saved-btn:hover {
+    background: var(--wash);
     color: var(--ink);
   }
 }
