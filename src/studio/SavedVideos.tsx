@@ -73,7 +73,7 @@ export function SavedVideos({ deck, room, upload }: {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape" && playing === null) setOpen(false);
     };
-    // The player opens over the list: its clicks must not close the list under it.
+    // The player opens over the popover: its clicks must not close the list under it.
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
       if (playing === null && !panel.current?.contains(t) && !trigger.current?.contains(t)) setOpen(false);
@@ -167,7 +167,6 @@ export function SavedVideos({ deck, room, upload }: {
 
       {list.mounted && (
         <>
-          {/* The one dim: under the phone sheet, and under the player at every width. */}
           <div className={`st-saved-dim${playable ? " is-under" : ""}${list.leaving ? " is-leaving" : ""}`} aria-hidden="true" />
           <aside
             ref={panel}

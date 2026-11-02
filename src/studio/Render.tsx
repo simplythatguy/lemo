@@ -231,8 +231,7 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
   return (
     <>
       <div className={`st-stage st-result${showing ? " is-showing" : ""}`}>
-        <video ref={video} src={url} poster={poster || undefined} playsInline onClick={toggle}
-          onPlaying={() => setRefused(false)}
+        <video ref={video} src={url} poster={poster || undefined} playsInline onClick={toggle} onPlaying={() => setRefused(false)}
           onVolumeChange={(e) => setMuted(e.currentTarget.muted)} />
         {refused && <StartButton onStart={toggle} />}
       </div>
