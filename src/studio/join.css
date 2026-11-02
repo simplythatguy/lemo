@@ -1,7 +1,9 @@
 /* —— Join and sign in —— */
 
+/* One centred column: the project, the camera, the name and Join, every piece on the same two edges. */
 .st-join {
-  width: min(480px, 100%);
+  width: min(440px, 100%);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
@@ -10,7 +12,8 @@
 .st-join-title {
   display: flex;
   align-items: center;
-  gap: var(--space-16);
+  justify-content: center;
+  gap: var(--space-12);
   min-width: 0;
   margin: 0;
   font: var(--weight-title) var(--text-28)/1.2 var(--font);
@@ -20,33 +23,63 @@
 
 .st-join-title > span {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* A room without slides: the mark and one way forward. */
-.st-empty {
+.st-join-go {
+  width: 100%;
+}
+
+.st-join > .st-copy {
+  align-self: center;
+  margin-top: calc(var(--space-12) * -1);
+}
+
+/* The quiet room code under a screen's one primary. */
+:is(.st-join, .st-empty) .st-copy {
+  background: transparent;
+  color: var(--ink-3);
+}
+
+/* A room without slides, and the room while it loads: the mark and at most one way forward. */
+.st-empty,
+.st-wait {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-32);
+  gap: var(--space-16);
 }
 
 .st-empty .st-brand {
-  gap: var(--space-12);
+  margin-bottom: var(--space-16);
   font-size: var(--text-28);
   font-weight: var(--weight-title);
   letter-spacing: var(--tracking-title);
 }
 
-.st-empty .st-brand .st-mark {
+.st-empty .st-brand .st-mark,
+.st-wait .st-mark {
   width: 28px;
   height: 28px;
 }
 
-.st-empty .st-join-actions {
-  justify-content: center;
+.st-wait:not(.is-offline) .st-mark {
+  animation: st-wait var(--dur-pulse) var(--ease) infinite alternate;
 }
 
+.st-wait.is-offline .st-mark {
+  opacity: 0.4;
+}
+
+@keyframes st-wait {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* The camera preview: 16:9, its toggle and the mic level on it. */
 .st-cam {
   position: relative;
   display: grid;
@@ -55,6 +88,7 @@
   border-radius: var(--radius-card);
   overflow: hidden;
   background: var(--fill);
+  container-type: inline-size;
 }
 
 .st-cam video {
@@ -70,16 +104,33 @@
   opacity: 0;
 }
 
-.st-cam .st-tile-face {
-  width: 72px;
-  height: 72px;
-  font-size: var(--text-28);
+/* The face when the camera is off, and the icon in an error: one white circle. */
+.st-cam-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  font: var(--weight-label) var(--text-20)/1 var(--font);
+  color: var(--ink-2);
+}
+
+/* Lifted clear of the camera toggle under it. */
+.st-cam-icon.is-face {
+  margin-bottom: var(--space-32);
+}
+
+.st-cam-error .st-cam-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--space-4);
 }
 
 .st-cam-toggle {
   position: absolute;
   left: 50%;
-  bottom: 14px;
+  bottom: var(--space-12);
   display: grid;
   place-items: center;
   width: var(--control-lg);
@@ -94,8 +145,10 @@
   transition: background var(--dur-control) var(--ease);
 }
 
-.st-cam-toggle:hover {
-  background: var(--shade-hover);
+@media (hover: hover) {
+  .st-cam-toggle:hover {
+    background: var(--shade-hover);
+  }
 }
 
 .st-cam.is-empty .st-cam-toggle {
@@ -110,9 +163,26 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-12);
-  font-size: var(--text-14);
-  color: var(--ink-2);
+  gap: var(--space-4);
+  padding: var(--space-16);
+  text-align: center;
+  font-size: var(--text-13);
+  color: var(--ink-3);
+}
+
+.st-cam-error strong {
+  font: var(--weight-label) var(--text-15)/1.3 var(--font);
+  color: var(--ink);
+}
+
+.st-cam-error .btn {
+  margin-top: var(--space-8);
+}
+
+@container (max-width: 320px) {
+  .st-cam-error .st-cam-icon {
+    display: none;
+  }
 }
 
 .st-level {
@@ -125,12 +195,13 @@
 
 .st-level > div {
   height: 100%;
-  background: var(--glass);
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform var(--dur-meter) linear;
 }
 
+/* Camera and microphone, each showing what it is set to. */
 .st-devices {
   display: flex;
   gap: var(--space-24);
@@ -138,18 +209,25 @@
 }
 
 .st-device {
-  display: inline-flex;
+  display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: var(--space-8);
   min-width: 0;
+  height: var(--control-sm);
   color: var(--ink-3);
+}
+
+.st-device svg {
+  flex-shrink: 0;
 }
 
 .st-device select {
   appearance: none;
   min-width: 0;
-  max-width: 200px;
-  padding: var(--space-4) var(--space-16) var(--space-4) 0;
+  max-width: 100%;
+  height: 100%;
+  padding: 0 var(--space-16) 0 0;
   border: 0;
   border-radius: var(--radius-tag);
   background: transparent var(--chevron) no-repeat right 2px center;
@@ -164,6 +242,13 @@
 .st-device select:disabled {
   cursor: default;
   background-image: none;
+  color: var(--ink-4);
+}
+
+.st-name {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
 }
 
 .st-field {
@@ -177,8 +262,7 @@
   color: var(--ink-3);
 }
 
-.st-field input,
-.st-code-join input {
+.st-field input {
   height: var(--control);
   padding: 0;
   border: 0;
@@ -191,46 +275,28 @@
   transition: border-color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
 }
 
-/* Team names are suggested as you type; the browser's list arrow stays out of the line. */
-.st-field input::-webkit-calendar-picker-indicator {
-  display: none !important;
-}
-
-.st-page .st-field input:focus-visible,
-.st-page .st-code-join input:focus-visible {
+.st-page .st-field input:focus-visible {
   outline: none;
 }
 
-.st-field input:focus,
-.st-code-join input:focus {
+.st-field input:focus {
   border-bottom-color: var(--focus);
   box-shadow: 0 1px 0 var(--focus);
 }
 
-.st-join-actions {
+/* Teammates who have not joined yet, one tap each; their text lines up with the field's. */
+.st-suggest {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-12);
+  column-gap: var(--space-4);
+  margin-left: calc(var(--space-8) * -1);
 }
 
-.st-code-join {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-
-.st-code-join input {
-  width: 112px;
-  font-size: var(--text-14);
-  letter-spacing: var(--tracking-code);
-  text-transform: uppercase;
-}
-
-.st-code-join input::placeholder {
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-4);
+.st-suggest-note {
+  padding: 0 var(--space-8);
+  font-size: var(--text-13);
+  color: var(--ink-3);
 }
 
 /* The room code: a grey pill that copies the room link. */
@@ -259,5 +325,17 @@
   .st-copy:hover {
     background: var(--fill-hover);
     color: var(--ink);
+  }
+}
+
+@media (max-width: 420px) {
+  .st-join {
+    gap: var(--space-16);
+  }
+  .st-devices {
+    margin-top: calc(var(--space-4) * -1);
+  }
+  .st-join-title {
+    font-size: var(--text-20);
   }
 }
