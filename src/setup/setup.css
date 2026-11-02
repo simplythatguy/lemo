@@ -756,6 +756,8 @@
     border-radius: var(--radius-control);
   }
   .su-say {
+    padding-left: var(--space-8);
+    margin-left: calc(var(--space-8) * -1);
     font-size: var(--text-14);
   }
   .su-group + .su-group {
