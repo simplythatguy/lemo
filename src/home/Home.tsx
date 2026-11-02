@@ -1,28 +1,31 @@
-// Home (/): this device's demos, newest first. A row opens its room; a room the server no longer has drops out.
-import { useEffect, useState } from "react";
-import { forgetRoom, knownRooms, RoomError, roomApi, validCode, type KnownRoom } from "../studio/room";
+// Home (/): this device's demos, newest first, as a grid of their first slides. A cover opens its room; a room the server
+// no longer has drops out.
+import { useEffect, useRef, useState } from "react";
+import { forgetRoom, knownRooms, RoomError, roomApi, validCode } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
-import type { RoomState } from "../studio/types";
+import type { Deck, RoomState, TakeInfo } from "../studio/types";
 import { Icon } from "../icons";
 import "./home.css";
 
-type Row = { code: string; seenAt: number; room?: RoomState; offline?: boolean };
+type Row = { code: string } & ({ state: "loading" } | { state: "offline" } | { state: "ready"; room: RoomState });
 
 export function Home() {
-  const [rows, setRows] = useState<Row[]>(() => knownRooms().map((r: KnownRoom) => ({ ...r })));
+  const [rows, setRows] = useState<Row[]>(() => knownRooms().map(({ code }) => ({ code, state: "loading" })));
 
   useEffect(() => {
     const ctl = new AbortController();
+    const set = (code: string, row: Row | null) =>
+      setRows((rs) => (row ? rs.map((r) => (r.code === code ? row : r)) : rs.filter((r) => r.code !== code)));
     for (const { code } of knownRooms()) {
       roomApi.get(code, ctl.signal).then(
-        (room) => setRows((rs) => rs.map((r) => (r.code === code ? { ...r, room, offline: false } : r))),
+        (room) => set(code, { code, state: "ready", room }),
         (e) => {
           if (ctl.signal.aborted) return;
           if (e instanceof RoomError && e.status === 404) {
             forgetRoom(code);
-            setRows((rs) => rs.filter((r) => r.code !== code));
+            set(code, null);
           } else {
-            setRows((rs) => rs.map((r) => (r.code === code ? { ...r, offline: true } : r)));
+            set(code, { code, state: "offline" });
           }
         },
       );
@@ -37,59 +40,87 @@ export function Home() {
         <h1 className="hm-title">Demos</h1>
         <Join />
         {!empty && (
-          <a className="btn is-primary is-sm" href="/new">
-            <Icon name="plus" size={16} />New
+          <a className="btn is-primary hm-new" href="/new">
+            <Icon name="plus" size={16} />
+            <span>
+              New<span className="hm-new-more"> demo</span>
+            </span>
           </a>
         )}
       </header>
-      {empty ? (
-        <div className="hm-empty">
-          <a className="btn is-primary is-lg" href="/new">
-            <Icon name="plus" size={16} />New demo
-          </a>
-        </div>
-      ) : (
-        <ul className="hm-list">
-          {rows.map((r) => (
+      <ul className="hm-grid">
+        {empty ? (
+          <li className="slot">
+            <a className="btn is-primary is-lg" href="/new">
+              <Icon name="plus" size={16} />New demo
+            </a>
+          </li>
+        ) : (
+          rows.map((r) => (
             <li key={r.code}>
-              <RoomRow row={r} />
+              <Card row={r} />
             </li>
-          ))}
-        </ul>
-      )}
+          ))
+        )}
+      </ul>
     </div>
   );
 }
 
-function RoomRow({ row }: { row: Row }) {
-  const deck = row.room?.deck ?? null;
-  const first = deck?.groups[0]?.slides[0];
-  const cover = first && (first.kind === "page" || first.kind === "image") ? first.src : null;
+const complete = (t: TakeInfo | undefined) => !!t && t.received >= t.chunks;
+
+/** "8 slides · 1:08 · 2 of 3 recorded": the recorded part only once something is. */
+function meta(room: RoomState): string {
+  const deck = room.deck;
   const slides = deck ? deck.groups.reduce((n, g) => n + g.slides.length, 0) : 0;
-  const people = row.room?.people.length ?? 0;
-  const title = deck?.title || (row.room ? "Untitled" : row.code);
-  const line = row.offline
-    ? "Offline"
-    : !row.room
-      ? " "
-      : deck && slides
-        ? `${slides} ${slides === 1 ? "slide" : "slides"} · ${clock(deckMs(deck))}`
-        : "No slides yet";
+  if (!deck || !slides) return "No slides yet";
+  const parts = [`${slides} ${slides === 1 ? "slide" : "slides"}`, clock(deckMs(deck))];
+  const recorded = deck.groups.filter((g) => complete(room.takes[g.id])).length;
+  if (recorded === deck.groups.length) parts.push("All recorded");
+  else if (recorded) parts.push(`${recorded} of ${deck.groups.length} recorded`);
+  return parts.join(" · ");
+}
+
+function Card({ row }: { row: Row }) {
+  if (row.state === "loading") {
+    return (
+      <div className="hm-card is-wait" aria-busy="true" aria-label="Loading">
+        <span className="hm-cover" />
+        <span className="hm-name" />
+        <span className="hm-line" />
+      </div>
+    );
+  }
+  const room = row.state === "ready" ? row.room : null;
+  const title = room ? room.deck?.title.trim() || "Untitled" : row.code;
   return (
-    <a className={`hm-row${row.room ? "" : " is-wait"}`} href={`/r/${row.code}`} aria-label={`${title}${people ? `, ${people} joined` : ""}`}>
-      <span className="hm-cover">{cover ? <img src={cover} alt="" loading="lazy" decoding="async" /> : deck?.title ? <b>{deck.title.trim().charAt(0).toUpperCase()}</b> : null}</span>
-      <span className="hm-text">
-        <span className="hm-name">{title}</span>
-        <span className="hm-line">{line}</span>
-      </span>
-      {people > 0 && (
-        <span className="hm-count">
-          <b>{people}</b>
-          <span>joined</span>
+    <a className="hm-card" href={`/r/${row.code}`}>
+      {room?.deck?.groups[0]?.slides[0] ? (
+        <span className="hm-cover">
+          <Cover deck={room.deck} />
         </span>
+      ) : (
+        <span className="hm-cover slot" />
       )}
+      <span className="hm-name">{title}</span>
+      <span className="hm-line">{room ? meta(room) : "Offline"}</span>
     </a>
   );
+}
+
+/** The deck's first slide: the uploaded page itself, or painted by the stage for any other kind. */
+function Cover({ deck }: { deck: Deck }) {
+  const first = deck.groups[0].slides[0];
+  const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = canvas.current;
+    if (!c) return;
+    c.width = 640;
+    c.height = 360;
+    void import("../studio/stage").then((m) => m.renderThumb(c, deck, 0, 0)).catch(() => undefined);
+  }, [deck]);
+  if (first.kind === "page") return <img src={first.src} alt="" loading="lazy" decoding="async" />;
+  return <canvas ref={canvas} aria-hidden="true" />;
 }
 
 /** A room code typed in opens that room. */
@@ -115,9 +146,10 @@ function Join() {
           setCode(e.currentTarget.value.replace(/[^a-z0-9]/gi, "").slice(0, 6));
           setBad(false);
         }}
-        placeholder="Code"
+        placeholder="Room code"
         aria-label="Room code"
         aria-invalid={bad}
+        aria-describedby={bad ? "hm-join-error" : undefined}
         autoCapitalize="characters"
         autoComplete="off"
         spellCheck={false}
@@ -126,6 +158,11 @@ function Join() {
       <button type="submit" className="icon-btn is-sm" aria-label="Join" data-tip="Join" disabled={!code}>
         <Icon name="arrow" size={16} />
       </button>
+      {bad && (
+        <p id="hm-join-error" className="hm-join-error" role="alert">
+          Not a room code
+        </p>
+      )}
     </form>
   );
 }
