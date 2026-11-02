@@ -9,6 +9,7 @@ import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, sav
 import { Room } from "./RoomView";
 import type { Deck } from "./types";
 import "./studio.css";
+import "./join.css";
 
 /** The room's deck, as the same object until its content changes: the poll hands over a fresh copy every 2 s. */
 function useStableDeck(deck: Deck | null | undefined): Deck | null {
@@ -93,7 +94,10 @@ export function Studio({ code }: { code: string }) {
     if (status.kind === "missing") return <NoSlides code={code} />;
     return (
       <div className="st-page st-center" aria-busy={status.kind === "loading"}>
-        {status.kind === "offline" && <p className="st-quiet" role="status">No connection</p>}
+        <div className={`st-wait${status.kind === "offline" ? " is-offline" : ""}`}>
+          <span className="st-mark" aria-hidden="true" />
+          {status.kind === "offline" && <p className="st-quiet" role="status">No connection</p>}
+        </div>
       </div>
     );
   }
@@ -128,16 +132,20 @@ function NoSlides({ code }: { code: string }) {
     <div className="st-page st-center">
       <div className="st-empty">
         <Brand named />
-        <div className="st-join-actions">
-          <a className="btn is-primary is-lg" href={editLink(code)}>
-            <Icon name="slides" size={16} />Add slides
-          </a>
-          <CopyLink code={code} />
-        </div>
+        <a className="btn is-primary is-lg" href={editLink(code)}>
+          <Icon name="slides" size={16} />Add slides
+        </a>
+        <CopyLink code={code} />
       </div>
     </div>
   );
 }
+
+const CAMERA_FIX: Record<string, string> = {
+  "Camera blocked": "Allow it in the address bar",
+  "No camera found": "Connect a camera",
+  "Camera unavailable": "Close other apps using it",
+};
 
 function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }: {
   code: string;
@@ -161,6 +169,11 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   const picture = !!camera.stream && camera.on;
   const camId = camera.stream?.getVideoTracks()[0]?.getSettings().deviceId;
   const micId = camera.stream?.getAudioTracks()[0]?.getSettings().deviceId;
+  const typed = name.trim().toLowerCase();
+  const here = !!typed && taken.includes(typed);
+  const suggested = deck.team
+    .map((n) => n.trim())
+    .filter((n) => n && !taken.includes(n.toLowerCase()) && n.toLowerCase() !== typed && n.toLowerCase().startsWith(typed));
   async function go() {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -182,34 +195,44 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
         </h1>
         <div className={`st-cam${picture ? "" : " is-empty"}`}>
           <video ref={preview} autoPlay muted playsInline />
-          {!picture && !camera.error && name.trim() && <span className="st-tile-face" aria-hidden="true">{initials(name)}</span>}
-          {camera.error && (
-            <div className="st-cam-error">
-              <span>{camera.error}</span>
+          {camera.error ? (
+            <div className="st-cam-error" role="alert">
+              <span className="st-cam-icon"><Icon name="camera-off" size={20} /></span>
+              <strong>{camera.error}</strong>
+              <span>{CAMERA_FIX[camera.error]}</span>
               <button type="button" className="btn is-secondary is-sm" onClick={camera.retry}>Try again</button>
             </div>
+          ) : !picture && (
+            <span className="st-cam-icon is-face" aria-hidden="true">
+              {name.trim() ? initials(name) : <Icon name="camera-off" size={20} />}
+            </span>
           )}
-          <CameraToggle camera={camera} className="st-cam-toggle" size={20} />
+          {!camera.error && <CameraToggle camera={camera} className="st-cam-toggle" size={20} />}
           <MicLevel stream={camera.stream} />
         </div>
         <div className="st-devices">
           <DevicePicker icon="camera" label="Camera" devices={camera.cams} value={camId} onChange={(id) => { onDevice({ camId: id }); camera.turn(true); }} />
           <DevicePicker icon="mic" label="Microphone" devices={camera.mics} value={micId} onChange={(id) => onDevice({ micId: id })} />
         </div>
-        <label className="st-field">
-          <span>Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" list="st-team" required />
-        </label>
-        <datalist id="st-team">
-          {deck.team.filter((n) => n.trim() && !taken.includes(n.trim().toLowerCase())).map((n) => <option key={n} value={n} />)}
-        </datalist>
-        {error && <p className="st-error" role="alert">{error}</p>}
-        <div className="st-join-actions">
-          <button type="submit" className="btn is-primary is-lg" disabled={!name.trim() || busy || !camera.stream}>
-            Join
-          </button>
-          <CopyLink code={code} />
+        <div className="st-name">
+          <label className="st-field">
+            <span>Name</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" required />
+          </label>
+          {(here || suggested.length > 0) && (
+            <div className="st-suggest">
+              {here && <span className="st-suggest-note">Already in the room</span>}
+              {suggested.map((n) => (
+                <button key={n} type="button" className="btn is-quiet is-sm" onClick={() => setName(n)}>{n}</button>
+              ))}
+            </div>
+          )}
         </div>
+        {error && <p className="st-error" role="alert">{error}</p>}
+        <button type="submit" className="btn is-primary is-lg st-join-go" disabled={!name.trim() || busy || !camera.stream}>
+          {busy ? "Joining" : "Join"}
+        </button>
+        <CopyLink code={code} />
       </form>
     </div>
   );
@@ -223,7 +246,7 @@ function DevicePicker({ icon, label, devices, value, onChange }: {
   onChange(id: string): void;
 }) {
   return (
-    <label className="st-device" title={label}>
+    <label className="st-device">
       <Icon name={icon} size={16} />
       <select aria-label={label} value={value ?? ""} onChange={(e) => onChange(e.target.value)} disabled={!devices.length}>
         {!devices.length && <option value="">{label}</option>}
