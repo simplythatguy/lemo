@@ -181,7 +181,7 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(true);
   const [muted, setMuted] = useState(false);
-  // Hidden until it plays, or waits on its Play button over the poster: before its first frame it paints a grey slab.
+  // Hidden until its first frame is on screen, or it waits on its Play button over the poster: until then it paints a grey slab.
   const [showing, setShowing] = useState(false);
   useEffect(() => {
     const v = video.current;
@@ -200,7 +200,8 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
     void startPlayback(v).then((ok) => {
       if (!alive) return;
       setRefused(!ok);
-      setShowing(true);
+      if (ok && "requestVideoFrameCallback" in v) v.requestVideoFrameCallback(() => alive && setShowing(true));
+      else setShowing(true);
     });
     return () => {
       alive = false;
