@@ -180,6 +180,15 @@
   font-size: var(--text-14);
 }
 
+/* The selection's count never gives way; its quiet actions sit word to word, their own padding the only gap. */
+.su-head-name:has(> .su-picked) {
+  flex: none;
+}
+
+.su-head > .btn.is-quiet + .btn.is-quiet {
+  margin-left: calc(var(--space-8) * -1);
+}
+
 .su-quiet {
   margin: 0;
   font-size: var(--text-13);
@@ -820,6 +829,13 @@
   }
   .su-project {
     gap: var(--space-32);
+  }
+}
+
+/* Too narrow for the word beside every selection action: the count alone. */
+@media (max-width: 389px) {
+  .su-picked-word {
+    display: none;
   }
 }
 

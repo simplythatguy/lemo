@@ -109,7 +109,10 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
       {selected.length > 0 && !importing ? (
         <div className="su-head">
           <span className="su-head-name">
-            <h1 className="su-title is-sm">{selected.length} selected</h1>
+            <h1 className="su-title is-sm su-picked">
+              {selected.length}
+              <span className="su-picked-word"> selected</span>
+            </h1>
           </span>
           <span className="su-grow" />
           {canUngroup && (
