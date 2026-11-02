@@ -51,7 +51,7 @@ export function SavedVideos({ deck, room, upload }: {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape" && playing === null) setOpen(false);
     };
-    // A click anywhere else closes the popover, as long as the player is not open over it.
+    // The player opens over the popover: its clicks must not close the list under it.
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
       if (playing === null && !panel.current?.contains(t) && !trigger.current?.contains(t)) setOpen(false);

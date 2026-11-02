@@ -141,7 +141,6 @@ function NoSlides({ code }: { code: string }) {
   );
 }
 
-/** What to do about each camera error, in a few words. */
 const CAMERA_FIX: Record<string, string> = {
   "Camera blocked": "Allow it in the address bar",
   "No camera found": "Connect a camera",
