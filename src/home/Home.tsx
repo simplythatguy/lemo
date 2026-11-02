@@ -37,7 +37,6 @@ export function Home() {
     return (
       <div className="hm-page is-empty">
         <h1 className="hm-title">Demos</h1>
-        <span className="blank-deck" aria-hidden="true"><i /><i /><i /></span>
         <a className="btn is-primary is-lg" href="/new">
           <Icon name="plus" size={16} />New demo
         </a>

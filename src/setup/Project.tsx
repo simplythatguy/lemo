@@ -1,8 +1,12 @@
 // Step 2: the project's name, logo and team, as the intro and outro cards show them.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
+import { ProjectMark } from "../studio/parts";
 import { removeMember, type Draft, type Pic } from "./draft";
 import { squareLogo } from "./logo";
+
+/** The logo's side, in px: the height of the project's label and name beside it. */
+const LOGO = 76;
 
 export function Project({ draft, setDraft, show, makeUrl }: {
   draft: Draft;
@@ -28,6 +32,7 @@ export function Project({ draft, setDraft, show, makeUrl }: {
     else if (show.team) names.current[0]?.focus();
   }, [show]);
 
+  const named = !!draft.title.trim();
   const setLogo = (logo: Pic | null) => setDraft((d) => ({ ...d, logo }));
   const removeLogo = () => {
     logoPick.current++;
@@ -49,7 +54,12 @@ export function Project({ draft, setDraft, show, makeUrl }: {
             aria-label={draft.logo ? "Change logo" : "Add logo"}
             data-tip={draft.logo ? "Change logo" : "Add logo"}
           >
-            {draft.logo ? <img src={draft.logo.src} alt="" /> : <Icon name="image" size={28} />}
+            <ProjectMark title={draft.title} logo={draft.logo?.src} size={LOGO} />
+            {!draft.logo && (
+              <span className={`su-logo-add${named ? "" : " is-alone"}`} aria-hidden="true">
+                <Icon name="plus" size={named ? 12 : 28} />
+              </span>
+            )}
           </button>
           {draft.logo && (
             <button type="button" className="su-logo-x" aria-label="Remove logo" data-tip="Remove logo" onClick={removeLogo}>

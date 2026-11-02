@@ -1,5 +1,5 @@
 // Step 3: the transcript. Every group in order, each slide with what is said on it. Groups are made on the slides step.
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { clock, targetMs } from "../studio/timing";
 import type { Deck } from "../studio/types";
 import type { Draft } from "./draft";
@@ -13,6 +13,9 @@ export function Script({ draft, deck, length, onSay }: {
   length: ReactNode;
   onSay(slideId: string, text: string): void;
 }) {
+  const [focused, setFocused] = useState<string | null>(null);
+  /** One prompt, not one per slide: on the line being written, else the first one still empty. */
+  const prompted = focused ?? draft.groups.flatMap((g) => g.slides).find((id) => !draft.script[id]);
   let at = 0;
   return (
     <div className="su-script">
@@ -38,10 +41,12 @@ export function Script({ draft, deck, length, onSay }: {
                   <textarea
                     className="su-say"
                     value={draft.script[id] ?? ""}
-                    placeholder="What you say on this slide"
+                    placeholder={id === prompted ? "What you say on this slide" : undefined}
                     aria-label={`Slide ${first + k + 1}: what you say`}
                     rows={3}
                     onChange={(e) => onSay(id, e.currentTarget.value)}
+                    onFocus={() => setFocused(id)}
+                    onBlur={() => setFocused(null)}
                   />
                 </div>
               ))}

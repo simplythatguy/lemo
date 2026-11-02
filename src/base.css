@@ -128,23 +128,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
   }
 }
 
-/* A deck with nothing in it yet: three blank slides fanned out. A file dragged over fans them wider and marks the top one
-   as where it lands. */
-.blank-deck { position: relative; display: block; flex: none; width: 168px; aspect-ratio: 16 / 9; margin: var(--space-8) 0 var(--space-24); }
-.blank-deck > i {
-  position: absolute; inset: 0; display: grid; place-items: center; border-radius: var(--radius-control); background: var(--fill);
-  color: transparent; transition-property: rotate, translate, background-color, box-shadow, color;
-  transition-duration: var(--dur-sheet); transition-timing-function: var(--ease);
-}
-.blank-deck > i:nth-child(1) { rotate: -7deg; translate: -30px 12px; }
-.blank-deck > i:nth-child(2) { rotate: 7deg; translate: 30px 12px; }
-.blank-deck > i:nth-child(3) { background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-2), var(--shadow-pop); }
-.is-over > .blank-deck > i:nth-child(1) { rotate: -12deg; translate: -46px 20px; }
-.is-over > .blank-deck > i:nth-child(2) { rotate: 12deg; translate: 46px 20px; }
-.is-over > .blank-deck > i:nth-child(3) {
-  background: color-mix(in srgb, var(--accent) 6%, var(--bg)); box-shadow: inset 0 0 0 2px var(--accent), var(--shadow-pop); color: var(--accent);
-}
-
 .tip {
   position: fixed; inset: auto; margin: 0; padding: var(--space-4) var(--space-8);
   border: 0; border-radius: var(--radius-tag); background: var(--ink); color: var(--on-dark);
