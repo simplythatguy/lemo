@@ -1,8 +1,12 @@
 // Step 2: the project's name, logo and team, as the intro and outro cards show them.
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
+import { ProjectMark } from "../studio/parts";
 import { removeMember, type Draft, type Pic } from "./draft";
 import { squareLogo } from "./logo";
+
+/** The logo's side, in px: the height of the project's label and name beside it. */
+const LOGO = 76;
 
 export function Project({ draft, setDraft, show, makeUrl }: {
   draft: Draft;
@@ -28,6 +32,7 @@ export function Project({ draft, setDraft, show, makeUrl }: {
     else if (show.team) names.current[0]?.focus();
   }, [show]);
 
+  const named = !!draft.title.trim();
   const setLogo = (logo: Pic | null) => setDraft((d) => ({ ...d, logo }));
   const removeLogo = () => {
     logoPick.current++;
@@ -44,16 +49,21 @@ export function Project({ draft, setDraft, show, makeUrl }: {
         <div className="su-logo">
           <button
             type="button"
-            className={`su-logo-pick${draft.logo ? " has-logo" : ""}`}
+            className={`su-logo-pick${draft.logo ? " has-logo" : named ? "" : " is-blank"}`}
             onClick={() => logoInput.current?.click()}
             aria-label={draft.logo ? "Change logo" : "Add logo"}
-            title={draft.logo ? "Change logo" : "Add logo"}
+            data-tip={draft.logo ? "Change logo" : "Add logo"}
           >
-            {draft.logo ? <img src={draft.logo.src} alt="" /> : <Icon name="image" size={24} stroke={1.6} />}
+            <ProjectMark title={draft.title} logo={draft.logo?.src} size={LOGO} />
+            {!draft.logo && (
+              <span className={`su-logo-add${named ? "" : " is-alone"}`} aria-hidden="true">
+                <Icon name="plus" size={named ? 12 : 28} />
+              </span>
+            )}
           </button>
           {draft.logo && (
-            <button type="button" className="su-logo-x" aria-label="Remove logo" title="Remove logo" onClick={removeLogo}>
-              <Icon name="x" size={12} stroke={2.4} />
+            <button type="button" className="su-logo-x" aria-label="Remove logo" data-tip="Remove logo" onClick={removeLogo}>
+              <Icon name="x" size={12} />
             </button>
           )}
           <input
@@ -126,17 +136,19 @@ export function Project({ draft, setDraft, show, makeUrl }: {
                 }}
               />
               {draft.team.length > 1 && (
-                <button type="button" className="cf-icon-btn is-xs" aria-label={`Remove ${name || `member ${i + 1}`}`} title="Remove" onClick={() => setDraft((d) => removeMember(d, i))}>
+                <button type="button" className="icon-btn is-sm" aria-label={`Remove ${name || `member ${i + 1}`}`} data-tip="Remove" onClick={() => setDraft((d) => removeMember(d, i))}>
                   <Icon name="x" size={14} />
                 </button>
               )}
             </li>
           ))}
         </ol>
-        {show.team && !draft.team.some((t) => t.trim()) && <em className="su-error">Add at least one name</em>}
-        <button type="button" className="cf-btn is-ghost is-sm su-add" onClick={() => addMember(draft.team.length - 1)} disabled={draft.team.length >= 12}>
-          <Icon name="plus" size={15} />Add
-        </button>
+        <div className="su-team-foot">
+          <button type="button" className="btn is-quiet is-sm su-add" onClick={() => addMember(draft.team.length - 1)} disabled={draft.team.length >= 12}>
+            <Icon name="plus" size={16} />Add
+          </button>
+          {show.team && !draft.team.some((t) => t.trim()) && <em className="su-error">Add at least one name</em>}
+        </div>
       </fieldset>
     </div>
   );

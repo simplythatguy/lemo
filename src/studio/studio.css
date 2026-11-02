@@ -1,20 +1,20 @@
-/* Lemo's recording room: white page, hairlines, regular-weight titles, neutral controls with one near-black primary,
+/* Lemo's recording room: white page, hairlines, semibold titles, neutral controls with one near-black primary,
    colour only to identify. Tokens and buttons come from base.css; classes here are studio-only. */
 
 .st-page,
 .st-room {
-  font-family: var(--cf-font);
-  font-size: 14px;
+  font-family: var(--font);
+  font-size: var(--text-14);
   line-height: 1.5;
-  color: var(--cf-text);
-  background: var(--cf-bg);
+  color: var(--ink);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
 
 /* The app's one focus ring. */
 :is(.st-page, .st-room, .st-menu) :is(a, button, input, select, [tabindex]):focus-visible {
-  outline: 2px solid var(--cf-focus);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -26,19 +26,18 @@
 .st-center {
   display: grid;
   place-items: center;
-  padding: 32px 24px;
+  padding: var(--space-32) var(--space-24);
 }
 
 /* The app's mark: a link home. */
 .st-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-12);
   margin: 0;
-  border-radius: 8px;
-  font: 500 15px/1 var(--cf-font);
-  letter-spacing: -0.005em;
-  color: var(--cf-text);
+  border-radius: var(--radius-control);
+  font: var(--weight-label) var(--text-15)/1 var(--font);
+  color: var(--ink);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -47,8 +46,8 @@
   width: 22px;
   height: 22px;
   flex-shrink: 0;
-  border-radius: 7px;
-  background: var(--cf-accent);
+  border-radius: 32%;
+  background: var(--accent);
 }
 
 /* The project's mark: its logo, or its first letter on ink. */
@@ -61,353 +60,104 @@
 .st-pmark.is-letter {
   display: inline-grid;
   place-items: center;
-  background: var(--cf-text);
-  font-weight: 600;
+  background: var(--ink);
+  font-weight: var(--weight-title);
   line-height: 1;
-  color: #fff;
+  color: var(--on-dark);
 }
 
 .st-quiet {
   margin: 0;
-  font-size: 14px;
-  color: var(--cf-text-3);
+  font-size: var(--text-14);
+  color: var(--ink-3);
 }
 
 .st-title {
   margin: 0;
-  font: 400 26px/1.15 var(--cf-font);
-  letter-spacing: -0.015em;
-  color: var(--cf-text);
+  font: var(--weight-title) var(--text-28)/1.15 var(--font);
+  letter-spacing: var(--tracking-title);
+  color: var(--ink);
 }
 
 .st-error {
   margin: 0;
-  font-size: 13.5px;
-  color: var(--cf-blocking-ink);
+  font-size: var(--text-14);
+  color: var(--red-ink);
 }
 
-/* —— Join and sign in —— */
-
-.st-join {
-  width: min(480px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.st-join-title {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-  margin: 0;
-  font: 400 28px/1.2 var(--cf-font);
-  letter-spacing: -0.015em;
-  color: var(--cf-text);
-}
-
-.st-join-title > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-/* A room without slides: the mark and one way forward. */
-.st-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 32px;
-}
-
-.st-empty .st-brand {
-  gap: 12px;
-  font-size: 28px;
-  font-weight: 400;
-  letter-spacing: -0.015em;
-}
-
-.st-empty .st-brand .st-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-}
-
-.st-empty .st-join-actions {
-  justify-content: center;
-}
-
-.st-empty .cf-btn {
-  text-decoration: none;
-}
-
-.st-cam {
-  position: relative;
-  display: grid;
-  place-items: center;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--cf-r-card);
-  overflow: hidden;
-  background: var(--cf-fill);
-}
-
-.st-cam video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scaleX(-1);
-}
-
-.st-cam.is-empty video {
-  opacity: 0;
-}
-
-.st-cam .st-tile-face {
-  width: 72px;
-  height: 72px;
-  font-size: 24px;
-}
-
-.st-cam-toggle {
-  position: absolute;
-  left: 50%;
-  bottom: 14px;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(18, 18, 23, 0.45);
-  color: #fff;
-  cursor: pointer;
-  transform: translateX(-50%);
-  transition: background 120ms ease-out;
-}
-
-.st-cam-toggle:hover {
-  background: rgba(18, 18, 23, 0.6);
-}
-
-.st-cam.is-empty .st-cam-toggle {
-  background: var(--cf-bg);
-  color: var(--cf-text);
-}
-
-.st-cam-error {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 14px;
-  color: var(--cf-text-2);
-}
-
-.st-level {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-}
-
-.st-level > div {
-  height: 100%;
-  background: rgba(255, 255, 255, 0.9);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 80ms linear;
-}
-
-.st-devices {
-  display: flex;
-  gap: 24px;
-  margin-top: -12px;
-}
-
-.st-device {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  color: var(--cf-text-3);
-}
-
-.st-device select {
-  appearance: none;
-  min-width: 0;
-  max-width: 200px;
-  padding: 2px 16px 2px 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238a898e' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 2px center;
-  font: 400 13px/1.3 var(--cf-font);
-  color: var(--cf-text-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.st-device select:disabled {
-  cursor: default;
-  background-image: none;
-}
-
-.st-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.st-field > span {
-  font-size: 12.5px;
-  color: var(--cf-text-3);
-}
-
-.st-field input,
-.st-code-join input {
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid var(--cf-line-2);
-  border-radius: 0;
-  background: transparent;
-  font: 400 16px/1 var(--cf-font);
-  color: var(--cf-text);
-  outline: none;
-  transition: border-color 150ms var(--cf-ease), box-shadow 150ms var(--cf-ease);
-}
-
-/* Team names are suggested as you type; the browser's list arrow stays out of the line. */
-.st-field input::-webkit-calendar-picker-indicator {
-  display: none !important;
-}
-
-.st-page .st-field input:focus-visible,
-.st-page .st-code-join input:focus-visible {
-  outline: none;
-}
-
-.st-field input:focus,
-.st-code-join input:focus {
-  border-bottom-color: var(--cf-focus);
-  box-shadow: 0 1px 0 var(--cf-focus);
-}
-
-.st-join-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.st-code-join {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.st-code-join input {
-  width: 112px;
-  font-size: 14px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.st-code-join input::placeholder {
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--cf-text-4);
-}
-
-/* The room code: a grey pill that copies the room link. */
-.st-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--cf-fill);
-  font: 500 13px/1 var(--cf-font);
-  letter-spacing: 0.05em;
-  font-variant-numeric: tabular-nums;
-  color: var(--cf-text-2);
-  cursor: pointer;
-  transition: background-color 150ms var(--cf-ease), color 150ms var(--cf-ease);
-}
-
-.st-copy svg {
-  color: var(--cf-text-4);
-}
-
-@media (hover: hover) {
-  .st-copy:hover {
-    background: var(--cf-fill-hover);
-    color: var(--cf-text);
-  }
-}
-
-/* —— Room: cameras on top; timer, slide and transcript across the middle; every slide along the bottom —— */
+/* —— Room: the top bar; the stage beside the group's script, whose dock ends level with the stage; every slide along the bottom —— */
 
 .st-room {
   display: grid;
-  grid-template-columns: clamp(176px, 13vw, 224px) minmax(0, 1fr) clamp(300px, 22vw, 400px);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "top top top"
-    "ctl stage script"
-    "strip strip strip";
-  column-gap: 40px;
+  grid-template-areas: "top" "body" "strip";
   height: 100dvh;
-  padding: 0 32px;
+  padding: 0 var(--space-32);
   overflow: hidden;
 }
 
-/* Top bar: brand, the webcams (they shrink, then scroll) and the controls, which never get covered. */
-.st-top {
-  grid-area: top;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  min-width: 0;
+/* One layout per width: wide puts the script beside the stage, stacked (phones, portrait tablets) puts it below. */
+@media (min-width: 1100px), (min-width: 720px) and (orientation: landscape) {
+  .st-room .is-narrow {
+    display: none;
+  }
+  /* The phone's Make the video steps aside, so the quiet action after it is the first one the eye meets. */
+  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet {
+    margin-left: calc(var(--space-12) * -1);
+  }
 }
 
-/* Where you are: the app's mark (home), the project, and the way back to its slides. */
+/* Top bar: where you are on the left, the cameras centred, the room's controls on the right. The two sides never
+   get covered, and the title keeps a few words before the cameras give way to a "+N". */
+.st-top {
+  grid-area: top;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(0, max-content) minmax(max-content, 1fr);
+  align-items: center;
+  column-gap: var(--space-24);
+  height: 76px;
+}
+
 .st-where {
-  flex: 0 1 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
   min-width: 0;
-  max-width: 34%;
 }
 
 .st-deck-title {
   min-width: 0;
-  font: 500 15px/1.2 var(--cf-font);
-  letter-spacing: -0.005em;
-  color: var(--cf-text);
+  font: var(--weight-label) var(--text-15)/1.2 var(--font);
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .st-edit-slides {
-  flex: none;
-  margin-left: -4px;
-  color: var(--cf-text-3);
+  margin-left: calc(var(--space-4) * -1);
+  color: var(--ink-3);
 }
 
-.st-edit-slides svg {
-  color: var(--cf-text-4);
+/* The word where the top bar has room for it, the icon alone where it is tight. */
+.st-edit-slides.is-tight {
+  display: none;
+}
+
+/* With the word, the title still keeps a few words before the cameras give way to a "+N". */
+@media (min-width: 1280px) {
+  .st-top {
+    grid-template-columns: minmax(240px, 1fr) minmax(0, max-content) minmax(max-content, 1fr);
+  }
+}
+
+@media (max-width: 1279px) {
+  .st-edit-slides.is-roomy {
+    display: none;
+  }
+  .st-edit-slides.is-tight {
+    display: grid;
+  }
 }
 
 .st-edit-slides.is-hidden {
@@ -415,40 +165,91 @@
 }
 
 .st-corner {
-  flex: none;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
-.st-total {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
+/* The room code: quiet text at control height that copies the room link. */
+.st-corner .st-copy {
+  height: var(--control);
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-control);
+  background: none;
+  font-size: var(--text-14);
+}
+
+@media (hover: hover) {
+  .st-corner .st-copy:hover {
+    background: var(--wash);
+  }
+}
+
+/* Turning primary once every group is in: a quiet fade, not a jump. */
+.st-make {
+  transition-property: scale, background-color, border-color, color, opacity;
+  transition-duration: var(--dur-sheet);
+}
+
+/* Blocked, the name and icon fade as any unavailable control does, and what blocks it stays readable beside them. */
+.st-make[aria-disabled="true"],
+.st-menu-item[aria-disabled="true"] {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.st-make[aria-disabled="true"] > :not(.st-make-n),
+.st-menu-item[aria-disabled="true"] > :not(.st-menu-value) {
+  opacity: 0.4;
+}
+
+.st-make-n {
+  font-weight: var(--weight-body);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--cf-text-2);
+  color: var(--ink-3);
 }
-
-.st-total svg {
-  color: var(--cf-text-4);
-}
-
 
 /* Cameras */
 
+/* Its width (every tile's) is set by Cams.tsx; the top bar may grant less, and then only the tiles that fit show. */
 .st-cams {
-  flex: 1 1 auto;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--space-8);
   min-width: 0;
-  padding: 16px 6px 14px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  max-width: 100%;
+  padding: var(--space-8);
+}
+
+.st-tile[hidden] {
+  display: none;
+}
+
+/* Someone arriving fades in; someone leaving fades out where they were while the row closes up (Cams.tsx). */
+.st-tile,
+.st-cams .st-cams-more {
+  animation: st-tile-in var(--dur-control) var(--ease);
+}
+
+.st-tile.is-leaving {
+  position: absolute;
+  pointer-events: none;
+  animation: st-tile-out var(--dur-control) var(--ease) forwards;
+}
+
+@keyframes st-tile-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes st-tile-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .st-tile {
@@ -456,17 +257,17 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: clamp(112px, 10vw, 160px);
+  width: 104px;
   aspect-ratio: 16 / 9;
   margin: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   overflow: hidden;
-  background: var(--cf-fill);
-  transition: box-shadow 200ms var(--cf-ease);
+  background: var(--fill);
+  transition: box-shadow var(--dur-control) var(--ease);
 }
 
-.st-tile.is-on {
-  box-shadow: 0 0 0 2px var(--cf-bg), 0 0 0 3.5px var(--cf-accent);
+.st-tile.is-live {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--red);
 }
 
 .st-tile video {
@@ -485,329 +286,164 @@
   opacity: 0;
 }
 
+/* No picture: a dark camera surface with the person's initials, large and white. */
+.st-tile.is-empty {
+  background: var(--ink);
+}
+
 .st-tile-face {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: var(--cf-bg);
-  font: 500 13px/1 var(--cf-font);
-  color: var(--cf-text-2);
+  font: var(--weight-title) var(--text-20)/1 var(--font);
+  color: var(--on-dark);
 }
 
 .st-tile figcaption {
   position: absolute;
-  left: 6px;
-  bottom: 6px;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  max-width: calc(100% - 38px);
-  height: 20px;
-  padding: 0 7px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.9);
-  font: 500 11.5px/20px var(--cf-font);
-  color: var(--cf-text);
+  left: 4px;
+  bottom: 4px;
+  max-width: calc(100% - 30px);
+  height: 18px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-tag);
+  background: var(--glass);
+  font: var(--weight-label) var(--text-12)/18px var(--font);
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.st-tile.is-empty figcaption {
-  background: none;
-  padding: 0 3px;
-  color: var(--cf-text-2);
-}
-
-.st-tile-hint {
-  font-weight: 400;
-  color: var(--cf-text-4);
-}
-
-.st-tile-mic,
-.st-tile-cam,
-.st-tile-x {
+/* The presenter's mic: the one that goes into the video. */
+.st-tile-mic {
   position: absolute;
+  right: 4px;
+  bottom: 4px;
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: rgba(18, 18, 23, 0.45);
-  color: #fff;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--on-dark);
+  pointer-events: none;
 }
 
-.st-tile-mic {
-  right: 6px;
-  bottom: 6px;
-}
-
-.st-tile-mic.is-live {
-  background: var(--cf-accent);
-}
-
-.st-tile.is-empty .st-tile-mic:not(.is-live) {
-  background: var(--cf-bg);
-  color: var(--cf-text-3);
-}
-
-.st-tile-x {
-  top: 6px;
-  right: 6px;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 120ms ease-out;
-}
-
+/* Your camera switch: over your own tile, above the button that opens the People list. */
 .st-tile-cam {
-  top: 6px;
-  left: 6px;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
+  border-radius: var(--radius-full);
+  background: var(--shade);
+  color: var(--on-dark);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transition: opacity var(--dur-control) var(--ease), background-color var(--dur-control) var(--ease);
 }
 
 .st-tile-cam:disabled {
   cursor: default;
 }
 
-/* Off, the switch stays in view: it is the way back. */
-.st-tile.is-off .st-tile-cam {
-  opacity: 1;
-  background: var(--cf-bg);
-  color: var(--cf-text-2);
-}
-
-.st-tile:hover .st-tile-x:not(:disabled),
-.st-tile-x:focus-visible,
 .st-tile:hover .st-tile-cam:not(:disabled),
 .st-tile-cam:focus-visible {
   opacity: 1;
 }
 
-/* No hover on touch screens: remove and the camera switch stay visible. */
+@media (hover: hover) {
+  .st-tile-cam:not(:disabled):hover {
+    background: var(--shade-hover);
+  }
+}
+
+/* Off, the switch stays in view: it is the way back. */
+.st-tile.is-off .st-tile-cam {
+  opacity: 1;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* No hover on touch screens: the camera switch stays visible. */
 @media (hover: none) {
-  .st-tile-x:not(:disabled),
   .st-tile-cam:not(:disabled) {
     opacity: 1;
   }
 }
 
+/* The whole tile is one button that opens the People list. */
+.st-tile-menu {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.st-cams .st-cams-more {
+  min-width: var(--control);
+  padding: 0 var(--space-8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Open: ink, not a fill. */
+.st-cams-more[aria-expanded="true"] {
+  color: var(--ink);
+}
+
 .st-cams-sound {
-  flex-shrink: 0;
-  color: var(--cf-text-3);
+  color: var(--ink-3);
 }
 
 .st-cams-sound[aria-pressed="true"] {
-  color: var(--cf-text);
+  color: var(--ink);
 }
 
-/* Timer column */
+/* The middle row: the stage at the largest 16:9 that fits beside the script column, and the column exactly as tall. */
 
-.st-ctl {
-  grid-area: ctl;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 16px;
-  min-height: 0;
-}
-
-.st-clock {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font: 400 56px/1 var(--cf-font);
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  color: var(--cf-text-4);
-  transition: color 200ms var(--cf-ease);
-}
-
-.st-clock small {
-  font-size: 17px;
-  letter-spacing: 0;
-  color: var(--cf-text-4);
-}
-
-.st-clock.is-live {
-  color: var(--cf-text);
-}
-
-.st-clock.is-ending {
-  color: var(--cf-blocking-ink);
-}
-
-.st-track {
-  height: 3px;
-  margin-top: -4px;
-  border-radius: 2px;
-  overflow: hidden;
-  background: var(--cf-fill);
-}
-
-.st-track > span {
-  display: block;
-  height: 100%;
-  background: var(--cf-text);
-  transform-origin: left;
-  transition: transform 250ms linear, background-color 200ms ease-out;
-}
-
-.st-track.is-ending > span {
-  background: var(--cf-blocking);
-}
-
-.st-track.is-review > span {
-  background: var(--cf-text-4);
-}
-
-.st-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.st-actions .cf-btn {
-  justify-content: center;
-  width: 100%;
-}
-
-.st-actions .cf-btn.is-lg {
-  height: 44px;
-}
-
-.st-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.st-square {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
-  background: var(--cf-blocking);
-}
-
-.st-review-more {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-}
-
-.st-review-more .cf-icon-btn {
-  color: var(--cf-text-3);
-}
-
-.st-blocked,
-.st-who-live {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  font-size: 14px;
-  color: var(--cf-text-3);
-}
-
-.st-who-live {
-  font-weight: 500;
-  color: var(--cf-text);
-}
-
-.st-who-chip {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  background: var(--cf-fill);
-  font: 500 10.5px/1 var(--cf-font);
-  color: var(--cf-text-2);
-}
-
-/* Nobody records this group yet: the same empty circle the filmstrip shows. */
-.st-who-chip.is-none {
-  width: 18px;
-  height: 18px;
-  background: none;
-  border: 1.25px dashed var(--cf-text-4);
-}
-
-.st-steps {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.st-steps .cf-icon-btn {
-  color: var(--cf-text-2);
-}
-
-.st-steps .cf-icon-btn:disabled {
-  color: var(--cf-text-4);
-  opacity: 0.5;
-}
-
-.st-step-n {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  color: var(--cf-text-2);
-}
-
-.st-live {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--cf-blocking);
-  animation: st-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes st-pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .st-live {
-    animation: none;
-  }
-}
-
-/* The slide */
-
-.st-stage-cell {
-  grid-area: stage;
+.st-body {
+  grid-area: body;
   display: grid;
   place-items: center;
   min-width: 0;
   min-height: 0;
+  padding: var(--space-16) 0 var(--space-24);
   container-type: size;
 }
 
-.st-stage-cell .st-stage {
-  width: min(100cqw, calc(100cqh * 16 / 9));
+/* The pair shares one top and one bottom edge: the script column is exactly as tall as the stage, and its words
+   scroll when the width keeps the stage short (1024x768). */
+.st-desk {
+  display: grid;
+  grid-template-columns: min(100cqw - clamp(288px, 28vw, 440px) - var(--space-32), 100cqh * 16 / 9) clamp(288px, 28vw, 440px);
+  align-items: start;
+  column-gap: var(--space-32);
+}
+
+/* Stacked, the dock follows the strip in the page (RoomView portals it here); wide, this holds nothing. */
+.st-dock-slot {
+  display: contents;
 }
 
 .st-stage {
   position: relative;
   flex-shrink: 0;
   aspect-ratio: 16 / 9;
-  border-radius: var(--cf-r-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
-  border: 1px solid var(--cf-line);
-  background: #fff;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.st-stage-cell .st-stage {
+  width: 100%;
 }
 
 .st-stage canvas {
@@ -829,14 +465,14 @@
 .st-camframe:hover,
 .st-camframe:focus-visible,
 .st-camframe:active {
-  box-shadow: 0 0 0 2px var(--cf-accent);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .st-camframe-h {
   position: absolute;
-  width: 20px;
-  height: 20px;
-  margin: -10px;
+  width: 24px;
+  height: 24px;
+  margin: calc(var(--space-12) * -1);
 }
 
 .st-camframe-h.is-nw, .st-camframe-h.is-ne, .st-camframe-h.is-sw, .st-camframe-h.is-se {
@@ -847,12 +483,12 @@
 .st-camframe-h.is-nw::after, .st-camframe-h.is-ne::after, .st-camframe-h.is-sw::after, .st-camframe-h.is-se::after {
   content: "";
   position: absolute;
-  inset: 5px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 2px var(--cf-accent);
+  inset: 7px;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  box-shadow: 0 0 0 2px var(--accent);
   opacity: 0;
-  transition: opacity 120ms var(--cf-ease);
+  transition: opacity var(--dur-control) var(--ease);
 }
 
 .st-camframe:hover .st-camframe-h::after,
@@ -864,24 +500,36 @@
 .st-camframe-h.is-se { right: 0; bottom: 0; cursor: nwse-resize; }
 .st-camframe-h.is-ne { right: 0; top: 0; cursor: nesw-resize; }
 .st-camframe-h.is-sw { left: 0; bottom: 0; cursor: nesw-resize; }
-.st-camframe-h.is-n, .st-camframe-h.is-s { left: 10px; right: 10px; width: auto; margin-left: 0; margin-right: 0; cursor: ns-resize; }
-.st-camframe-h.is-w, .st-camframe-h.is-e { top: 10px; bottom: 10px; height: auto; margin-top: 0; margin-bottom: 0; cursor: ew-resize; }
+.st-camframe-h.is-n, .st-camframe-h.is-s { left: 12px; right: 12px; width: auto; margin-left: 0; margin-right: 0; cursor: ns-resize; }
+.st-camframe-h.is-w, .st-camframe-h.is-e { top: 12px; bottom: 12px; height: auto; margin-top: 0; margin-bottom: 0; cursor: ew-resize; }
 .st-camframe-h.is-n { top: 0; }
 .st-camframe-h.is-s { bottom: 0; }
 .st-camframe-h.is-w { left: 0; }
 .st-camframe-h.is-e { right: 0; }
+
+/* A finger needs bigger corners; a tap on the tile focuses it and shows them. */
+@media (pointer: coarse) {
+  .st-camframe-h.is-nw, .st-camframe-h.is-ne, .st-camframe-h.is-sw, .st-camframe-h.is-se {
+    width: 32px;
+    height: 32px;
+    margin: calc(var(--space-16) * -1);
+  }
+  .st-camframe-h.is-nw::after, .st-camframe-h.is-ne::after, .st-camframe-h.is-sw::after, .st-camframe-h.is-se::after {
+    inset: 11px;
+  }
+}
 
 .st-count {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--shade);
   backdrop-filter: blur(4px);
-  font: 300 160px/1 var(--cf-font);
-  letter-spacing: -0.03em;
+  font: var(--weight-body) calc(var(--text-40) * 4)/1 var(--font);
+  letter-spacing: var(--tracking-title);
   font-variant-numeric: tabular-nums;
-  color: var(--cf-text);
+  color: var(--on-dark);
 }
 
 /* A take the browser would not start on its own: one round play button in the middle of the stage. */
@@ -893,14 +541,13 @@
   place-items: center;
   width: 84px;
   height: 84px;
-  padding: 0 0 0 4px;
+  padding: 0 0 0 var(--space-4);
   border: 0;
-  border-radius: 50%;
-  background: var(--cf-primary-bg);
-  color: var(--cf-primary-text);
-  box-shadow: var(--cf-shadow-pop);
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: var(--on-dark);
   cursor: pointer;
-  transition: scale 160ms var(--cf-ease);
+  transition: scale var(--dur-control) var(--ease);
 }
 
 .st-start:hover {
@@ -911,108 +558,93 @@
   scale: 0.97;
 }
 
-/* Transcript column */
+/* The script column: the group's title, its words as a teleprompter, and the dock. */
 
+/* Sized as if empty, so the stage alone sets the row's height and the column stretches to it. */
 .st-script-col {
-  grid-area: script;
   display: flex;
   flex-direction: column;
+  align-self: stretch;
   min-height: 0;
-  padding: 12px 0 16px;
+  contain: size;
 }
 
 .st-script-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 12px;
+  gap: var(--space-8);
   min-width: 0;
 }
 
 .st-script-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
   min-width: 0;
   margin: 0;
-  font: 400 20px/1.3 var(--cf-font);
-  letter-spacing: -0.01em;
-  color: var(--cf-text);
-}
-
-.st-script-title > span:last-child {
-  min-width: 0;
+  font: var(--weight-title) var(--text-17)/1.3 var(--font);
+  color: var(--ink);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.st-script-who {
+  flex: none;
+  font-size: var(--text-14);
+  color: var(--ink-3);
 }
 
 .st-script-head .st-error {
   flex: none;
-  font-size: 12.5px;
+  font-size: var(--text-13);
 }
 
 .st-script-edit {
-  margin-right: -6px;
-  color: var(--cf-text-3);
+  margin-left: auto;
+  margin-right: calc(var(--space-8) * -1);
+  color: var(--ink-3);
 }
 
 .st-script-edit.is-on {
-  color: var(--cf-text);
+  color: var(--ink);
 }
 
-.st-script-edit:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.st-script-dot {
-  flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-}
-
-/* The transcript: one segment per slide, read like a teleprompter. The segment on stage is full ink on a soft
-   fill, the ones still to come a step quieter, the spoken ones quietest. → ends a segment (next slide), ■ the
-   last one (stop). Emoji, pauses (⏸️), slow-downs (…) and CAPS stay inline as the deck wrote them. */
+/* The transcript: one segment per slide, read like a teleprompter. The slide on stage is in ink, the rest faded.
+   → ends a segment (next slide), ■ the last one (stop). Emoji, pauses (⏸️), slow-downs (…) and CAPS stay inline as
+   the deck wrote them. */
 
 .st-script {
   position: relative;
   flex: 1;
-  min-height: 120px;
-  margin: 0 -12px;
-  padding: 0 0 40px;
+  min-height: 0;
+  margin: 0 calc(var(--space-12) * -1);
+  padding: var(--space-16) 0 var(--space-24);
   overflow: auto;
   list-style: none;
   scrollbar-width: thin;
+  mask-image: linear-gradient(black calc(100% - 24px), transparent);
 }
 
-/* While a take runs the list scrolls under soft edges instead of cutting lines in half. */
+/* The list scrolls under soft edges instead of cutting lines in half; while a take runs, the top one too. Its top
+   padding never changes, so the words stay put from idle to countdown, take and review. */
 .st-script.is-following {
-  padding-top: 18px;
-  mask-image: linear-gradient(transparent, #000 18px, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(transparent, black var(--space-16), black calc(100% - 32px), transparent);
 }
 
 .st-seg + .st-seg {
-  margin-top: 2px;
+  margin-top: var(--space-4);
 }
 
 .st-seg-hit {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  gap: 8px;
+  display: block;
   width: 100%;
-  padding: 10px 12px;
+  padding: var(--space-8) var(--space-12);
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: none;
   text-align: left;
-  font: 400 clamp(16px, 0.9vw, 17px)/1.6 var(--cf-font);
-  color: var(--cf-text-2);
+  font: var(--weight-body) var(--text-20)/1.5 var(--font);
+  color: var(--ink-4);
   cursor: pointer;
-  transition: color 200ms var(--cf-ease), background-color 200ms var(--cf-ease);
+  transition: color var(--dur-control) var(--ease), background-color var(--dur-control) var(--ease);
 }
 
 .st-seg-hit:disabled {
@@ -1021,25 +653,20 @@
 
 @media (hover: hover) {
   .st-seg-hit:not(:disabled):hover {
-    background: var(--cf-hover);
+    color: var(--ink-2);
   }
 }
 
-.st-seg.is-past .st-seg-hit {
-  color: var(--cf-text-4);
-}
-
 .st-seg.is-now .st-seg-hit {
-  background: var(--cf-hover);
-  color: var(--cf-text);
+  color: var(--ink);
 }
 
 /* Editing: each slide's words in a plain field, one hairline under it. */
 .st-seg-edit {
   display: grid;
   grid-template-columns: 20px 1fr;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
 }
 
 .st-seg-edit textarea {
@@ -1047,16 +674,16 @@
   width: 100%;
   min-height: calc(1.6em * 2 + 12px);
   field-sizing: content;
-  padding: 4px 0 8px;
+  padding: var(--space-4) 0 var(--space-8);
   border: 0;
-  border-bottom: 1px solid var(--cf-line);
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
   resize: none;
-  font: 400 clamp(16px, 0.9vw, 17px)/1.6 var(--cf-font);
-  color: var(--cf-text);
+  font: var(--weight-body) var(--text-17)/1.6 var(--font);
+  color: var(--ink);
   outline: none;
-  transition: border-color 150ms var(--cf-ease);
+  transition: border-color var(--dur-control) var(--ease);
 }
 
 .st-room .st-seg-edit textarea:focus-visible {
@@ -1064,66 +691,31 @@
 }
 
 .st-seg-edit textarea:focus {
-  border-bottom-color: var(--cf-focus);
+  border-bottom-color: var(--focus);
 }
 
 .st-seg-n {
-  padding-top: 4px;
-  font-size: 12.5px;
+  padding-top: var(--space-4);
+  font-size: var(--text-13);
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
-  color: var(--cf-text-4);
+  color: var(--ink-4);
 }
 
-.st-seg.is-now /* Editing: each slide's words in a plain field, one hairline under it. */
-.st-seg-edit {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  gap: 8px;
-  padding: 6px 12px;
-}
-
-.st-seg-edit textarea {
-  display: block;
-  width: 100%;
-  min-height: calc(1.6em * 2 + 12px);
-  field-sizing: content;
-  padding: 4px 0 8px;
-  border: 0;
-  border-bottom: 1px solid var(--cf-line);
-  border-radius: 0;
-  background: transparent;
-  resize: none;
-  font: 400 clamp(16px, 0.9vw, 17px)/1.6 var(--cf-font);
-  color: var(--cf-text);
-  outline: none;
-  transition: border-color 150ms var(--cf-ease);
-}
-
-.st-room .st-seg-edit textarea:focus-visible {
-  outline: none;
-}
-
-.st-seg-edit textarea:focus {
-  border-bottom-color: var(--cf-focus);
-}
-
-.st-seg-n {
-  font-weight: 500;
-  color: var(--cf-text);
+.st-seg.is-now .st-seg-n {
+  font-weight: var(--weight-label);
+  color: var(--ink);
 }
 
 .st-seg-text {
-  min-width: 0;
   overflow-wrap: break-word;
 }
 
 .st-next {
   display: inline-flex;
-  margin-left: 6px;
+  margin-left: var(--space-8);
   vertical-align: -2px;
-  color: var(--cf-accent);
-  opacity: 0.45;
+  opacity: 0.6;
 }
 
 .st-seg.is-now .st-next {
@@ -1134,299 +726,663 @@
   display: inline-block;
   width: 9px;
   height: 9px;
-  margin-left: 8px;
-  vertical-align: 1px;
-  border-radius: 2px;
-  background: var(--cf-blocking);
-  opacity: 0.55;
+  margin-left: var(--space-8);
+  vertical-align: 2px;
+  border-radius: 18%;
+  background: currentColor;
+  opacity: 0.6;
 }
 
 .st-seg.is-now .st-stop {
   opacity: 1;
 }
 
-/* Filmstrip: every slide its own tile. A thin ring in the group's colour ties a group together, a wider gap
-   separates groups, an ink ring marks the slide on stage. A kept take's ✓ length sits above the group's first
-   tile, the speaker's initials in each tile's empty bottom-right corner. */
+/* The dock: the time and the slide nav (or the take's tools in review), a thin track, then the actions. */
+
+.st-dock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "time side" "track track" "acts acts";
+  align-items: center;
+  row-gap: var(--space-12);
+  padding-top: var(--space-12);
+}
+
+.st-dock-time {
+  grid-area: time;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.st-clock {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  font: var(--weight-body) var(--text-40)/1 var(--font);
+  letter-spacing: var(--tracking-title);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+  transition: color var(--dur-control) var(--ease);
+}
+
+.st-clock small {
+  font-size: var(--text-17);
+  letter-spacing: 0;
+  color: var(--ink-4);
+}
+
+.st-clock.is-live {
+  color: var(--red-ink);
+}
+
+.st-clock-label {
+  font-size: var(--text-13);
+  color: var(--ink-4);
+}
+
+/* A kept take: its length, then a green check and "recorded". */
+.st-clock-label.is-done {
+  color: var(--ink-3);
+}
+
+.st-clock-label.is-done svg {
+  margin-right: var(--space-4);
+  vertical-align: -2px;
+  color: var(--green);
+  animation: st-tick var(--dur-sheet) var(--ease);
+}
+
+.st-dock-time .st-error {
+  min-width: 0;
+  font-size: var(--text-13);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-dock-side {
+  grid-area: side;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-right: calc(var(--space-8) * -1);
+}
+
+.st-dock-side .icon-btn {
+  color: var(--ink-2);
+}
+
+.st-step-n {
+  min-width: 40px;
+  text-align: center;
+  font-size: var(--text-14);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.st-track {
+  grid-area: track;
+  height: 3px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--fill);
+}
+
+.st-track > span {
+  display: block;
+  height: 100%;
+  background: var(--red);
+  transform-origin: left;
+  transition: transform var(--dur-progress) linear;
+}
+
+.st-track.is-review > span {
+  background: var(--ink-3);
+}
+
+.st-dock-acts {
+  grid-area: acts;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  min-height: var(--control-lg);
+}
+
+/* Every secondary action (Retake, Stop, Cancel, Assign to me, Try again) is quiet text; the first one's words line up
+   with the clock above it. */
+.st-dock-acts > .btn.is-quiet {
+  padding: 0 var(--space-12);
+}
+
+.st-dock-acts > .btn.is-quiet:first-child {
+  margin-left: calc(var(--space-12) * -1);
+}
+
+/* Controls pulled into line with the column's edge show hover in ink: a fill would reach past that edge. */
+@media (hover: hover) {
+  .st-dock-acts > .btn.is-quiet:first-child:not(:disabled):hover,
+  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet:not(:disabled):hover,
+  .st-dock-side .icon-btn:not(:disabled):hover,
+  .st-script-head .st-script-edit:not(:disabled):hover {
+    background: none;
+    color: var(--ink);
+  }
+}
+
+/* The next group to record, after a take is kept: its name gives way before the arrow does. */
+.st-dock-next {
+  min-width: 0;
+}
+
+.st-dock-next span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.st-dock-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  font-size: var(--text-15);
+  color: var(--ink-3);
+}
+
+/* Beside Make the video on a phone it keeps to one line. */
+.st-dock-note:not(.is-live) {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.st-dock-note.is-live {
+  font-weight: var(--weight-label);
+  color: var(--ink);
+}
+
+.st-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--red);
+}
+
+.st-square {
+  width: 11px;
+  height: 11px;
+  border-radius: 18%;
+  background: var(--red);
+}
+
+.st-live {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: var(--radius-full);
+  background: var(--red);
+  animation: st-pulse var(--dur-pulse) var(--ease) infinite;
+}
+
+@keyframes st-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* A one-line segment is still a full finger's height. */
+@media (pointer: coarse) {
+  .st-seg-hit {
+    min-height: var(--control-lg);
+  }
+}
+
+/* The group strip: each group a run of slide thumbs under one quiet row (who records it, Saving… while a kept take
+   goes up, then ✓ and its length). Space separates the groups; the one marker is the indigo ring on the slide on stage. */
 
 .st-strip {
   grid-area: strip;
   display: flex;
-  gap: 22px;
-  margin: 0 -32px;
-  padding: 30px 32px 20px;
+  gap: var(--space-32);
+  margin: 0 calc(var(--space-32) * -1);
+  padding: var(--space-12) var(--space-32) var(--space-24);
   overflow-x: auto;
-  border-top: 1px solid var(--cf-line);
+  border-top: 1px solid var(--line);
   scrollbar-width: thin;
+  transition: opacity var(--dur-sheet) var(--ease);
+}
+
+.st-strip.is-locked {
+  opacity: 0.5;
+}
+
+/* Making the video is the one job on screen: the speakers and slides wait until it closes. */
+.st-room.is-rendering .st-strip {
+  display: none;
 }
 
 .st-strip-g {
-  position: relative;
   display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
   flex-shrink: 0;
-  gap: 8px;
+}
+
+.st-strip-who {
+  align-self: flex-start;
+  gap: var(--space-4);
+  margin: 0 0 calc(var(--space-4) * -1) calc(var(--space-8) * -1);
+  font-variant-numeric: tabular-nums;
+}
+
+.st-strip-who.is-none {
+  color: var(--ink-4);
+}
+
+.st-strip .st-strip-who.btn[aria-expanded="true"] {
+  background: none;
+  color: var(--ink);
+}
+
+.st-strip-who svg {
+  color: var(--green);
+  animation: st-tick var(--dur-sheet) var(--ease);
+}
+
+@keyframes st-tick {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+
+.st-strip-n {
+  color: var(--ink-3);
+}
+
+.st-strip-n::before {
+  content: "· ";
+}
+
+/* The label opens the speaker menu. */
+.st-strip-caret {
+  width: 10px;
+  height: 10px;
+  background: var(--chevron) center / contain no-repeat;
+}
+
+.st-strip-slides {
+  display: flex;
+  gap: var(--space-8);
 }
 
 .st-thumb {
   position: relative;
   flex-shrink: 0;
-  width: clamp(128px, 8vw, 156px);
+  width: clamp(112px, 8vw, 144px);
   aspect-ratio: 16 / 9;
-}
-
-.st-thumb-hit {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   overflow: hidden;
-  background: #fff;
+  background: var(--bg);
   cursor: pointer;
-  transition: box-shadow 150ms var(--cf-ease);
+  transition: box-shadow var(--dur-control) var(--ease);
 }
 
-/* The group's ring, over the slide's own edge. */
-.st-thumb-hit::after {
+/* The slide's own edge, so a white slide does not melt into the page. */
+.st-thumb::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 2px var(--g);
+  box-shadow: inset 0 0 0 1px var(--edge);
   pointer-events: none;
 }
 
-.st-thumb-hit canvas {
+.st-thumb canvas {
   display: block;
   width: 100%;
   height: 100%;
+  opacity: 0;
+  transition: opacity var(--dur-control) var(--ease);
 }
 
-.st-thumb-hit:disabled {
+.st-thumb canvas.is-painted {
+  opacity: 1;
+}
+
+.st-thumb:disabled {
   cursor: default;
 }
 
 @media (hover: hover) {
-  .st-thumb-hit:not(:disabled):hover {
-    box-shadow: 0 0 0 2px var(--cf-bg), 0 0 0 3.5px var(--cf-line-2);
+  .st-thumb:not(:disabled):hover {
+    box-shadow: 0 0 0 2px var(--line-2);
   }
 }
 
-.st-strip .st-thumb.is-now .st-thumb-hit {
-  box-shadow: 0 0 0 2px var(--cf-bg), 0 0 0 3.5px var(--cf-text);
+.st-strip .st-thumb.is-now {
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
-.st-thumb-tag {
-  position: absolute;
-  top: -22px;
-  left: 2px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font: 500 12px/16px var(--cf-font);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--cf-text-3);
-  pointer-events: none;
-}
-
-.st-thumb-tag svg {
-  color: var(--cf-done);
-}
-
-.st-thumb-tag.is-up {
-  font-weight: 400;
-  color: var(--cf-text-4);
-}
-
-.st-who-dot,
-.st-menu-dot {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 0 0 1px var(--cf-line-2), 0 1px 2px rgba(18, 18, 23, 0.06);
-  font: 500 10px/1 var(--cf-font);
-  color: var(--cf-text);
-}
-
-.st-who-dot {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  cursor: pointer;
-  transition: box-shadow 150ms var(--cf-ease);
-}
-
-.st-who-dot.is-me,
-.st-menu-dot.is-me {
-  background: var(--cf-text);
-  box-shadow: none;
-  color: #fff;
-}
-
-.st-who-dot.is-none,
-.st-menu-dot.is-none {
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: none;
-  border: 1.25px dashed var(--cf-text-4);
-}
-
-.st-who-dot:disabled {
-  cursor: default;
-}
-
-@media (hover: hover) {
-  .st-who-dot:not(:disabled):hover {
-    box-shadow: 0 0 0 1.5px var(--cf-text-3);
-  }
-}
+/* Menus: the speaker picker and, on a phone, More. */
 
 .st-menu {
   position: fixed;
   z-index: 50;
   min-width: 210px;
-  padding: 4px;
-  border: 1px solid var(--cf-line);
-  border-radius: 10px;
-  background: var(--cf-surface);
-  box-shadow: var(--cf-shadow-pop);
-  font-family: var(--cf-font);
-  transform: translate(calc(-100% + 22px), calc(-100% - 8px));
+  max-width: calc(100vw - 16px);
+  padding: var(--space-8);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sheet);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font);
+  transform-origin: top left;
+  animation: st-menu-in var(--dur-control) var(--ease);
+}
+
+.st-menu.is-above {
+  transform-origin: bottom left;
+}
+
+/* Closing, it fades back toward its trigger and lets the pointer through. */
+.st-menu.is-closing {
+  pointer-events: none;
+  animation: st-menu-out var(--dur-control) var(--ease) forwards;
+}
+
+@keyframes st-menu-in {
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes st-menu-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
+  }
 }
 
 .st-menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-12);
   width: 100%;
-  height: 36px;
-  padding: 0 10px 0 7px;
+  height: var(--control-lg);
+  padding: 0 var(--space-12) 0 var(--space-8);
   border: 0;
-  border-radius: 6px;
+  border-radius: calc(var(--radius-sheet) - var(--space-8));
   background: none;
   text-align: left;
-  font: 400 13.5px/1 var(--cf-font);
-  color: var(--cf-text);
+  text-decoration: none;
+  font: var(--weight-body) var(--text-14)/1 var(--font);
+  color: var(--ink);
   cursor: pointer;
 }
 
-.st-menu-item:hover,
+.st-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.st-menu-item:not(:disabled, [aria-disabled="true"]):hover,
 .st-menu .st-menu-item:focus-visible {
-  background: var(--cf-hover);
+  background: var(--hover);
   outline: none;
 }
 
-.st-menu-item svg {
+.st-menu-item > svg:first-child {
+  color: var(--ink-3);
+}
+
+.st-menu-item > svg:last-child:not(:first-child) {
   margin-left: auto;
-  color: var(--cf-text);
+  color: var(--ink);
 }
 
 .st-menu-name {
   white-space: nowrap;
 }
 
-/* —— Make the video: the render screen takes the middle row —— */
-
-.st-render {
-  grid-row: 2;
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: center;
-  min-height: 0;
-  overflow: hidden;
-  container-type: size;
-}
-
-.st-booth {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: min(1100px, 100%, calc((100cqh - 128px) * 16 / 9));
-  padding-top: 8px;
-}
-
-.st-booth-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 36px;
-  margin-left: -8px;
-}
-
-.st-booth-head .cf-icon-btn {
-  color: var(--cf-text-2);
-}
-
-.st-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 44px;
-  flex-shrink: 0;
-}
-
-.st-timer {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.st-menu-value {
   margin-left: auto;
-  font: 400 15px/1 var(--cf-font);
+  padding-left: var(--space-12);
+  font-size: var(--text-13);
   font-variant-numeric: tabular-nums;
-  color: var(--cf-text-3);
+  color: var(--ink-3);
 }
 
-.st-result {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--cf-r-card);
-  border: 1px solid var(--cf-line);
-  background: #fff;
+.st-menu-value.is-code {
+  letter-spacing: var(--tracking-code);
 }
 
-.st-work {
-  min-width: 120px;
-  font-size: 14px;
-  color: var(--cf-text-2);
+.st-menu-dot {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--line-2);
+  font: var(--weight-label) var(--text-12)/1 var(--font);
+  color: var(--ink);
 }
 
-.st-meter {
+.st-menu-dot.is-me {
+  background: var(--ink);
+  box-shadow: none;
+  color: var(--on-dark);
+}
+
+.st-menu-dot.is-live {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--red);
+}
+
+.st-menu-dot.is-none {
+  background: none;
+  box-shadow: none;
+  border: 1.25px dashed var(--ink-4);
+}
+
+/* The People list: one row per person, their state, and what can be done to them. */
+.st-people {
+  width: 280px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.st-people-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--control-lg);
+  padding: 0 0 0 var(--space-8);
+}
+
+.st-people-row .st-menu-dot {
+  flex: none;
+  margin-right: var(--space-4);
+}
+
+.st-people-row .st-menu-name {
   flex: 1;
-  height: 3px;
-  border-radius: 2px;
+  min-width: 0;
   overflow: hidden;
-  background: var(--cf-fill);
+  text-overflow: ellipsis;
 }
 
-.st-meter > span {
-  display: block;
-  height: 100%;
-  background: var(--cf-text);
-  transform-origin: left;
-  transition: transform 200ms linear;
+.st-people-state {
+  display: grid;
+  place-items: center;
+  font-size: var(--text-13);
+  white-space: nowrap;
+  color: var(--ink-4);
+}
+
+.st-people-state.is-live {
+  color: var(--accent);
+}
+
+/* Between wide and stacked (720 to 1100 wide, landscape): the same two columns, a narrower script and a smaller clock. */
+@media (max-width: 1319px) {
+  .st-room {
+    padding: 0 var(--space-24);
+  }
+  .st-strip {
+    margin: 0 calc(var(--space-24) * -1);
+    padding-left: var(--space-24);
+    padding-right: var(--space-24);
+  }
+  .st-desk {
+    grid-template-columns: min(100cqw - clamp(272px, 30vw, 400px) - var(--space-24), 100cqh * 16 / 9) clamp(272px, 30vw, 400px);
+    column-gap: var(--space-24);
+  }
+  .st-top {
+    column-gap: var(--space-16);
+  }
+}
+
+@media (max-width: 1099px) {
+  .st-clock {
+    font-size: var(--text-28);
+  }
+  .st-seg-hit {
+    font-size: var(--text-17);
+  }
+}
+
+/* Stacked: phones and portrait tablets. One column (top bar, stage, script, strip), the dock pinned to the bottom.
+   The booth's wrappers step aside so each part takes its own row. */
+@media (max-width: 719px), (max-width: 1099px) and (orientation: portrait) {
+  .st-room .is-wide {
+    display: none;
+  }
+  /* One column, at most a phone-and-a-bit wide and centred; the bars that span the page keep their contents on it. */
+  .st-room {
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--column)) minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "top top top" ". stage ." ". head ." ". script ." "strip strip strip" "dock dock dock";
+    padding: 0;
+  }
+  .st-room.is-rendering {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "top top top" ". body .";
+  }
+  .st-body,
+  .st-desk,
+  .st-script-col {
+    display: contents;
+  }
+  /* The title keeps a few letters (then an ellipsis) before the cameras start to scroll. */
+  .st-top {
+    grid-template-columns: minmax(96px, 1fr) minmax(0, max-content) max-content;
+    column-gap: var(--space-8);
+    height: 56px;
+    padding: 0 calc(max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) - var(--space-8)) 0 max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16));
+  }
+  .st-cams {
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+  .st-tile {
+    width: 32px;
+    aspect-ratio: 1;
+    border-radius: var(--radius-full);
+  }
+  .st-cams .st-tile-face {
+    font-size: var(--text-12);
+  }
+  /* Narrow, so one more circle fits at 320; its touch area is still 44px. */
+  .st-cams .st-cams-more {
+    min-width: 0;
+    padding: 0 var(--space-4);
+  }
+  .st-tile figcaption,
+  .st-tile-mic,
+  .st-tile-cam,
+  .st-cams-sound {
+    display: none;
+  }
+  .st-corner {
+    gap: var(--space-4);
+  }
+  .st-stage-cell {
+    grid-area: stage;
+    padding: 0 var(--space-16);
+  }
+  .st-count {
+    font-size: calc(var(--text-40) * 2);
+  }
+  .st-script-head {
+    grid-area: head;
+    margin: 0;
+    padding: var(--space-16) var(--space-16) var(--space-4);
+  }
+  /* Its last line fades out above the strip, never cut by the strip's edge. */
+  .st-script {
+    grid-area: script;
+    margin: 0;
+    padding: var(--space-8) var(--space-4) var(--space-48);
+    mask-image: linear-gradient(black calc(100% - var(--space-48)), transparent calc(100% - var(--space-8)));
+  }
+  .st-strip {
+    gap: var(--space-24);
+    margin: 0;
+    padding: var(--space-8) max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) var(--space-16);
+  }
+  .st-room.is-busy .st-strip {
+    display: none;
+  }
+  .st-thumb {
+    width: 80px;
+    border-radius: var(--radius-control);
+  }
+  .st-strip-slides {
+    gap: var(--space-4);
+  }
+  .st-strip-g {
+    gap: var(--space-8);
+  }
+  .st-dock {
+    grid-area: dock;
+    padding: var(--space-12) max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) max(var(--space-16), env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .st-dock-acts > .btn {
+    padding: 0 var(--space-16);
+  }
+  .st-dock-acts > .btn:not(.is-quiet) {
+    flex: 1;
+  }
+}
+
+/* A short phone (320x640) gives the words its spare height: a smaller strip and a tighter dock. */
+@media (max-width: 719px) and (max-height: 700px) {
+  .st-strip {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-12);
+  }
+  .st-thumb {
+    width: 64px;
+  }
+  .st-dock {
+    row-gap: var(--space-8);
+    padding-top: var(--space-8);
+  }
 }
 
 .st-splash {
-  background: var(--cf-bg);
-}
-
-@media (max-width: 1320px) {
-  .st-room {
-    column-gap: 28px;
-    padding: 0 24px;
-  }
-  .st-strip {
-    margin: 0 -24px;
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-  .st-clock {
-    font-size: 50px;
-  }
+  background: var(--bg);
 }

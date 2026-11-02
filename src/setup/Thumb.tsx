@@ -5,7 +5,9 @@ import type { DraftSlide } from "./draft";
 
 export function Thumb({ slide }: { slide: DraftSlide }) {
   if (slide.kept) return <KeptThumb slide={slide} />;
-  return <img className="su-thumb-img" src={slide.src} alt="" draggable={false} decoding="async" />;
+  // A just-imported slide is already in memory: loading it lazily would blank it for a frame as the import's grid hands over.
+  const local = slide.src.startsWith("blob:");
+  return <img className="su-thumb-img" src={slide.src} alt="" draggable={false} loading={local ? undefined : "lazy"} decoding={local ? undefined : "async"} />;
 }
 
 function KeptThumb({ slide }: { slide: DraftSlide }) {

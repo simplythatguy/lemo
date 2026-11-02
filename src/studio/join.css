@@ -1,0 +1,374 @@
+/* —— Join and sign in —— */
+
+/* One centred column: the project, the camera, the name and Join, every piece on the same two edges. */
+.st-join {
+  width: min(440px, 100%);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.st-join-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  min-width: 0;
+  margin: 0;
+  font: var(--weight-title) var(--text-28)/1.2 var(--font);
+  letter-spacing: var(--tracking-title);
+  color: var(--ink);
+}
+
+.st-join-title > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.st-join-go {
+  width: 100%;
+}
+
+.st-join > .st-copy {
+  align-self: center;
+  margin-top: calc(var(--space-12) * -1);
+}
+
+/* The quiet room code under a screen's one primary. */
+:is(.st-join, .st-empty) .st-copy {
+  background: transparent;
+  color: var(--ink-3);
+}
+
+/* A room without slides, and the room while it loads: the mark and at most one way forward. */
+.st-empty,
+.st-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.st-empty .st-brand {
+  margin-bottom: var(--space-16);
+  font-size: var(--text-28);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
+}
+
+.st-empty .st-brand .st-mark,
+.st-wait .st-mark {
+  width: 28px;
+  height: 28px;
+}
+
+.st-wait:not(.is-offline) .st-mark {
+  animation: st-wait var(--dur-pulse) var(--ease) infinite alternate;
+}
+
+.st-wait.is-offline .st-mark {
+  opacity: 0.4;
+}
+
+@keyframes st-wait {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* The camera preview: 16:9, its toggle and the mic level on it. Without a picture it is a dark camera surface. */
+.st-cam {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+.st-cam video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.st-cam.is-empty video {
+  opacity: 0;
+}
+
+/* Starting: the surface breathes until the first frame. */
+.st-cam.is-starting::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--on-dark);
+  opacity: 0;
+  animation: st-warm var(--dur-pulse) var(--ease) infinite alternate;
+}
+
+@keyframes st-warm {
+  to {
+    opacity: 0.08;
+  }
+}
+
+/* The name's initials until there is a picture: lifted clear of the camera toggle under it. */
+.st-cam-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--space-32);
+  font: var(--weight-title) var(--text-40)/1 var(--font);
+  letter-spacing: var(--tracking-title);
+}
+
+.st-cam-toggle {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-12);
+  display: grid;
+  place-items: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--shade);
+  color: var(--on-dark);
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: background var(--dur-control) var(--ease);
+}
+
+@media (hover: hover) {
+  .st-cam-toggle:hover {
+    background: var(--shade-hover);
+  }
+}
+
+.st-cam.is-empty .st-cam-toggle {
+  background: var(--on-dark);
+  color: var(--ink);
+}
+
+.st-cam-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-16);
+  text-align: center;
+  font-size: var(--text-13);
+  color: var(--on-dark-2);
+}
+
+.st-cam-error strong {
+  font: var(--weight-label) var(--text-17)/1.3 var(--font);
+  color: var(--on-dark);
+}
+
+.st-cam-error .btn {
+  margin-top: var(--space-12);
+  color: var(--on-dark);
+}
+
+@media (hover: hover) {
+  .st-cam-error .btn:hover {
+    background: var(--on-dark-wash);
+    color: var(--on-dark);
+  }
+}
+
+/* The mic level: a short neutral bar on the toggle's centre line, inset from the corner, readable on any picture. */
+.st-level {
+  position: absolute;
+  left: var(--space-16);
+  bottom: calc(var(--space-12) + (var(--control-lg) - 4px) / 2);
+  width: var(--space-48);
+  height: 4px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--shade);
+}
+
+.st-level > div {
+  height: 100%;
+  background: var(--on-dark);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-meter) linear;
+}
+
+/* Camera and microphone, each showing what it is set to. */
+.st-devices {
+  display: flex;
+  gap: var(--space-24);
+  margin-top: calc(var(--space-12) * -1);
+}
+
+.st-device {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  height: var(--control-sm);
+  color: var(--ink-3);
+}
+
+.st-device svg {
+  flex-shrink: 0;
+}
+
+.st-device select {
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  height: 100%;
+  padding: 0 var(--space-16) 0 0;
+  border: 0;
+  border-radius: var(--radius-tag);
+  background: transparent var(--chevron) no-repeat right 2px center;
+  font: var(--weight-body) var(--text-13)/1.3 var(--font);
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.st-device select:disabled {
+  cursor: default;
+  background-image: none;
+  color: var(--ink-4);
+}
+
+.st-name {
+  display: flex;
+  flex-direction: column;
+}
+
+.st-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.st-field > span {
+  font-size: var(--text-13);
+  color: var(--ink-3);
+}
+
+.st-field input {
+  height: var(--control);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 0;
+  background: transparent;
+  font: var(--weight-body) var(--text-17)/1 var(--font);
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
+}
+
+.st-page .st-field input:focus-visible {
+  outline: none;
+}
+
+.st-field input:focus {
+  border-bottom-color: var(--focus);
+  box-shadow: 0 1px 0 var(--focus);
+}
+
+/* Teammates who have not joined yet, one tap each; their text lines up with the field's.
+   The row folds away once nothing matches the name, so the column re-centres smoothly instead of keeping a gap. */
+.st-suggest {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transition-property: grid-template-rows, padding-top, opacity, visibility;
+  transition-duration: var(--dur-sheet);
+  transition-timing-function: var(--ease);
+}
+
+.st-suggest.is-open {
+  grid-template-rows: 1fr;
+  padding-top: var(--space-8);
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
+}
+
+.st-suggest > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 0;
+  column-gap: var(--space-4);
+  margin-left: calc(var(--space-8) * -1);
+}
+
+.st-suggest.is-open > div {
+  min-height: var(--control-sm);
+}
+
+.st-suggest-note {
+  padding: 0 var(--space-8);
+  font-size: var(--text-13);
+  color: var(--ink-3);
+}
+
+/* The room code: a grey pill that copies the room link. */
+.st-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--control-sm);
+  padding: 0 var(--space-12);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--fill);
+  font: var(--weight-label) var(--text-13)/1 var(--font);
+  letter-spacing: var(--tracking-code);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
+}
+
+.st-copy svg {
+  color: var(--ink-4);
+}
+
+@media (hover: hover) {
+  .st-copy:hover {
+    background: var(--fill-hover);
+    color: var(--ink);
+  }
+}
+
+@media (max-width: 420px) {
+  .st-join {
+    gap: var(--space-16);
+  }
+  .st-devices {
+    margin-top: calc(var(--space-4) * -1);
+  }
+  .st-join-title {
+    font-size: var(--text-20);
+  }
+}

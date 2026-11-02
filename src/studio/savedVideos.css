@@ -1,225 +1,300 @@
-/* Saved videos: a grey pill in the corner with the count, a drawer over the transcript column with one hairline row
-   per group in deck order, and a player for one take. Mercury look: white surfaces, hairlines, colour only for the group dots. */
+/* Saved videos: the trigger in the top bar, a popover (a bottom sheet on phones) with one row per group in deck order,
+   and a player for one take. Same white surface as the page; no colour. */
 
 .st-saved-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 12px;
+  gap: var(--space-8);
+  height: var(--control);
+  padding: 0 var(--space-12);
   border: 0;
-  border-radius: 999px;
-  background: var(--cf-fill);
-  font: 500 13px/1 var(--cf-font);
+  border-radius: var(--radius-control);
+  background: none;
+  font: var(--weight-label) var(--text-14)/1 var(--font);
   font-variant-numeric: tabular-nums;
-  color: var(--cf-text-2);
+  color: var(--ink-2);
   cursor: pointer;
-  transition: background-color 150ms var(--cf-ease), color 150ms var(--cf-ease);
+  transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
+}
+
+/* Nothing saved yet: the icon alone, no zero count. */
+.st-saved-btn.is-bare {
+  justify-content: center;
+  width: var(--control);
+  padding: 0;
 }
 
 .st-saved-btn svg {
-  color: var(--cf-text-3);
+  color: var(--ink-3);
 }
 
 .st-saved-n span {
-  color: var(--cf-text-4);
+  color: var(--ink-4);
 }
 
-.st-saved-btn.is-open {
-  background: var(--cf-text);
-  color: #fff;
-}
-
-.st-saved-btn.is-open svg,
-.st-saved-btn.is-open .st-saved-n span {
-  color: rgba(255, 255, 255, 0.7);
+/* Open: ink, not a fill. */
+.st-saved-btn.is-open,
+.st-saved-btn.is-open svg {
+  color: var(--ink);
 }
 
 @media (hover: hover) {
-  .st-saved-btn:not(.is-open):hover {
-    background: var(--cf-fill-hover);
-    color: var(--cf-text);
+  .st-saved-btn:hover {
+    background: var(--wash);
+    color: var(--ink);
   }
 }
 
-/* The drawer sits over the transcript column, under the top bar, as tall as its rows. */
+/* The popover hangs under its trigger (placed by SavedVideos.tsx) and hugs its rows. */
 .st-saved {
   position: fixed;
   z-index: 40;
   top: 88px;
   right: 16px;
-  max-height: calc(100dvh - 104px);
   display: flex;
   flex-direction: column;
-  width: clamp(332px, calc(22vw + 32px), 432px);
-  padding: 16px 8px 8px 20px;
-  border: 1px solid var(--cf-line);
-  border-radius: var(--cf-r-card);
-  background: var(--cf-surface);
-  box-shadow: var(--cf-shadow-pop);
-  font-family: var(--cf-font);
-  animation: st-saved-in 160ms var(--cf-ease);
+  width: max-content;
+  min-width: 320px;
+  max-width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 104px);
+  padding: var(--space-12) var(--space-8) var(--space-8);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sheet);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font);
+  animation: st-saved-in var(--dur-sheet) var(--ease);
+  transition: opacity var(--dur-sheet) var(--ease);
+}
+
+.st-saved.is-leaving {
+  animation: st-saved-out var(--dur-sheet) var(--ease) forwards;
+}
+
+/* Under the player the list fades away in place and comes back as it was: one picture over one dim. */
+.st-saved.is-under {
+  opacity: 0;
 }
 
 @keyframes st-saved-in {
   from {
     opacity: 0;
-    transform: translateX(8px);
+    transform: translateY(-4px);
   }
+}
+
+@keyframes st-saved-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* The one dim: shown under the player at every width, and under the sheet on a phone. It catches the tap that closes. */
+.st-saved-dim {
+  position: fixed;
+  z-index: 39;
+  inset: 0;
+  background: var(--dim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-sheet) var(--ease);
+}
+
+.st-saved-dim.is-under:not(.is-leaving) {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .st-saved-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-right: 4px;
-}
-
-.st-saved-head-acts {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.st-saved-head-acts .cf-btn {
-  gap: 6px;
-  font-variant-numeric: tabular-nums;
+  gap: var(--space-4);
+  padding-left: var(--space-12);
 }
 
 .st-saved-title {
+  flex: 1;
   margin: 0;
-  font: 400 20px/1.3 var(--cf-font);
-  letter-spacing: -0.01em;
-  color: var(--cf-text);
+  font: var(--weight-title) var(--text-17)/1.3 var(--font);
+  color: var(--ink);
+}
+
+/* Under the rows: Download all with its text on the rows' left edge, and the total under the lengths when it fits. */
+.st-saved-foot {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-4);
+}
+
+.st-saved-foot::after {
+  content: "";
+  flex: 0 1000 auto;
+  width: calc(var(--control-sm) * 2 + var(--space-12));
+}
+
+.st-saved-all {
+  flex-shrink: 0;
+  margin-left: var(--space-4);
+  font-variant-numeric: tabular-nums;
 }
 
 .st-saved-sum {
-  margin: 2px 0 12px;
-  font-size: 13px;
+  margin-left: auto;
+  padding-left: var(--space-12);
+  font-size: var(--text-13);
   font-variant-numeric: tabular-nums;
-  color: var(--cf-text-3);
+  white-space: nowrap;
+  color: var(--ink-3);
 }
 
-/* The video in deck order: one segment per group, as long as its planned length, filled in its colour once saved. */
-.st-saved-bar {
-  display: flex;
-  gap: 2px;
-  height: 4px;
-  margin: 0 12px 8px 0;
-}
-
-.st-saved-bar span {
-  flex-basis: 0;
-  border-radius: 2px;
-  background: var(--cf-fill);
-}
-
+/* One grid for every row, so lengths and actions line up down the list. */
 .st-saved-list {
-  flex: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   min-height: 0;
   margin: 0;
-  padding: 0 4px 0 0;
+  padding: 0;
   overflow-y: auto;
   list-style: none;
 }
 
 .st-saved-row {
   display: grid;
-  grid-template-columns: 18px 8px minmax(0, 1fr) auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  column-gap: 10px;
-  min-height: 56px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--cf-line);
+  column-gap: var(--space-12);
+  min-height: var(--control-lg);
+  padding: 0 0 0 var(--space-12);
+  border-radius: calc(var(--radius-sheet) - var(--space-8));
 }
 
-.st-saved-row:last-child {
-  border-bottom: 0;
+@media (hover: hover) {
+  .st-saved-row:not(.is-empty):hover {
+    background: var(--hover);
+  }
 }
 
 .st-saved-i {
-  font-size: 13px;
+  min-width: 1ch;
+  font-size: var(--text-13);
   font-variant-numeric: tabular-nums;
   text-align: right;
-  color: var(--cf-text-4);
-}
-
-.st-saved-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
+  color: var(--ink-4);
 }
 
 .st-saved-main {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: baseline;
+  gap: var(--space-8);
   min-width: 0;
 }
 
 .st-saved-name {
+  flex-shrink: 0;
+  max-width: 100%;
   overflow: hidden;
-  font-size: 14px;
+  font: var(--weight-label) var(--text-14)/1.3 var(--font);
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: var(--cf-text);
+  color: var(--ink);
 }
 
-.st-saved-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
+/* Narrow rows shorten the person before the group: the group is what the row is. */
+.st-saved-who {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-13);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-3);
+}
+
+.st-saved-len {
+  font-size: var(--text-13);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: var(--cf-text-3);
+  text-align: right;
+  color: var(--ink-3);
 }
 
-.st-saved-who {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--cf-fill);
-  font: 500 9px/1 var(--cf-font);
-  color: var(--cf-text-2);
+.st-saved-row.is-empty :is(.st-saved-name, .st-saved-who, .st-saved-len) {
+  color: var(--ink-4);
 }
 
 .st-saved-row.is-empty .st-saved-name {
-  color: var(--cf-text-3);
+  font-weight: var(--weight-body);
 }
 
-.st-saved-row.is-empty .st-saved-meta {
-  color: var(--cf-text-4);
-}
-
-.st-saved-row.is-empty .st-saved-dot {
-  opacity: 0.45;
-}
-
+/* Two icon widths whether or not the row has a take, so the lengths share one right edge. */
 .st-saved-acts {
   display: flex;
   align-items: center;
-  gap: 2px;
+  width: calc(var(--control-sm) * 2);
 }
 
-.st-saved-acts .cf-icon-btn,
-.st-play-bar .cf-icon-btn {
-  color: var(--cf-text-2);
+.st-saved-acts .icon-btn {
+  color: var(--ink-2);
 }
 
 .st-saved-pct {
   display: inline-grid;
   place-items: center;
-  min-width: 32px;
-  height: 32px;
-  font-size: 12px;
+  min-width: var(--control-sm);
+  height: var(--control-sm);
+  font-size: var(--text-12);
   font-variant-numeric: tabular-nums;
-  color: var(--cf-text-3);
+  color: var(--ink-2);
 }
 
-/* The player */
+/* On a phone the popover is a bottom sheet over the dim. */
+@media (max-width: 600px) {
+  .st-saved-dim:not(.is-leaving) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  @starting-style {
+    .st-saved-dim:not(.is-leaving) {
+      opacity: 0;
+    }
+  }
+  .st-saved {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: 85dvh;
+    padding: var(--space-16) var(--space-8) calc(var(--space-16) + env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    animation-name: st-sheet-in;
+  }
+  .st-saved.is-leaving {
+    animation-name: st-sheet-out;
+  }
+  .st-saved-row {
+    min-height: 52px;
+  }
+}
+
+@keyframes st-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes st-sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* The player: the take is the major thing; a header with its name and close, and its controls under it.
+   Its dim is the Saved list's, so opening and closing it never blinks the room. */
 
 .st-play {
   position: fixed;
@@ -227,102 +302,93 @@
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 32px;
-  background: rgba(18, 18, 23, 0.32);
-  font-family: var(--cf-font);
-  animation: st-play-in 160ms var(--cf-ease);
+  padding: var(--space-32);
+  font-family: var(--font);
+  animation: st-play-in var(--dur-sheet) var(--ease);
+}
+
+.st-play.is-leaving {
+  pointer-events: none;
+  animation: st-play-out var(--dur-sheet) var(--ease) forwards;
 }
 
 @keyframes st-play-in {
   from {
     opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes st-play-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
   }
 }
 
 .st-play-box {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-8);
   width: min(1120px, 100%, calc((100dvh - 64px - 112px) * 16 / 9));
-  padding: 16px 20px 12px;
-  border-radius: 16px;
-  background: var(--cf-surface);
-  box-shadow: var(--cf-shadow-pop);
+  padding: var(--space-8);
+  border-radius: var(--radius-sheet);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+/* The picture sits in the box with concentric corners and no hairline of its own: one surface, not a box in a box. */
+.st-play-box .st-stage {
+  border: 0;
+  border-radius: calc(var(--radius-sheet) - var(--space-8));
+}
+
+/* The box takes focus only so Space and Escape reach the player; it is not a control. */
+.st-play > .st-play-box[tabindex]:focus-visible {
+  outline: none;
 }
 
 .st-play-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.st-play-head .st-saved-i {
-  text-align: left;
+  gap: var(--space-12);
+  padding-left: var(--space-12);
 }
 
 .st-play-title {
   flex: 1;
+  min-width: 0;
   margin: 0;
-  font: 400 18px/1.3 var(--cf-font);
-  letter-spacing: -0.01em;
-  color: var(--cf-text);
+  overflow: hidden;
+  font: var(--weight-title) var(--text-17)/1.3 var(--font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
 }
 
+/* Loading the take: a bar along the stage's foot over the first slide. */
 .st-play-load {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  color: var(--cf-text-3);
-}
-
-.st-play-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.st-play-track {
-  flex: 1;
-  position: relative;
-  height: 20px;
-  cursor: pointer;
-}
-
-.st-play-track::before,
-.st-play-track span {
-  content: "";
   position: absolute;
   left: 0;
   right: 0;
-  top: 8px;
+  bottom: 0;
   height: 4px;
-  border-radius: 2px;
-  background: var(--cf-fill);
+  background: var(--wash);
 }
 
-.st-play-track span {
-  background: var(--cf-text);
+.st-play-load > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
   transform-origin: left;
+  transition: transform var(--dur-progress) linear;
 }
 
-.st-play-time {
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--cf-text-2);
-}
-
-.st-play-time small {
-  font-size: 13px;
-  color: var(--cf-text-4);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .st-saved,
+@media (max-width: 600px) {
   .st-play {
-    animation: none;
+    padding: var(--space-8);
+  }
+  .st-play-box {
+    width: min(100%, calc((100dvh - 16px - 112px) * 16 / 9));
   }
 }

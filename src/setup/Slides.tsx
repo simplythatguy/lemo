@@ -1,9 +1,10 @@
 // Step 1: the slides. Drop a PDF or PowerPoint anywhere (or choose one); a grid of the rendered slides to reorder, prune
-// and group. A click selects a slide; selected slides become one group. A ring in the group's colour ties a group together.
+// and group. A click selects a slide; selected slides become one group or are removed. A bar under the slides ties a
+// group together, labelled with its range on its first row.
 import { useEffect, useRef, useState } from "react";
-import { groupColor } from "../studio/Filmstrip";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import { order, type Draft } from "./draft";
+import { glide } from "./glide";
 import { Thumb } from "./Thumb";
 
 export const ACCEPT = ".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -15,10 +16,12 @@ export interface Importing {
   done: string[];
 }
 
-export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGroup, onUngroup }: {
+export function Slides({ draft, importing, error, fileOver, onFile, onRemove, onMove, onGroup, onUngroup }: {
   draft: Draft;
   importing: Importing | null;
   error: string | null;
+  /** A file is being dragged over the page; dropping it adds or replaces the slides. */
+  fileOver: boolean;
   onFile(file: File): void;
   onRemove(id: string): void;
   onMove(from: number, to: number): void;
@@ -34,12 +37,36 @@ export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGr
   const canUngroup = touched.some((g) => g.slides.length > 1);
   const clear = () => setPicked(new Set());
 
+  /** Removes the selected slides; focus lands on the slide that took the first one's place. */
+  const remove = () => {
+    const at = Math.min(ids.indexOf(selected[0]), ids.length - selected.length - 1);
+    void glide(() => {
+      selected.forEach(onRemove);
+      clear();
+    }).then(() => at >= 0 && cellAt(at)?.focus());
+  };
+  /** Groups or ungroups the selection; focus stays in the grid, on its first slide, as the button it was on goes. */
+  const regroup = (change: (ids: string[]) => void) => {
+    const first = selected[0];
+    change(selected);
+    clear();
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`.su-grid [data-vt="${first}"]`)?.focus());
+  };
+  const keys = useRef({ clear, remove });
+  keys.current = { clear, remove };
+
   useEffect(() => {
-    if (!selected.length) return;
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setPicked(new Set());
-    window.addEventListener("keydown", esc);
-    return () => window.removeEventListener("keydown", esc);
-  }, [selected.length]);
+    if (!selected.length || importing) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") keys.current.clear();
+      else if ((e.key === "Delete" || e.key === "Backspace") && !(e.target as HTMLElement).closest("input, textarea, [contenteditable]")) {
+        e.preventDefault();
+        keys.current.remove();
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [selected.length, importing]);
 
   const pick = () => input.current?.click();
   const picker = (
@@ -56,88 +83,129 @@ export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGr
     />
   );
 
-  if (!ids.length && !importing) {
+  /** A file being opened before its page count is known: nothing changes yet, so a file it refuses never flashes a grid. */
+  const reading = !!importing && !importing.total;
+  if (!ids.length && (!importing || reading)) {
     return (
       <div className="su-empty">
         {picker}
-        <span className="su-empty-icon"><Icon name="upload" size={28} stroke={1.6} /></span>
         <h1 className="su-title">Add your slides</h1>
-        <button type="button" className="cf-btn is-primary is-lg" onClick={pick}>Choose a file</button>
-        {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">PDF or PowerPoint · 16:9</p>}
+        <button type="button" className="btn is-primary is-lg" onClick={pick} aria-busy={reading || undefined}>
+          <Icon name="upload" size={16} />Choose a file
+        </button>
+        {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">16:9 PDF or PowerPoint</p>}
+        <Drop label="Drop to add" on={fileOver} />
       </div>
     );
   }
 
-  const count = importing ? importing.total ?? 0 : ids.length;
-  const name = importing?.name ?? draft.file;
-  const label = `${count} ${count === 1 ? "slide" : "slides"}`;
+  const shown = importing?.total ? importing : null;
+  const name = shown?.name ?? draft.file;
+  const slides = `${ids.length} ${ids.length === 1 ? "slide" : "slides"}`;
+  const grouped = draft.groups.length < ids.length ? `${draft.groups.length} ${draft.groups.length === 1 ? "group" : "groups"}` : "";
   return (
     <div className="su-slides">
       {picker}
-      <div className="su-head">
-        {name ? <h1 className="su-title is-sm">{name}</h1> : <h1 className="su-title is-sm">{label}</h1>}
-        {name && count > 0 && <span className="su-quiet">{label}</span>}
-        <span className="su-grow" />
-        {selected.length > 0 && !importing ? (
-          <>
-            {canUngroup && (
-              <button type="button" className="cf-btn is-ghost is-sm" onClick={() => (onUngroup(selected), clear())}>
-                Ungroup
-              </button>
-            )}
-            {canGroup && (
-              <button type="button" className="cf-btn is-sm" onClick={() => (onGroup(selected), clear())}>
-                <Icon name="link" size={15} />Group {selected.length}
-              </button>
-            )}
-            <button type="button" className="cf-icon-btn is-plain" aria-label="Clear selection" title="Clear selection" onClick={clear}>
-              <Icon name="x" size={16} />
+      {selected.length > 0 && !importing ? (
+        <div className="su-head">
+          <span className="su-head-name">
+            <h1 className="su-title is-sm su-picked">
+              {selected.length}
+              <span className="su-picked-word"> selected</span>
+            </h1>
+          </span>
+          <span className="su-grow" />
+          {canUngroup && (
+            <button type="button" className="btn is-quiet is-sm" onClick={() => regroup(onUngroup)}>
+              Ungroup
             </button>
-          </>
-        ) : (
-          <button type="button" className="cf-btn is-ghost is-sm" onClick={pick} disabled={!!importing}>
-            <Icon name="upload" size={15} />Replace
+          )}
+          <button type="button" className="btn is-quiet is-sm" onClick={remove} aria-keyshortcuts="Delete Backspace">
+            Remove
           </button>
-        )}
-      </div>
-      {error && <p className="su-error" role="alert">{error}</p>}
-      {importing ? <Progress importing={importing} /> : <Grid draft={draft} ids={ids} picked={picked} setPicked={setPicked} onRemove={onRemove} onMove={onMove} />}
+          {canGroup && (
+            <button type="button" className="btn is-quiet is-sm" onClick={() => regroup(onGroup)}>
+              Group
+            </button>
+          )}
+          <button type="button" className="icon-btn" aria-label="Clear selection" data-tip="Clear selection" onClick={clear}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+      ) : (
+        <div className="su-head">
+          <span className="su-head-name">
+            <h1 className="su-title is-sm">{name ?? slides}</h1>
+            {error ? (
+              <span className="su-error" role="alert">{error}</span>
+            ) : shown ? (
+              <span className="su-quiet" role="progressbar" aria-label="Reading slides" aria-valuemin={0} aria-valuemax={shown.total!} aria-valuenow={shown.done.length}>
+                {shown.done.length} of {shown.total}
+              </span>
+            ) : (
+              <span className="su-quiet">{[name && slides, grouped].filter(Boolean).join(" · ")}</span>
+            )}
+          </span>
+          <span className="su-grow" />
+          <button type="button" className="btn is-quiet is-sm" onClick={pick} disabled={!!shown} aria-busy={reading || undefined}>
+            <Icon name="upload" size={16} />Replace
+          </button>
+        </div>
+      )}
+      {shown ? <Progress importing={shown} /> : <Grid draft={draft} ids={ids} picked={picked} setPicked={setPicked} onMove={onMove} />}
+      <Drop label="Drop to replace" on={fileOver} />
     </div>
   );
 }
 
-function Progress({ importing }: { importing: Importing }) {
-  const total = importing.total ?? 0;
-  const left = Math.max(0, total - importing.done.length);
+const cellAt = (i: number) => document.querySelectorAll<HTMLElement>(".su-grid .su-cell")[i];
+
+/** While a file is dragged over the step: where it lands. Kept mounted so it fades out as it faded in. */
+function Drop({ label, on }: { label: string; on: boolean }) {
   return (
-    <>
-      <div className="su-meter" role="progressbar" aria-label="Reading slides" aria-valuemin={0} aria-valuemax={total || 1} aria-valuenow={importing.done.length}>
-        <span style={{ transform: `scaleX(${total ? importing.done.length / total : 0})` }} />
+    <div className={`su-drop${on ? " is-on" : ""}`} aria-hidden="true">
+      <div className="su-target">
+        <Icon name="upload" size={28} />
+        {label}
       </div>
-      <ol className="su-grid" aria-busy="true">
-        {importing.done.map((src, i) => (
-          <li key={i} className="su-cell">
-            <div className="su-thumb"><img className="su-thumb-img" src={src} alt="" /></div>
-            <span className="su-n">{i + 1}</span>
-          </li>
-        ))}
-        {Array.from({ length: left || (total ? 0 : 3) }, (_, i) => (
-          <li key={`w${i}`} className="su-cell">
-            <div className="su-thumb is-wait" />
-            <span className="su-n">{total ? importing.done.length + i + 1 : ""}</span>
-          </li>
-        ))}
-      </ol>
-    </>
+    </div>
   );
 }
 
-function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
+/** The file's whole grid from the moment its page count is known; each slide fades in over its own place. */
+function Progress({ importing }: { importing: Importing }) {
+  return (
+    <ol className="su-grid" aria-busy="true">
+      {Array.from({ length: importing.total ?? 0 }, (_, i) => (
+        <li key={i} className="su-cell">
+          <div className="su-thumb is-wait">{importing.done[i] && <img className="su-thumb-img is-new" src={importing.done[i]} alt="" />}</div>
+          <span className="su-label"><span className="su-n">{i + 1}</span></span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** How many columns the grid lays out right now, so a group's bar never runs past the end of a row. */
+function useColumns(grid: React.RefObject<HTMLOListElement | null>): number {
+  const [cols, setCols] = useState(1);
+  useEffect(() => {
+    const el = grid.current;
+    if (!el) return;
+    const measure = () => setCols(getComputedStyle(el).gridTemplateColumns.split(" ").length);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [grid]);
+  return cols;
+}
+
+function Grid({ draft, ids, picked, setPicked, onMove }: {
   draft: Draft;
   ids: string[];
   picked: ReadonlySet<string>;
   setPicked(next: ReadonlySet<string>): void;
-  onRemove(id: string): void;
   onMove(from: number, to: number): void;
 }) {
   const [drag, setDrag] = useState<number | null>(null);
@@ -160,16 +228,25 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
     }
     setPicked(next);
   };
-  /** slide id → its group's colour, for groups of more than one slide. */
-  const ring = new Map<string, string>();
-  draft.groups.filter((g) => g.slides.length > 1).forEach((g, k) => g.slides.forEach((s) => ring.set(s, groupColor(k))));
+  const grid = useRef<HTMLOListElement>(null);
+  const cols = useColumns(grid);
+  /** slide id → its group's slides, for groups of more than one slide. */
+  const group = new Map<string, string[]>();
+  draft.groups.forEach((g) => g.slides.length > 1 && g.slides.forEach((s) => group.set(s, g.slides)));
+  /** The bar reaches across the gap to the next slide when that slide is in the same group and on the same row. */
+  const joined = (i: number) => (i + 1) % cols !== 0 && !!group.get(ids[i])?.includes(ids[i + 1]);
+  /** A group's slides read as one range ("3–5") under its first slide; where it wraps, the bar runs on from the row's edge. */
+  const label = (i: number) => {
+    const g = group.get(ids[i]);
+    if (!g) return String(i + 1);
+    return g[0] === ids[i] ? `${i + 1}–${i + g.length}` : "";
+  };
   return (
-    <ol className="su-grid">
+    <ol className="su-grid" ref={grid}>
       {ids.map((id, i) => (
         <li
           key={id}
-          className={`su-cell${drag === i ? " is-dragging" : ""}${at === i && drag !== null ? " is-before" : ""}${at === i + 1 && drag !== null && i === ids.length - 1 ? " is-after" : ""}${picked.has(id) ? " is-picked" : ""}${ring.has(id) ? " is-grouped" : ""}`}
-          style={ring.has(id) ? ({ "--g": ring.get(id) } as React.CSSProperties) : undefined}
+          className={`su-cell${drag === i ? " is-dragging" : ""}${at === i && drag !== null ? " is-before" : ""}${at === i + 1 && drag !== null && i === ids.length - 1 ? " is-after" : ""}${picked.has(id) ? " is-picked" : ""}${group.has(id) ? " is-grouped" : ""}${joined(i) ? " is-joined" : ""}`}
           draggable
           onClick={(e) => toggle(i, e.shiftKey)}
           onDragStart={(e) => {
@@ -188,8 +265,11 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
             if (drag === null || at === null) return;
             e.preventDefault();
             e.stopPropagation();
-            onMove(drag, at > drag ? at - 1 : at);
-            end();
+            const [from, to] = [drag, at > drag ? at - 1 : at];
+            void glide(() => {
+              onMove(from, to);
+              end();
+            });
           }}
           onKeyDown={(e) => {
             if (e.target !== e.currentTarget) return;
@@ -201,32 +281,17 @@ function Grid({ draft, ids, picked, setPicked, onRemove, onMove }: {
             if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
             e.preventDefault();
             const to = e.key === "ArrowLeft" ? i - 1 : i + 1;
-            if (to >= 0 && to < ids.length) {
-              onMove(i, to);
-              requestAnimationFrame(() => document.querySelectorAll<HTMLElement>(".su-grid .su-cell")[to]?.focus());
-            }
+            if (to >= 0 && to < ids.length) void glide(() => onMove(i, to)).then(() => cellAt(to)?.focus());
           }}
           tabIndex={0}
-          aria-label={`Slide ${i + 1}${ring.has(id) ? ", grouped" : ""}${picked.has(id) ? ", selected" : ""}`}
-          aria-keyshortcuts="Space Alt+ArrowLeft Alt+ArrowRight"
+          data-vt={id}
+          aria-label={`Slide ${i + 1}${group.has(id) ? ", grouped" : ""}${picked.has(id) ? ", selected" : ""}`}
+          aria-keyshortcuts="Space Alt+ArrowLeft Alt+ArrowRight Delete"
         >
           <div className="su-thumb">
             <Thumb slide={draft.slides[id]} />
-            <span className="su-check" aria-hidden="true"><Icon name="check" size={13} stroke={2.6} /></span>
-            <button
-              type="button"
-              className="su-remove"
-              aria-label={`Remove slide ${i + 1}`}
-              title="Remove"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(id);
-              }}
-            >
-              <Icon name="x" size={14} stroke={2.2} />
-            </button>
           </div>
-          <span className="su-n">{i + 1}</span>
+          <span className="su-label">{label(i) && <span className="su-n">{label(i)}</span>}</span>
         </li>
       ))}
     </ol>

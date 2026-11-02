@@ -1,16 +1,13 @@
-// Every slide in deck order, each its own tile. A thin ring in the group's colour ties a group's slides together; the speaker's initials sit on each slide.
+// Every slide in deck order, grouped: spacing separates the groups, and one quiet row above each says who records it,
+// Saving… while a kept take is on its way, and then how long it is. That row is also the way to change the group's speaker.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
-import { initials } from "./parts";
+import { Icon } from "../icons";
+import { firstName, initials, Menu } from "./parts";
 import { renderThumb } from "./stage";
-import { clock, targetMs } from "./timing";
+import { clock } from "./timing";
 import type { Deck, Person, RoomState } from "./types";
 
-/** One muted colour per group: it only tells the groups apart. Neighbours never share a family. */
-const GROUP_COLORS = ["#8495c9", "#6fa8a0", "#c4a06a", "#a88cc4", "#8fab7c", "#c98f86", "#6f9fc6", "#b8a46e", "#c38aa6"];
-export const groupColor = (i: number) => GROUP_COLORS[i % GROUP_COLORS.length];
-
-export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, upload, onPick, onAssign }: {
+export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, upload, saving, onPick, onAssign }: {
   deck: Deck;
   room: RoomState;
   me: Person;
@@ -22,13 +19,13 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
   /** No changing speakers (my own take is running). */
   assignLocked: boolean;
   upload: Record<string, number>;
+  /** Groups this device kept a take of that the room has not shown yet. */
+  saving: Set<string>;
   onPick(group: number, slide: number): void;
   onAssign(group: number, personId: string | null): void;
 }) {
   const strip = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<{ group: number; anchor: HTMLElement } | null>(null);
-  // The menu hangs off its circle and moves with it when the strip scrolls.
-  const [, setScrolled] = useState(0);
 
   // Keep the slide on stage in view. Only the strip scrolls, never the page.
   useLayoutEffect(() => {
@@ -47,34 +44,42 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
 
   return (
     <>
-      <div ref={strip} className="st-strip" aria-label="Slides" onScroll={() => menu && setScrolled((n) => n + 1)}>
+      <div ref={strip} className={`st-strip${locked ? " is-locked" : ""}`} aria-label="Slides">
         {deck.groups.map((g, gi) => {
           const who = room.people.find((p) => p.id === room.assignments[g.id]);
           const take = room.takes[g.id];
           const up = upload[g.id] ?? (take && take.received < take.chunks ? take.received / take.chunks : undefined);
+          const pending = up !== undefined || saving.has(g.id);
+          const done = !!take && !pending;
+          const note = pending ? (up ? `Saving ${Math.round(up * 100)}%` : "Saving…") : done ? clock(take.durationMs) : null;
+          const status = done ? `recorded ${clock(take.durationMs)}` : note?.toLowerCase() ?? "not recorded";
           return (
-            <div
-              key={g.id}
-              className="st-strip-g"
-              style={{ "--g": groupColor(gi) } as React.CSSProperties}
-              title={`${g.name} · ${clock(targetMs(g))}`}
-              role="group"
-              aria-label={g.name}
-            >
-              {up !== undefined ? (
-                <span className="st-thumb-tag is-up" aria-label={`Uploading, ${Math.round(up * 100)}%`}>{Math.round(up * 100)}%</span>
-              ) : take ? (
-                <span className="st-thumb-tag" aria-label={`Recorded, ${clock(take.durationMs)}`}>
-                  <Icon name="check" size={12} stroke={2.4} />{clock(take.durationMs)}
-                </span>
-              ) : null}
-              {g.slides.map((s, si) => {
-                const now = gi === group && si === slide;
-                return (
-                  <div key={s.id} className={`st-thumb${now ? " is-now" : ""}`}>
+            <div key={g.id} className="st-strip-g" role="group" aria-label={g.name}>
+              <button
+                type="button"
+                className={`btn is-quiet is-sm st-strip-who${who ? "" : " is-none"}${done ? " is-done" : ""}`}
+                disabled={assignLocked}
+                aria-haspopup="menu"
+                aria-expanded={menu?.group === gi}
+                aria-label={who ? `${g.name}: ${who.name}, ${status}. Change speaker` : `${g.name}: ${status}, choose a speaker`}
+                onClick={(e) => {
+                  const anchor = e.currentTarget;
+                  setMenu((m) => (m?.anchor === anchor ? null : { group: gi, anchor }));
+                }}
+              >
+                {done && <Icon name="check" size={12} />}
+                <span className="st-strip-name">{who ? firstName(who.name) : "Nobody"}</span>
+                {note && <span className="st-strip-n">{note}</span>}
+                <span className="st-strip-caret" aria-hidden="true" />
+              </button>
+              <div className="st-strip-slides">
+                {g.slides.map((s, si) => {
+                  const now = gi === group && si === slide;
+                  return (
                     <button
+                      key={s.id}
                       type="button"
-                      className="st-thumb-hit"
+                      className={`st-thumb${now ? " is-now" : ""}`}
                       onClick={() => onPick(gi, si)}
                       disabled={locked}
                       aria-label={`${g.name}, slide ${si + 1}`}
@@ -82,94 +87,49 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                     >
                       <Thumb deck={deck} group={gi} slide={si} />
                     </button>
-                    <button
-                      type="button"
-                      className={`st-who-dot${who ? "" : " is-none"}${who?.id === me.id ? " is-me" : ""}`}
-                      disabled={assignLocked}
-                      aria-label={who ? `${g.name}: ${who.name}. Change speaker` : `${g.name}: choose a speaker`}
-                      aria-haspopup="menu"
-                      title={who?.name ?? "Choose a speaker"}
-                      onClick={(e) => {
-                        const anchor = e.currentTarget;
-                        setMenu((m) => (m?.anchor === anchor ? null : { group: gi, anchor }));
-                      }}
-                    >
-                      {who ? initials(who.name) : ""}
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           );
         })}
       </div>
-      {menu && (
-        <AssignMenu
-          people={room.people}
-          me={me}
-          current={room.assignments[deck.groups[menu.group].id] ?? null}
-          anchor={menu.anchor.getBoundingClientRect()}
-          onPick={(id) => {
-            onAssign(menu.group, id);
-            setMenu(null);
-          }}
-          onClose={() => setMenu(null)}
-        />
-      )}
+      <Menu label="Speaker" anchor={menu?.anchor ?? null} above onClose={() => setMenu(null)}>
+        {/* You first: the likeliest pick. */}
+        {menu && [...room.people.filter((p) => p.id === me.id), ...room.people.filter((p) => p.id !== me.id), { id: null, name: "Nobody" }].map((o) => {
+          const current = (room.assignments[deck.groups[menu.group].id] ?? null) === o.id;
+          return (
+            <button
+              key={o.id ?? "none"}
+              type="button"
+              role="menuitemradio"
+              aria-checked={current}
+              className="st-menu-item"
+              onClick={() => {
+                onAssign(menu.group, o.id);
+                setMenu(null);
+              }}
+            >
+              <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
+              <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
+              {current && <Icon name="check" size={14} />}
+            </button>
+          );
+        })}
+      </Menu>
     </>
   );
 }
 
 function Thumb({ deck, group, slide }: { deck: Deck; group: number; slide: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const [painted, setPainted] = useState(false);
   useEffect(() => {
     const c = canvas.current!;
     c.width = 256;
     c.height = 144;
-    void renderThumb(c, deck, group, slide).catch(() => undefined);
+    void renderThumb(c, deck, group, slide).then(() => setPainted(true), () => undefined);
   }, [deck, group, slide]);
-  return <canvas ref={canvas} aria-hidden="true" />;
-}
-
-function AssignMenu({ people, me, current, anchor, onPick, onClose }: {
-  people: Person[];
-  me: Person;
-  current: string | null;
-  anchor: DOMRect;
-  onPick(id: string | null): void;
-  onClose(): void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const close = useRef(onClose);
-  close.current = onClose;
-  useEffect(() => {
-    ref.current?.querySelector<HTMLButtonElement>("[aria-checked=true], button")?.focus({ preventScroll: true });
-    const down = (e: PointerEvent) => {
-      const t = e.target as HTMLElement;
-      if (!ref.current?.contains(t) && !t.closest?.(".st-who-dot")) close.current();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      close.current();
-    };
-    window.addEventListener("pointerdown", down);
-    window.addEventListener("keydown", key, true);
-    return () => {
-      window.removeEventListener("pointerdown", down);
-      window.removeEventListener("keydown", key, true);
-    };
-  }, []);
-  const options = [...people.map((p) => ({ id: p.id as string | null, name: p.name })), { id: null, name: "Nobody" }];
-  return (
-    <div ref={ref} className="st-menu" role="menu" aria-label="Speaker" style={{ left: anchor.right, top: anchor.top }}>
-      {options.map((o) => (
-        <button key={o.id ?? "none"} type="button" role="menuitemradio" aria-checked={o.id === current} className="st-menu-item" onClick={() => onPick(o.id)}>
-          <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
-          <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
-          {o.id === current && <Icon name="check" size={14} stroke={2.2} />}
-        </button>
-      ))}
-    </div>
-  );
+  // The first paint fades in rather than popping into an empty frame.
+  return <canvas ref={canvas} className={painted ? "is-painted" : undefined} aria-hidden="true" />;
 }

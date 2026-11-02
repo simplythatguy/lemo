@@ -1,13 +1,13 @@
 // Every saved take, in deck order (the order of the final video), for the whole room: play it, download it.
 // Groups can be recorded in any order; the numbered rows always follow the deck.
-import { useEffect, useRef, useState } from "react";
-import { groupColor } from "./Filmstrip";
-import { Icon } from "./icons";
-import { initials, slug, StartButton } from "./parts";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { Icon } from "../icons";
+import { firstName, slug, StartButton } from "./parts";
 import { startPlayback } from "./playback";
 import { takeMedia } from "./Render";
 import { createStage, exportVideo, preload, stageKey } from "./stage";
-import { clock, targetMs } from "./timing";
+import { clock } from "./timing";
+import { Transport } from "./Transport";
 import type { Cue, Deck, RoomState, TakeInfo, TakeMedia } from "./types";
 import "./savedVideos.css";
 
@@ -17,16 +17,6 @@ function slideAt(cues: Cue[], ms: number): number {
   let slide = 0;
   for (const c of cues) if (c.atMs <= ms) slide = c.slide;
   return slide;
-}
-
-function ago(at: number, now: number): string {
-  const s = Math.max(0, Math.round((now - at) / 1000));
-  if (s < 45) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
 }
 
 /** Renders the given takes in deck order and hands the file to the browser as <name>.mp4|webm. */
@@ -43,6 +33,23 @@ async function download(deck: Deck, room: string, takes: TakeInfo[], name: strin
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** Keeps a surface in the page while its exit animation plays: `leaving` is set from the close until it ends. */
+function usePresence(shown: boolean, surface: RefObject<HTMLElement | null>) {
+  const [mounted, setMounted] = useState(shown);
+  if (shown && !mounted) setMounted(true);
+  const leaving = mounted && !shown;
+  useEffect(() => {
+    if (!leaving) return;
+    let alive = true;
+    const exits = surface.current?.getAnimations().map((a) => a.finished) ?? [];
+    void Promise.all(exits).catch(() => undefined).then(() => alive && setMounted(false));
+    return () => {
+      alive = false;
+    };
+  }, [leaving, surface]);
+  return { mounted, leaving };
+}
+
 export function SavedVideos({ deck, room, upload }: {
   deck: Deck;
   room: RoomState;
@@ -53,25 +60,57 @@ export function SavedVideos({ deck, room, upload }: {
   /** The group whose take is playing, by id: the deck can change under the player. */
   const [playing, setPlaying] = useState<string | null>(null);
   const [saving, setSaving] = useState<Record<string, number>>({});
-  const [now, setNow] = useState(Date.now());
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const list = usePresence(open, panel);
+  /** The row's Play that opened the player: focus goes back to it. */
+  const opener = useRef<HTMLElement | null>(null);
+  const player = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    setNow(Date.now());
-    const t = window.setInterval(() => setNow(Date.now()), 30_000);
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape" && playing === null) setOpen(false);
     };
+    // The player opens over the popover: its clicks must not close the list under it.
+    const away = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (playing === null && !panel.current?.contains(t) && !trigger.current?.contains(t)) setOpen(false);
+    };
     window.addEventListener("keydown", key);
+    window.addEventListener("pointerdown", away);
     return () => {
-      window.clearInterval(t);
       window.removeEventListener("keydown", key);
+      window.removeEventListener("pointerdown", away);
     };
   }, [open, playing]);
 
+  // Focus goes to the first row's Play (or Close) on open, and back to the trigger when it was in the list.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    const p = panel.current;
+    if (open) (p?.querySelector<HTMLElement>(".st-saved-list button") ?? p?.querySelector<HTMLElement>(".st-saved-head button"))?.focus({ preventScroll: true });
+    else if (wasOpen.current && (p?.contains(document.activeElement) || document.activeElement === document.body)) trigger.current?.focus({ preventScroll: true });
+    wasOpen.current = open;
+  }, [open]);
+
+  // Wide screens hang the popover under its trigger; phones get a bottom sheet from CSS.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = trigger.current?.getBoundingClientRect();
+      // The same width as the bottom sheet in savedVideos.css.
+      setAt(r && !matchMedia("(max-width: 600px)").matches ? { top: r.bottom + 8, right: Math.max(16, innerWidth - r.right) } : null);
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open]);
+
   const saved = deck.groups.filter((g) => complete(room.takes[g.id]));
-  const recordedMs = saved.reduce((s, g) => s + room.takes[g.id].durationMs, 0);
-  const plannedMs = deck.groups.reduce((s, g) => s + targetMs(g), 0);
+  // In whole seconds as each row shows them, so the rows add up to the total.
+  const recordedMs = saved.reduce((s, g) => s + Math.ceil(room.takes[g.id].durationMs / 1000) * 1000, 0);
 
   const save = (take: TakeInfo) => {
     if (saving[take.groupId] !== undefined) return;
@@ -97,104 +136,116 @@ export function SavedVideos({ deck, room, upload }: {
   };
 
   const playingIndex = deck.groups.findIndex((g) => g.id === playing);
-  const playable = playingIndex >= 0 && !!room.takes[playing!];
-  // The group or its take went away under the player: it closes, and Escape closes the list again.
+  const playable = open && playingIndex >= 0 && !!room.takes[playing!];
+  // The group or its take went away under the player, or the list closed: it closes, and Escape closes the list again.
   useEffect(() => {
     if (playing !== null && !playable) setPlaying(null);
   }, [playing, playable]);
+  const shown = usePresence(playable, player);
+  // The take on screen stays the same while the player plays its exit.
+  const [last, setLast] = useState(playing);
+  if (playing !== null && playing !== last) setLast(playing);
+  const lastIndex = deck.groups.findIndex((g) => g.id === last);
+  const lastTake = last === null ? undefined : room.takes[last];
+  useEffect(() => {
+    if (playing === null && opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+  }, [playing]);
   return (
     <>
       <button
+        ref={trigger}
         type="button"
-        className={`st-saved-btn${open ? " is-open" : ""}`}
+        className={`st-saved-btn${open ? " is-open" : ""}${saved.length ? "" : " is-bare"}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label={`Saved videos, ${saved.length} of ${deck.groups.length}`}
-        title="Saved videos"
+        aria-label={saved.length ? `Saved videos, ${saved.length} of ${deck.groups.length}` : "Saved videos"}
+        data-tip="Saved videos"
       >
-        <StackIcon />
-        <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>
+        <Icon name="saved" />
+        {saved.length > 0 && <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>}
       </button>
 
-      {open && (
-        <aside className="st-saved" aria-label="Saved videos">
-          <header className="st-saved-head">
-            <h2 className="st-saved-title">Saved</h2>
-            <span className="st-saved-head-acts">
-              <button type="button" className="cf-btn is-sm" onClick={saveAll} disabled={all !== null || !saved.length}
-                aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
-                <Icon name="download" size={14} />{all === null ? "Download all" : `${Math.round(all * 100)}%`}
-              </button>
-              <button type="button" className="cf-icon-btn" onClick={() => setOpen(false)} aria-label="Close" title="Close">
+      {list.mounted && (
+        <>
+          <div className={`st-saved-dim${playable ? " is-under" : ""}${list.leaving ? " is-leaving" : ""}`} aria-hidden="true" />
+          <aside
+            ref={panel}
+            className={`st-saved${playable ? " is-under" : ""}${list.leaving ? " is-leaving" : ""}`}
+            aria-label="Saved videos"
+            inert={playable || list.leaving}
+            style={at ?? undefined}
+          >
+            <header className="st-saved-head">
+              <h2 className="st-saved-title">Saved</h2>
+              <button type="button" className="icon-btn is-sm" onClick={() => setOpen(false)} aria-label="Close" data-tip="Close">
                 <Icon name="x" size={16} />
               </button>
-            </span>
-          </header>
-          <p className="st-saved-sum">
-            {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)} of {clock(plannedMs)}
-          </p>
-          <div className="st-saved-bar" aria-hidden="true">
-            {deck.groups.map((g, gi) => (
-              <span
-                key={g.id}
-                style={{ flexGrow: targetMs(g), background: complete(room.takes[g.id]) ? groupColor(gi) : undefined }}
-              />
-            ))}
-          </div>
-
-          <ol className="st-saved-list">
-            {deck.groups.map((g, gi) => {
-              const take = room.takes[g.id];
-              const done = complete(take);
-              const who = room.people.find((p) => p.id === (take?.personId ?? room.assignments[g.id]));
-              const up = upload[g.id] ?? (take && !done ? take.received / take.chunks : undefined);
-              const s = saving[g.id];
-              return (
-                <li key={g.id} className={`st-saved-row${done ? "" : " is-empty"}`}>
-                  <span className="st-saved-i">{gi + 1}</span>
-                  <span className="st-saved-dot" style={{ background: groupColor(gi) }} aria-hidden="true" />
-                  <span className="st-saved-main">
-                    <span className="st-saved-name">{g.name}</span>
-                    <span className="st-saved-meta">
-                      {who && <span className="st-saved-who" title={who.name}>{initials(who.name)}</span>}
-                      {up !== undefined ? (
-                        `Uploading ${Math.round(up * 100)}%`
-                      ) : done && take ? (
-                        <>{clock(take.durationMs)}<span aria-hidden="true"> · </span>{ago(take.createdAt, now)}</>
-                      ) : (
-                        "Not recorded"
-                      )}
+            </header>
+            <ol className="st-saved-list">
+              {deck.groups.map((g, gi) => {
+                const take = room.takes[g.id];
+                const done = complete(take);
+                const who = room.people.find((p) => p.id === (take?.personId ?? room.assignments[g.id]));
+                const up = upload[g.id] ?? (take && !done ? take.received / take.chunks : undefined);
+                const s = saving[g.id];
+                return (
+                  <li key={g.id} className={`st-saved-row${done ? "" : " is-empty"}`}>
+                    <span className="st-saved-i">{gi + 1}</span>
+                    <span className="st-saved-main">
+                      <span className="st-saved-name">{g.name}</span>
+                      {who && <span className="st-saved-who">{firstName(who.name)}</span>}
                     </span>
-                  </span>
-                  {done && take && (
+                    <span className="st-saved-len">
+                      {up !== undefined ? `Uploading ${Math.round(up * 100)}%` : done && take ? clock(take.durationMs) : "Not recorded"}
+                    </span>
                     <span className="st-saved-acts">
-                      <button type="button" className="cf-icon-btn" onClick={() => setPlaying(g.id)} aria-label={`Play ${g.name}`} title="Play">
-                        <Icon name="play" size={15} />
-                      </button>
-                      {s === undefined ? (
-                        <button type="button" className="cf-icon-btn" onClick={() => save(take)} aria-label={`Download ${g.name}`} title="Download">
-                          <Icon name="download" size={15} />
-                        </button>
-                      ) : (
-                        <span className="st-saved-pct" role="status" aria-label={`Rendering ${g.name}, ${Math.round(s * 100)}%`}>{Math.round(s * 100)}%</span>
+                      {done && take && (
+                        <>
+                          <button type="button" className="icon-btn is-sm" onClick={(e) => {
+                            opener.current = e.currentTarget;
+                            setPlaying(g.id);
+                          }} aria-label={`Play ${g.name}`} data-tip="Play">
+                            <Icon name="play" size={16} />
+                          </button>
+                          {s === undefined ? (
+                            <button type="button" className="icon-btn is-sm" onClick={() => save(take)} aria-label={`Download ${g.name}`} data-tip="Download">
+                              <Icon name="download" size={16} />
+                            </button>
+                          ) : (
+                            <span className="st-saved-pct" role="status" aria-label={`Rendering ${g.name}, ${Math.round(s * 100)}%`}>{Math.round(s * 100)}%</span>
+                          )}
+                        </>
                       )}
                     </span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
+                  </li>
+                );
+              })}
+            </ol>
+            {saved.length > 0 && (
+              <footer className="st-saved-foot">
+                <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} aria-busy={all !== null}
+                  aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
+                  <Icon name="download" size={16} />{all === null ? "Download all" : `Rendering ${Math.round(all * 100)}%`}
+                </button>
+                <span className="st-saved-sum">
+                  {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)}
+                </span>
+              </footer>
+            )}
+          </aside>
+        </>
       )}
 
-      {playable && (
+      {shown.mounted && lastTake && lastIndex >= 0 && (
         <Player
+          root={player}
+          leaving={shown.leaving}
           deck={deck}
           room={room.code}
-          index={playingIndex}
-          take={room.takes[playing!]}
-          saving={saving[playing!]}
-          onSave={() => save(room.takes[playing!])}
+          index={lastIndex}
+          take={lastTake}
+          saving={saving[lastTake.groupId]}
+          onSave={() => save(lastTake)}
           onClose={() => setPlaying(null)}
         />
       )}
@@ -203,7 +254,9 @@ export function SavedVideos({ deck, room, upload }: {
 }
 
 /** The take replayed on its own stage: its video is the camera tile and its cues switch the slides. */
-function Player({ deck, room, index, take, saving, onSave, onClose }: {
+function Player({ root, leaving, deck, room, index, take, saving, onSave, onClose }: {
+  root: RefObject<HTMLDivElement | null>;
+  leaving: boolean;
   deck: Deck;
   room: string;
   index: number;
@@ -217,6 +270,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   const [loaded, setLoaded] = useState<number | null>(0);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [refused, setRefused] = useState(false);
   const group = deck.groups[index];
   const length = take.durationMs;
@@ -225,7 +279,15 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   current.current = take;
   const latestDeck = useRef(deck);
   latestDeck.current = deck;
+  // A teammate's retake swaps the video under the player; the sound stays as it was set.
+  const mutedNow = useRef(muted);
+  mutedNow.current = muted;
   const painted = stageKey(deck);
+  const box = useRef<HTMLDivElement>(null);
+  // A press that starts on the dim and ends there closes; a drag out of the player does not.
+  const downOnDim = useRef(false);
+
+  useEffect(() => box.current?.focus({ preventScroll: true }), []);
 
   useEffect(() => {
     const take = current.current;
@@ -240,7 +302,9 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
     let url = "";
     const v = document.createElement("video");
     v.playsInline = true;
+    v.muted = mutedNow.current;
     v.addEventListener("playing", () => setRefused(false));
+    v.addEventListener("volumechange", () => setMuted(v.muted));
     void (async () => {
       let got = 0;
       const media: TakeMedia = await takeMedia(room, take, (n) => {
@@ -294,6 +358,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
   };
 
   useEffect(() => {
+    if (leaving) return;
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -307,61 +372,51 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
     return () => window.removeEventListener("keydown", key, true);
   });
 
-  const seek = (e: React.PointerEvent<HTMLDivElement>) => {
+  const seekTo = (ms: number) => {
     const v = video.current;
-    if (!v) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    v.currentTime = (Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * length) / 1000;
+    if (v) v.currentTime = ms / 1000;
+  };
+  const mute = () => {
+    const v = video.current;
+    if (v) v.muted = !v.muted;
   };
 
   return (
-    <div className="st-play" role="dialog" aria-modal="true" aria-label={group.name} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="st-play-box">
+    <div
+      ref={root}
+      className={`st-play${leaving ? " is-leaving" : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={group.name}
+      onPointerDown={(e) => (downOnDim.current = e.target === e.currentTarget)}
+      onClick={(e) => downOnDim.current && e.target === e.currentTarget && onClose()}
+    >
+      <div ref={box} className="st-play-box" tabIndex={-1}>
         <header className="st-play-head">
-          <span className="st-saved-i">{index + 1}</span>
-          <span className="st-saved-dot" style={{ background: groupColor(index) }} aria-hidden="true" />
           <h2 className="st-play-title">{group.name}</h2>
-          <button type="button" className="cf-icon-btn" onClick={onClose} aria-label="Close" title="Close">
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close" data-tip="Close">
             <Icon name="x" size={16} />
           </button>
         </header>
         <div className="st-stage">
           <canvas ref={canvas} />
-          {loaded !== null && <div className="st-play-load">{Math.round(loaded * 100)}%</div>}
+          {loaded !== null && (
+            <div className="st-play-load" role="progressbar" aria-label="Loading" aria-valuenow={Math.round(loaded * 100)} aria-valuemin={0} aria-valuemax={100}>
+              <span style={{ transform: `scaleX(${loaded})` }} />
+            </div>
+          )}
           {refused && <StartButton onStart={toggle} />}
         </div>
-        <div className="st-play-bar">
-          <button type="button" className="cf-icon-btn" onClick={toggle} disabled={loaded !== null} aria-label={paused ? "Play" : "Pause"} title={paused ? "Play" : "Pause"}>
-            {paused ? <Icon name="play" size={16} /> : <PauseIcon />}
-          </button>
-          <div className="st-play-track" onPointerDown={seek} role="slider" aria-label="Seek" aria-valuemin={0} aria-valuemax={Math.round(length / 1000)} aria-valuenow={Math.round(elapsed / 1000)}>
-            <span style={{ transform: `scaleX(${length ? Math.min(1, elapsed / length) : 0})` }} />
-          </div>
-          <span className="st-play-time">{clock(elapsed)}<small> / {clock(length)}</small></span>
+        <Transport length={length} elapsed={elapsed} paused={paused} muted={muted} ready={loaded === null} onToggle={toggle} onSeek={seekTo} onMute={mute}>
           {saving === undefined ? (
-            <button type="button" className="cf-icon-btn" onClick={onSave} aria-label={`Download ${group.name}`} title="Download">
+            <button type="button" className="icon-btn" onClick={onSave} aria-label={`Download ${group.name}`} data-tip="Download">
               <Icon name="download" size={16} />
             </button>
           ) : (
-            <span className="st-saved-pct" role="status">{Math.round(saving * 100)}%</span>
+            <span className="st-saved-pct" role="status" aria-label={`Rendering ${group.name}, ${Math.round(saving * 100)}%`}>{Math.round(saving * 100)}%</span>
           )}
-        </div>
+        </Transport>
       </div>
     </div>
   );
 }
-
-const StackIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="9" width="18" height="12" rx="2" />
-    <path d="M6 5.5h12M9 2h6" />
-    <path d="m10.5 12.5 4 2.5-4 2.5z" fill="currentColor" stroke="none" />
-  </svg>
-);
-
-const PauseIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <rect x="6" y="4.5" width="4" height="15" rx="1" />
-    <rect x="14" y="4.5" width="4" height="15" rx="1" />
-  </svg>
-);

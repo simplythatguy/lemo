@@ -1,14 +1,16 @@
 // /r/CODE: the team records the presentation one slide group at a time. Join → room (record, review, keep) → render.
 // The deck lives on the server with the room; /r/CODE/edit sets it up.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Icon } from "../icons";
 import type { Camera } from "./parts";
 import { Brand, CameraToggle, CopyLink, editLink, initials, ProjectMark } from "./parts";
 import { listDevices, liveVideo, openCamera, stopStream } from "./recorder";
 import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, saveSeat, useRoom, type Seat } from "./room";
 import { Room } from "./RoomView";
+import { preload } from "./stage";
 import type { Deck } from "./types";
 import "./studio.css";
+import "./join.css";
 
 /** The room's deck, as the same object until its content changes: the poll hands over a fresh copy every 2 s. */
 function useStableDeck(deck: Deck | null | undefined): Deck | null {
@@ -73,6 +75,10 @@ export function Studio({ code }: { code: string }) {
   useEffect(() => {
     if (loaded) rememberRoom(code);
   }, [code, loaded]);
+  // While the join screen shows, so the room's stage has its fonts and slides by the time it opens.
+  useEffect(() => {
+    if (deck) void preload(deck).catch(() => undefined);
+  }, [deck]);
 
   const updateSeat = useCallback((patch: Partial<Seat>) => {
     setSeat((s) => {
@@ -93,7 +99,10 @@ export function Studio({ code }: { code: string }) {
     if (status.kind === "missing") return <NoSlides code={code} />;
     return (
       <div className="st-page st-center" aria-busy={status.kind === "loading"}>
-        {status.kind === "offline" && <p className="st-quiet" role="status">No connection</p>}
+        <div className={`st-wait${status.kind === "offline" ? " is-offline" : ""}`}>
+          <span className="st-mark" aria-hidden="true" />
+          {status.kind === "offline" && <p className="st-quiet" role="status">No connection</p>}
+        </div>
       </div>
     );
   }
@@ -128,16 +137,20 @@ function NoSlides({ code }: { code: string }) {
     <div className="st-page st-center">
       <div className="st-empty">
         <Brand named />
-        <div className="st-join-actions">
-          <a className="cf-btn is-primary is-lg" href={editLink(code)}>
-            <Icon name="slides" size={16} />Add slides
-          </a>
-          <CopyLink code={code} />
-        </div>
+        <a className="btn is-primary is-lg" href={editLink(code)}>
+          <Icon name="slides" size={16} />Add slides
+        </a>
+        <CopyLink code={code} />
       </div>
     </div>
   );
 }
+
+const CAMERA_FIX: Record<string, string> = {
+  "Camera blocked": "Allow it in the address bar",
+  "No camera found": "Connect a camera",
+  "Camera unavailable": "Close other apps using it",
+};
 
 function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }: {
   code: string;
@@ -153,14 +166,25 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const preview = useRef<HTMLVideoElement>(null);
+  // The stream the preview has painted a frame of: until then the slot stays in its starting state.
+  const [painted, setPainted] = useState<MediaStream | null>(null);
   useEffect(() => setName((n) => n || initialName), [initialName]);
   useEffect(() => {
     if (preview.current) preview.current.srcObject = camera.stream;
   }, [camera.stream]);
 
-  const picture = !!camera.stream && camera.on;
+  const picture = camera.on && !!camera.stream?.getVideoTracks().length && painted === camera.stream;
+  const starting = camera.on && !picture && !camera.error;
   const camId = camera.stream?.getVideoTracks()[0]?.getSettings().deviceId;
   const micId = camera.stream?.getAudioTracks()[0]?.getSettings().deviceId;
+  const typed = name.trim().toLowerCase();
+  const here = !!typed && taken.includes(typed);
+  const notHere = deck.team.map((n) => n.trim()).filter((n) => n && !taken.includes(n.toLowerCase()));
+  const suggested = notHere.filter((n) => n.toLowerCase() !== typed && n.toLowerCase().startsWith(typed));
+  // The row keeps its last names while it folds away, so it closes smoothly instead of emptying first.
+  const [shown, setShown] = useState(suggested);
+  if (suggested.length && suggested.join("\n") !== shown.join("\n")) setShown(suggested);
+  const open = here || suggested.length > 0;
   async function go() {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -180,36 +204,43 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
           <ProjectMark title={deck.title} logo={deck.logo} size={32} />
           <span>{deck.title}</span>
         </h1>
-        <div className={`st-cam${picture ? "" : " is-empty"}`}>
-          <video ref={preview} autoPlay muted playsInline />
-          {!picture && !camera.error && name.trim() && <span className="st-tile-face" aria-hidden="true">{initials(name)}</span>}
-          {camera.error && (
-            <div className="st-cam-error">
-              <span>{camera.error}</span>
-              <button type="button" className="cf-btn is-sm" onClick={camera.retry}>Try again</button>
+        <div className={`st-cam${picture ? "" : " is-empty"}${starting ? " is-starting" : ""}`}>
+          <video ref={preview} autoPlay muted playsInline onPlaying={(e) => setPainted(e.currentTarget.srcObject as MediaStream | null)} />
+          {camera.error ? (
+            <div className="st-cam-error" role="alert">
+              <strong>{camera.error}</strong>
+              <span>{CAMERA_FIX[camera.error]}</span>
+              <button type="button" className="btn is-quiet is-sm" onClick={camera.retry}><Icon name="restart" size={16} />Try again</button>
             </div>
+          ) : !picture && !!name.trim() && (
+            <span className="st-cam-face" aria-hidden="true">{initials(name)}</span>
           )}
-          <CameraToggle camera={camera} className="st-cam-toggle" size={18} />
+          {!camera.error && <CameraToggle camera={camera} className="st-cam-toggle" size={20} />}
           <MicLevel stream={camera.stream} />
         </div>
         <div className="st-devices">
           <DevicePicker icon="camera" label="Camera" devices={camera.cams} value={camId} onChange={(id) => { onDevice({ camId: id }); camera.turn(true); }} />
           <DevicePicker icon="mic" label="Microphone" devices={camera.mics} value={micId} onChange={(id) => onDevice({ micId: id })} />
         </div>
-        <label className="st-field">
-          <span>Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" list="st-team" required />
-        </label>
-        <datalist id="st-team">
-          {deck.team.filter((n) => n.trim() && !taken.includes(n.trim().toLowerCase())).map((n) => <option key={n} value={n} />)}
-        </datalist>
-        {error && <p className="st-error" role="alert">{error}</p>}
-        <div className="st-join-actions">
-          <button type="submit" className="cf-btn is-primary is-lg" disabled={!name.trim() || busy || !camera.stream}>
-            Join
-          </button>
-          <CopyLink code={code} />
+        <div className="st-name">
+          <label className="st-field">
+            <span>Name</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" required />
+          </label>
+          <div className={`st-suggest${open ? " is-open" : ""}`}>
+            <div>
+              {here && <span className="st-suggest-note">Already in the room</span>}
+              {(open ? suggested : shown).map((n) => (
+                <button key={n} type="button" className="btn is-quiet is-sm" onClick={() => setName(n)}>{n}</button>
+              ))}
+            </div>
+          </div>
         </div>
+        {error && <p className="st-error" role="alert">{error}</p>}
+        <button type="submit" className="btn is-primary is-lg st-join-go" disabled={!name.trim() || busy || !camera.stream}>
+          {busy ? "Joining" : "Join"}
+        </button>
+        <CopyLink code={code} />
       </form>
     </div>
   );
@@ -223,8 +254,8 @@ function DevicePicker({ icon, label, devices, value, onChange }: {
   onChange(id: string): void;
 }) {
   return (
-    <label className="st-device" title={label}>
-      <Icon name={icon} size={15} />
+    <label className="st-device">
+      <Icon name={icon} size={16} />
       <select aria-label={label} value={value ?? ""} onChange={(e) => onChange(e.target.value)} disabled={!devices.length}>
         {!devices.length && <option value="">{label}</option>}
         {devices.map((d, i) => (
@@ -235,7 +266,7 @@ function DevicePicker({ icon, label, devices, value, onChange }: {
   );
 }
 
-/** A thin bar along the camera tile's bottom edge that moves with the microphone. */
+/** A short bar in the camera tile's corner that moves with the microphone. */
 function MicLevel({ stream }: { stream: MediaStream | null }) {
   const bar = useRef<HTMLDivElement>(null);
   useEffect(() => {
