@@ -1,9 +1,10 @@
 // Make the video: fetch every take this device lacks, then render intro + takes + outro in real time.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
-import { slug } from "./parts";
-import { roomApi } from "./room";
-import { exportVideo, preload } from "./stage";
+import { slug, StartButton } from "./parts";
+import { startPlayback } from "./playback";
+import { roomApi, RoomError } from "./room";
+import { createStage, exportVideo, preload } from "./stage";
 import { takeCache } from "./takeCache";
 import { clock, INTRO_MS, OUTRO_MS } from "./timing";
 import type { Deck, RoomState, TakeInfo, TakeMedia } from "./types";
@@ -76,6 +77,7 @@ const inspect = (url: string) =>
 
 export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; onClose(): void }) {
   const [state, setState] = useState<State>({ k: "working", label: "Loading", fraction: 0 });
+  const [attempt, setAttempt] = useState(0);
   const canvas = useRef<HTMLCanvasElement>(null);
   // The deck and takes as they were when the render started; later polls and edits do not restart it.
   const takes = useRef(room.takes);
@@ -85,6 +87,14 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
     const ctl = new AbortController();
     let url = "";
     const deck = started.current;
+    setState({ k: "working", label: "Loading", fraction: 0 });
+    // The first slide holds the picture while the takes download; the export paints over it from the intro on.
+    let still: ReturnType<typeof createStage> | null = canvas.current ? createStage(canvas.current, deck) : null;
+    still?.show(0, 0, { instant: true });
+    const dropStill = () => {
+      still?.destroy();
+      still = null;
+    };
     void (async () => {
       try {
         const infos = deck.groups.map((g) => takes.current[g.id]);
@@ -100,6 +110,7 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
         await preload(deck, (f) => setState({ k: "working", label: "Loading slides", fraction: f }));
         // It renders in real time: what is left of the video is how long until Download.
         const totalMs = INTRO_MS + infos.reduce((s, t) => s + t.durationMs, 0) + OUTRO_MS;
+        dropStill();
         const opts: Parameters<typeof exportVideo>[0] = {
           deck,
           takes: media,
@@ -113,59 +124,88 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
         const { ms, poster } = await inspect(url);
         if (!ctl.signal.aborted) setState({ k: "done", url, mime, ms, poster });
       } catch (e) {
-        if (!ctl.signal.aborted) setState({ k: "failed", message: e instanceof Error ? e.message : "The render failed" });
+        if (ctl.signal.aborted) return;
+        const message = e instanceof RoomError ? (e.status ? "Could not download every take" : e.message) : e instanceof Error ? e.message : "The render failed";
+        setState({ k: "failed", message });
       }
     })();
     return () => {
       ctl.abort();
+      dropStill();
       if (url) URL.revokeObjectURL(url);
     };
-  }, [room.code]);
-
-  const ext = state.k === "done" && state.mime.includes("mp4") ? "mp4" : "webm";
+  }, [room.code, attempt]);
 
   return (
     <div className="st-booth">
-      <header className="st-booth-head">
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Back to the room" data-tip="Back">
-          <Icon name="back" size={20} />
-        </button>
-        <h1 className="st-title">The video</h1>
-      </header>
       {state.k === "done" ? (
-        <>
-          <video className="st-result" src={state.url} poster={state.poster || undefined} controls playsInline />
-          <div className="st-bar">
-            <a className="btn is-primary is-lg" href={state.url} download={`${slug(deck.title)}-demo.${ext}`}>
-              <Icon name="download" size={16} />Download
-            </a>
-            <span className="st-timer">{clock(state.ms)}</span>
-          </div>
-        </>
+        <Finished deck={deck} url={state.url} mime={state.mime} ms={state.ms} poster={state.poster} onClose={onClose} />
       ) : (
         <>
-          <div className="st-stage is-export">
+          <div className={`st-stage is-export${state.k === "failed" ? " is-failed" : ""}`}>
             <canvas ref={canvas} width={1920} height={1080} />
           </div>
-          <div className="st-bar">
-            {state.k === "working" ? (
-              <>
-                <span className="st-work">{state.label}</span>
-                <span className="st-meter" role="progressbar" aria-valuenow={Math.round(state.fraction * 100)} aria-valuemin={0} aria-valuemax={100}>
-                  <span style={{ transform: `scaleX(${state.fraction})` }} />
+          {state.k === "working" ? (
+            <div className="st-work">
+              <span className="st-meter" role="progressbar" aria-label={state.label} aria-valuenow={Math.round(state.fraction * 100)} aria-valuemin={0} aria-valuemax={100}>
+                <span style={{ transform: `scaleX(${state.fraction})` }} />
+              </span>
+              <div className="st-work-row">
+                <span className="st-work-part">{state.label}</span>
+                <span className="st-work-left">
+                  {state.leftMs === undefined ? `${Math.round(state.fraction * 100)}%` : `${clock(state.leftMs)} left`}
                 </span>
-                {state.leftMs !== undefined && <span className="st-timer" aria-label={`${clock(state.leftMs)} left`}>{clock(state.leftMs)}</span>}
-                <button type="button" className="btn is-secondary" onClick={onClose}>Cancel</button>
-              </>
-            ) : (
-              <>
-                <p className="st-error" role="alert">{state.message}</p>
-                <button type="button" className="btn is-secondary" onClick={onClose}>Back</button>
-              </>
-            )}
-          </div>
+                <button type="button" className="btn is-quiet is-sm st-work-cancel" onClick={onClose}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="st-work-row">
+              <p className="st-error" role="alert">{state.message}</p>
+              <button type="button" className="btn is-quiet" onClick={onClose}>Back to the room</button>
+              <button type="button" className="btn is-primary" onClick={() => setAttempt((n) => n + 1)}>
+                <Icon name="restart" size={16} />Try again
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
+  );
+}
+
+/** The end of the flow: the finished video plays, with Download as the one thing to do next. */
+function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: string; mime: string; ms: number; poster: string; onClose(): void }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [refused, setRefused] = useState(false);
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return;
+    let alive = true;
+    void startPlayback(v).then((ok) => alive && setRefused(!ok));
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  const ext = mime.includes("mp4") ? "mp4" : "webm";
+
+  return (
+    <>
+      <div className="st-result">
+        <video ref={video} src={url} poster={poster || undefined} controls playsInline onPlaying={() => setRefused(false)} />
+        {refused && <StartButton onStart={() => void video.current?.play()} />}
+      </div>
+      <div className="st-work-row">
+        <span className="st-done">
+          <Icon name="check" size={16} />
+          <span>{clock(ms)}</span>
+          <span aria-hidden="true">·</span>
+          <span>1080p</span>
+        </span>
+        <button type="button" className="btn is-quiet" onClick={onClose}>Back to the room</button>
+        <a className="btn is-primary is-lg" href={url} download={`${slug(deck.title)}-demo.${ext}`}>
+          <Icon name="download" size={16} />Download
+        </a>
+      </div>
+    </>
   );
 }
