@@ -136,9 +136,6 @@ export function SavedVideos({ deck, room, upload }: {
                 <Icon name="x" size={16} />
               </button>
             </header>
-            <p className="st-saved-sum">
-              {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)}
-            </p>
             <ol className="st-saved-list">
               {deck.groups.map((g, gi) => {
                 const take = room.takes[g.id];
@@ -177,10 +174,15 @@ export function SavedVideos({ deck, room, upload }: {
               })}
             </ol>
             {saved.length > 0 && (
-              <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} aria-busy={all !== null}
-                aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
-                <Icon name="download" size={16} />{all === null ? "Download all" : `Rendering ${Math.round(all * 100)}%`}
-              </button>
+              <footer className="st-saved-foot">
+                <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} aria-busy={all !== null}
+                  aria-label={all === null ? `Download all ${saved.length} saved as one video` : `Rendering, ${Math.round(all * 100)}%`}>
+                  <Icon name="download" size={16} />{all === null ? "Download all" : `Rendering ${Math.round(all * 100)}%`}
+                </button>
+                <span className="st-saved-sum">
+                  {saved.length} of {deck.groups.length} recorded<span aria-hidden="true"> · </span>{clock(recordedMs)}
+                </span>
+              </footer>
             )}
           </aside>
         </>

@@ -84,18 +84,31 @@
   color: var(--ink);
 }
 
-/* Under the rows, its text on the rows' left edge. */
+/* Under the rows: Download all with its text on the rows' left edge, and the total under the lengths when it fits. */
+.st-saved-foot {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-4);
+}
+
+.st-saved-foot::after {
+  content: "";
+  flex: 0 1000 auto;
+  width: calc(var(--control-sm) * 2 + var(--space-12));
+}
+
 .st-saved-all {
-  align-self: flex-start;
-  margin: var(--space-4) 0 0 var(--space-4);
+  flex-shrink: 0;
+  margin-left: var(--space-4);
   font-variant-numeric: tabular-nums;
 }
 
 .st-saved-sum {
-  margin: 0 0 var(--space-8);
-  padding: 0 var(--space-12);
+  margin-left: auto;
+  padding-left: var(--space-12);
   font-size: var(--text-13);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--ink-3);
 }
 
@@ -143,6 +156,8 @@
 }
 
 .st-saved-name {
+  flex-shrink: 0;
+  max-width: 100%;
   overflow: hidden;
   font: var(--weight-label) var(--text-14)/1.3 var(--font);
   white-space: nowrap;
@@ -150,10 +165,13 @@
   color: var(--ink);
 }
 
+/* Narrow rows shorten the person before the group: the group is what the row is. */
 .st-saved-who {
-  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--text-13);
   white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--ink-3);
 }
 
