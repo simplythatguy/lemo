@@ -160,7 +160,6 @@ a.hm-card:active .hm-cover {
   color: var(--ink-4);
 }
 
-/* Loading: the cover and its two lines pulse in place until the room answers. */
 .hm-card.is-wait > span {
   animation: hm-wait var(--dur-pulse) var(--ease) infinite;
 }

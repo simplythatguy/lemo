@@ -84,7 +84,7 @@ function meta(room: RoomState): string {
 function Card({ row }: { row: Row }) {
   if (row.state === "loading") {
     return (
-      <div className="hm-card is-wait" aria-busy="true" aria-label="Loading">
+      <div className="hm-card is-wait" role="status" aria-label="Loading">
         <span className="hm-cover" />
         <span className="hm-name" />
         <span className="hm-line" />

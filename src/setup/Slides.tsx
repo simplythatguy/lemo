@@ -118,7 +118,6 @@ export function Slides({ draft, importing, error, onFile, onRemove, onMove, onGr
   );
 }
 
-/** Slides arrive one by one into their places; the places still to come pulse. */
 function Progress({ importing }: { importing: Importing }) {
   const total = importing.total ?? 0;
   const left = Math.max(0, total - importing.done.length);
