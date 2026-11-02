@@ -161,12 +161,14 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const preview = useRef<HTMLVideoElement>(null);
+  // The stream the preview has painted a frame of: until then the slot stays in its starting state.
+  const [painted, setPainted] = useState<MediaStream | null>(null);
   useEffect(() => setName((n) => n || initialName), [initialName]);
   useEffect(() => {
     if (preview.current) preview.current.srcObject = camera.stream;
   }, [camera.stream]);
 
-  const picture = camera.on && !!camera.stream?.getVideoTracks().length;
+  const picture = camera.on && !!camera.stream?.getVideoTracks().length && painted === camera.stream;
   const starting = camera.on && !picture && !camera.error;
   const camId = camera.stream?.getVideoTracks()[0]?.getSettings().deviceId;
   const micId = camera.stream?.getAudioTracks()[0]?.getSettings().deviceId;
@@ -194,7 +196,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
           <span>{deck.title}</span>
         </h1>
         <div className={`st-cam${picture ? "" : " is-empty"}${starting ? " is-starting" : ""}`}>
-          <video ref={preview} autoPlay muted playsInline />
+          <video ref={preview} autoPlay muted playsInline onPlaying={(e) => setPainted(e.currentTarget.srcObject as MediaStream | null)} />
           {camera.error ? (
             <div className="st-cam-error" role="alert">
               <span className="st-cam-icon"><Icon name="camera-off" size={20} /></span>
