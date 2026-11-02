@@ -24,12 +24,11 @@
   cursor: default;
 }
 
-.st-transport-track::before,
-.st-transport-fill {
-  content: "";
+/* Inset by the thumb's radius, so the thumb at either end keeps the row's gap to its neighbours. */
+.st-transport-rail {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 6px;
+  right: 6px;
   top: calc(50% - 2px);
   height: 4px;
   border-radius: var(--radius-full);
@@ -37,6 +36,9 @@
 }
 
 .st-transport-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: var(--ink);
   transform-origin: left;
 }

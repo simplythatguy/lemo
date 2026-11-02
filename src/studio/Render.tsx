@@ -180,6 +180,7 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
   const [refused, setRefused] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [paused, setPaused] = useState(true);
+  const [muted, setMuted] = useState(false);
   useEffect(() => {
     const v = video.current;
     if (!v) return;
@@ -210,6 +211,9 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
   const seek = (at: number) => {
     if (video.current) video.current.currentTime = at / 1000;
   };
+  const mute = () => {
+    if (video.current) video.current.muted = !video.current.muted;
+  };
   const fullScreen = () => {
     const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?(): void }) | null;
     if (v?.requestFullscreen) void v.requestFullscreen().catch(() => undefined);
@@ -220,11 +224,12 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
   return (
     <>
       <div className="st-stage st-result">
-        <video ref={video} src={url} poster={poster || undefined} playsInline onClick={toggle} onPlaying={() => setRefused(false)} />
+        <video ref={video} src={url} poster={poster || undefined} playsInline onClick={toggle} onPlaying={() => setRefused(false)}
+          onVolumeChange={(e) => setMuted(e.currentTarget.muted)} />
         {refused && <StartButton onStart={toggle} />}
       </div>
       <div className="st-work-row">
-        <Transport length={ms} elapsed={elapsed} paused={paused} ready onToggle={toggle} onSeek={seek}>
+        <Transport length={ms} elapsed={elapsed} paused={paused} muted={muted} ready onToggle={toggle} onSeek={seek} onMute={mute}>
           <button type="button" className="icon-btn" onClick={fullScreen} aria-label="Full screen" data-tip="Full screen">
             <Icon name="expand" size={16} />
           </button>
