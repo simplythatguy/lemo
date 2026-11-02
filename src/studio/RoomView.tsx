@@ -1,16 +1,17 @@
-// The room: cameras along the top, the timer on the left, the slide in the centre, the transcript on the right, every slide along the bottom.
+// The room: cameras along the top; the stage beside the group's script, whose dock (time, actions, slide nav) ends level
+// with the stage; every slide along the bottom. On a phone the same parts stack, with the dock pinned to the bottom.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { startRecording, type Recording } from "./recorder";
-import { Render, takeMedia } from "./Render";
+import { Render } from "./Render";
 import { roomApi } from "./room";
 import { SavedVideos } from "./SavedVideos";
 import { createStage, exportVideo, preload, stageKey, type Stage } from "./stage";
 import { cameraOf } from "./stage/camera";
 import { CameraFrame } from "./CameraFrame";
 import { Cams } from "./Cams";
-import { Filmstrip, groupColor } from "./Filmstrip";
-import { Brand, CopyLink, editLink, firstName, initials, slug, StartButton, type Camera } from "./parts";
+import { Filmstrip } from "./Filmstrip";
+import { Brand, CopyLink, editLink, firstName, initials, Menu, roomLink, slug, StartButton, type Camera } from "./parts";
 import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
 import { clock, deckMs, targetMs } from "./timing";
@@ -23,6 +24,9 @@ type Phase =
   /** `target` is the group's length when the take started: an edit elsewhere never moves a running clock. */
   | { k: "recording"; startedAt: number; slide: number; target: number }
   | { k: "review"; media: TakeMedia };
+
+/** What the dock offers, from the take's phase, whose group this is, and this device's camera. */
+type Dock = Phase["k"] | "watching" | "nobody" | "theirs" | "camera-error" | "camera-off" | "retake" | "record";
 
 const busy = (p: Phase) => p.k !== "idle";
 const complete = (t: TakeInfo | undefined) => !!t && t.received >= t.chunks;
@@ -110,55 +114,74 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
     if (id === me.id) onLeave();
   });
 
+  const allIn = missing.length === 0;
+  const makeVideo = () => {
+    if (allIn && !busy(phase)) setRendering(true);
+  };
+  const recording = phase.k === "recording" || !!follow;
+
   return (
-    <div className="st-room">
+    <div className={`st-room${rendering ? " is-rendering" : ""}${busy(phase) ? " is-busy" : ""}`}>
       <header className="st-top">
-      <div className="st-where">
-        <Brand />
-        <span className="st-deck-title" title={deck.title}>{deck.title}</span>
-        {/* Hidden, not removed, while a take runs here: leaving would end it, and the header must not shift. */}
-        <a
-          className={`btn is-quiet is-sm st-edit-slides${busy(phase) ? " is-hidden" : ""}`}
-          href={editLink(room.code)}
-          aria-hidden={busy(phase) || undefined}
-          tabIndex={busy(phase) ? -1 : undefined}
-        >
-          <Icon name="slides" size={16} />Edit slides
-        </a>
-      </div>
-      <Cams
-        people={room.people}
-        me={me}
-        camera={camera}
-        streams={peers.streams}
-        failed={Object.fromEntries(Object.entries(peers.status).map(([id, s]) => [id, s === "failed"]))}
-        camOff={peers.camOff}
-        presenter={presenter}
-        mutedAll={mutedAll}
-        locked={busy(phase)}
-        onMuteAll={setMutedAll}
-        onRemove={remove}
-        onVideo={(id, el) => (peerVideos.current[id] = el)}
-      />
-      <div className="st-corner">
-        <CopyLink code={room.code} />
-        <SavedVideos deck={deck} room={room} upload={progress} />
-        <span className="st-total" title="Planned length with intro and outro" aria-label={`Planned length ${clock(total)}`}>
-          <Icon name="clock" size={14} />{clock(total)}
-        </span>
-        {!rendering && (
-          <button
-            type="button"
-            className={`btn ${missing.length ? "is-secondary" : "is-primary"}`}
-            disabled={missing.length > 0 || busy(phase)}
-            title={missing.length ? `Missing: ${missing.map((g) => g.name).join(", ")}` : undefined}
-            onClick={() => setRendering(true)}
+        <div className="st-where">
+          <Brand />
+          <span className="st-deck-title" title={deck.title}>{deck.title}</span>
+          {/* Hidden, not removed, while a take runs here: leaving would end it, and the header must not shift. */}
+          <a
+            className={`icon-btn st-edit-slides is-wide${busy(phase) ? " is-hidden" : ""}`}
+            href={editLink(room.code)}
+            aria-hidden={busy(phase) || undefined}
+            tabIndex={busy(phase) ? -1 : undefined}
+            aria-label="Edit slides"
+            data-tip="Edit slides"
           >
-            <Icon name="film" size={16} />
-            Make the video
-          </button>
-        )}
-      </div>
+            <Icon name="slides" size={16} />
+          </a>
+        </div>
+        <Cams
+          people={room.people}
+          me={me}
+          camera={camera}
+          streams={peers.streams}
+          failed={Object.fromEntries(Object.entries(peers.status).map(([id, s]) => [id, s === "failed"]))}
+          camOff={peers.camOff}
+          presenter={presenter}
+          recording={recording}
+          mutedAll={mutedAll}
+          locked={busy(phase)}
+          onMuteAll={setMutedAll}
+          onRemove={remove}
+          onVideo={(id, el) => (peerVideos.current[id] = el)}
+        />
+        <div className="st-corner">
+          <span className="is-wide"><CopyLink code={room.code} /></span>
+          <SavedVideos deck={deck} room={room} upload={progress} />
+          {!rendering && (
+            <button
+              type="button"
+              className={`btn st-make is-wide ${allIn ? "is-primary" : "is-secondary"}`}
+              aria-disabled={!allIn || busy(phase) || undefined}
+              aria-label="Make the video"
+              data-tip={allIn ? `Planned ${clock(total)}` : `Missing ${missing.map((g) => g.name).join(", ")} · planned ${clock(total)}`}
+              onClick={makeVideo}
+            >
+              <Icon name="film" size={16} />
+              Make the video
+            </button>
+          )}
+          <More
+            code={room.code}
+            locked={busy(phase)}
+            canMake={!rendering && allIn && !busy(phase)}
+            total={total}
+            onMake={makeVideo}
+            team={room.people.length > 1}
+            mutedAll={mutedAll}
+            onMuteAll={setMutedAll}
+            camera={camera}
+            onLeave={() => remove(me.id)}
+          />
+        </div>
       </header>
 
       {rendering ? (
@@ -184,6 +207,8 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           onAssign={(personId) => assign(index, personId)}
           editing={editing}
           setEditing={setEditing}
+          allIn={allIn}
+          onMake={makeVideo}
           apply={apply}
         />
       )}
@@ -205,6 +230,89 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         onAssign={assign}
       />
     </div>
+  );
+}
+
+/** On a phone the top bar keeps the mark, the title, the cameras and Saved; everything else waits in here. */
+function More({ code, locked, canMake, total, onMake, team, mutedAll, onMuteAll, camera, onLeave }: {
+  code: string;
+  /** A take is running here: nothing that would end it or move away from it. */
+  locked: boolean;
+  canMake: boolean;
+  total: number;
+  onMake(): void;
+  team: boolean;
+  mutedAll: boolean;
+  onMuteAll(muted: boolean): void;
+  camera: Camera;
+  onLeave(): void;
+}) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [copied, setCopied] = useState(false);
+  const close = () => {
+    setAnchor(null);
+    setCopied(false);
+  };
+  const act = (fn: () => void) => () => {
+    fn();
+    close();
+  };
+  return (
+    <>
+      <button
+        type="button"
+        className="icon-btn st-more is-narrow"
+        aria-haspopup="menu"
+        aria-expanded={!!anchor}
+        aria-label="More"
+        data-tip="More"
+        onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}
+      >
+        <Icon name="more" size={20} />
+      </button>
+      {anchor && (
+        <Menu label="More" anchor={anchor} onClose={close}>
+          <button
+            type="button"
+            role="menuitem"
+            className="st-menu-item"
+            onClick={() => void navigator.clipboard?.writeText(roomLink(code)).then(() => {
+              setCopied(true);
+              window.setTimeout(close, 700);
+            })}
+          >
+            <Icon name={copied ? "check" : "link"} size={16} />
+            <span className="st-menu-name">{copied ? "Copied" : "Copy room link"}</span>
+            <span className="st-menu-value is-code">{code}</span>
+          </button>
+          {!locked && (
+            <a role="menuitem" className="st-menu-item" href={editLink(code)}>
+              <Icon name="slides" size={16} />
+              <span className="st-menu-name">Edit slides</span>
+            </a>
+          )}
+          <button type="button" role="menuitem" className="st-menu-item" disabled={!canMake} onClick={act(onMake)}>
+            <Icon name="film" size={16} />
+            <span className="st-menu-name">Make the video</span>
+            <span className="st-menu-value">{clock(total)}</span>
+          </button>
+          {team && (
+            <button type="button" role="menuitem" className="st-menu-item" onClick={act(() => onMuteAll(!mutedAll))}>
+              <Icon name={mutedAll ? "speaker" : "speaker-off"} size={16} />
+              <span className="st-menu-name">{mutedAll ? "Unmute the team" : "Mute the team"}</span>
+            </button>
+          )}
+          <button type="button" role="menuitem" className="st-menu-item" disabled={locked} onClick={act(() => camera.turn(!camera.on))}>
+            <Icon name={camera.on ? "camera-off" : "camera"} size={16} />
+            <span className="st-menu-name">{camera.on ? "Turn camera off" : "Turn camera on"}</span>
+          </button>
+          <button type="button" role="menuitem" className="st-menu-item" disabled={locked} onClick={act(onLeave)}>
+            <Icon name="leave" size={16} />
+            <span className="st-menu-name">Leave the room</span>
+          </button>
+        </Menu>
+      )}
+    </>
   );
 }
 
@@ -234,7 +342,7 @@ export function StageCanvas({ deck, onStage, children }: { deck: Deck; onStage(s
   );
 }
 
-function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, apply }: {
+function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, onMake, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -255,6 +363,9 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   /** The transcript is open for editing (kept across groups). */
   editing: boolean;
   setEditing(on: boolean): void;
+  /** Every group has a kept take: Make the video is the room's one primary. */
+  allIn: boolean;
+  onMake(): void;
   apply(next: RoomState): void;
 }) {
   const group = deck.groups[index];
@@ -284,15 +395,13 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   const presenter = follow ? room.people.find((p) => p.id === follow.presenterId) : undefined;
   const following = !!follow;
 
-  // One group on its own as a finished video: its slides, clips and the presenter, no intro or outro.
+  // The take under review on its own as a finished video: its slides, clip and the presenter, no intro or outro.
   const [saving, setSaving] = useState<number | null>(null);
   const saveVideo = async () => {
-    if (saving !== null) return;
+    if (saving !== null || phase.k !== "review") return;
+    const media = phase.media;
     setSaving(0);
     try {
-      const media = phase.k === "review" ? phase.media
-        : take && complete(take) ? await takeMedia(room.code, take, () => undefined, new AbortController().signal) : null;
-      if (!media) return;
       await preload(deck);
       const { blob, mime } = await exportVideo({ deck, takes: { [group.id]: media }, cards: false, onProgress: (f) => setSaving(f) });
       const url = URL.createObjectURL(blob);
@@ -305,7 +414,6 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
       setSaving(null);
     }
   };
-  const canSave = phase.k === "review" || (phase.k === "idle" && complete(take));
 
   const clearTimers = () => {
     timers.current.forEach((t) => window.clearTimeout(t));
@@ -553,7 +661,6 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
   const span = follow ? follow.targetMs || target : target;
   const live = phase.k === "recording" || !!follow;
   const fill = phase.k === "review" ? elapsed / phase.media.durationMs : live ? 1 - left / span : 0;
-  const ending = live && left <= 10_000;
 
   // The transcript can be edited only while nothing is being recorded here or followed from a teammate.
   const canEdit = phase.k === "idle" && !follow;
@@ -563,118 +670,158 @@ function Booth({ deck, index, room, me, camera, phase, setPhase, preview, setPre
     if (!writing) stopWriting();
   }, [writing, stopWriting]);
 
+  const dock: Dock = phase.k !== "idle" ? phase.k
+    : follow ? "watching"
+    : !assignee ? "nobody"
+    : !mine ? "theirs"
+    : camera.error ? "camera-error"
+    : !camera.on ? "camera-off"
+    : take ? "retake"
+    : "record";
+  const canRecord = !!camera.stream && camera.on && !!stage && last >= 0;
+  const recordKey = <kbd className="kbd">R</kbd>;
+  const nav = (
+    <div className="st-dock-side">
+      <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={onStage === 0} aria-label="Previous slide" data-tip="Previous slide (←)">
+        <Icon name="prev" size={20} />
+      </button>
+      <span className="st-step-n">{onStage + 1} / {last + 1}</span>
+      <button type="button" className="icon-btn" onClick={() => step(1)} disabled={onStage === last} aria-label="Next slide" data-tip="Next slide (→)">
+        <Icon name="next" size={20} />
+      </button>
+    </div>
+  );
+  const label = dock === "camera-error" ? camera.error
+    : dock === "review" && keepFailed ? "Not saved"
+    : dock === "review" ? null
+    : live ? "left"
+    : "planned";
+  const alert = dock === "camera-error" || (dock === "review" && keepFailed);
+
   return (
-    <>
-      <aside className="st-ctl" aria-label="Recording">
-        <div className={`st-clock${live ? " is-live" : ""}${ending ? " is-ending" : ""}`} aria-live="off">
-          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(left)}
-        </div>
-        <div className={`st-track${ending ? " is-ending" : ""}${phase.k === "review" ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
-          <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, fill))})` }} />
+    <main className="st-body">
+      <div className="st-desk">
+        <div className="st-stage-cell">
+          <StageCanvas deck={deck} onStage={setStage}>
+            {canEdit && stage && <CameraFrame box={camBox} onChange={moveCam} onCommit={placeCam} />}
+            {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
+            {refused && <StartButton onStart={again} />}
+          </StageCanvas>
         </div>
 
-        <div className="st-actions">
-          {phase.k === "idle" && (follow ? (
-            <span className="st-who-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Recording"}</span>
-          ) : mine ? (
-            <button type="button" className={`btn is-lg st-rec ${take ? "is-secondary" : "is-primary"}`} onClick={start} disabled={!camera.stream || !camera.on || !stage || last < 0} title={camera.on ? undefined : "Camera off"}>
-              <span className="st-dot" />{take ? "Retake" : "Record"}<kbd className="kbd">R</kbd>
+        <section className="st-script-col" aria-label={group.name}>
+          <header className="st-script-head">
+            <h1 className="st-script-title">{group.name}</h1>
+            {assignee && <span className="st-script-who">{firstName(assignee.name)}</span>}
+            {script.failed && <span className="st-error" role="alert">Not saved</span>}
+            <button
+              type="button"
+              className={`icon-btn is-sm st-script-edit${writing ? " is-on" : ""}`}
+              onClick={() => setEditing(!editing)}
+              disabled={!canEdit}
+              aria-pressed={writing}
+              aria-label={writing ? "Done editing" : "Edit transcript"}
+              data-tip={writing ? "Done" : "Edit transcript"}
+            >
+              <Icon name={writing ? "check" : "pencil"} size={16} />
             </button>
-          ) : assignee ? (
-            <span className="st-blocked"><span className="st-who-chip">{initials(assignee.name)}</span>{firstName(assignee.name)} records this</span>
+          </header>
+          {writing ? (
+            <ScriptEditor slides={Math.max(group.slides.length, script.draft.length)} draft={script.draft} at={preview} onChange={script.change} onFocus={(i) => { script.focus(true); setPreview(i); }} onBlur={() => script.focus(false)} />
           ) : (
-            <button type="button" className="btn is-secondary is-lg" onClick={() => onAssign(me.id)}>
-              <span className="st-who-chip is-none" aria-hidden="true" />Assign to me
-            </button>
-          ))}
-          {phase.k === "idle" && !follow && canSave && (
-            <button type="button" className="btn is-secondary is-lg" onClick={() => void saveVideo()} disabled={saving !== null}>
-              <Icon name="download" size={16} />{saving === null ? "Download video" : `Rendering ${Math.round(saving * 100)}%`}
-            </button>
+            <Transcript
+              script={script.draft}
+              current={current}
+              onPick={phase.k === "idle" && !follow ? setPreview : undefined}
+              picked={phase.k === "idle" && !follow ? preview : null}
+            />
           )}
-          {phase.k === "review" && saving !== null && <span className="st-step-n">Rendering {Math.round(saving * 100)}%</span>}
-          {phase.k === "review" && keepFailed && <p className="st-error" role="alert">Not saved</p>}
-          {phase.k === "countdown" && (
-            <button type="button" className="btn is-secondary is-lg" onClick={cancel}>Cancel<kbd className="kbd">Esc</kbd></button>
-          )}
-          {phase.k === "recording" && (
-            <button type="button" className="btn is-secondary is-lg st-stopbtn" onClick={() => void finish(false)} aria-label="Stop">
-              <span className="st-square" />Stop<kbd className="kbd">Enter</kbd>
-            </button>
-          )}
-          {phase.k === "review" && (
-            <>
-              <button type="button" className="btn is-primary is-lg" onClick={() => void keep()}>
-                <Icon name="check" size={16} />Keep
-              </button>
-              <button type="button" className="btn is-secondary is-lg" onClick={start}>
-                <Icon name="restart" size={16} />Retake
-              </button>
-              <span className="st-review-more">
-                <button type="button" className="icon-btn" onClick={() => void saveVideo()} disabled={saving !== null} aria-label="Download this group's video" data-tip="Download this group's video">
-                  <Icon name="download" size={16} />
-                </button>
+
+          <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
+            <div className="st-dock-time">
+              <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
+                {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(left)}
+              </span>
+              {label && <span className={alert ? "st-error" : "st-clock-label"} role={alert ? "alert" : undefined}>{label}</span>}
+            </div>
+            {dock === "review" ? (
+              <div className="st-dock-side">
                 <button type="button" className="icon-btn" onClick={again} aria-label="Play again" data-tip="Play again">
                   <Icon name="play" size={16} />
                 </button>
+                {saving === null ? (
+                  <button type="button" className="icon-btn" onClick={() => void saveVideo()} aria-label="Download this group's video" data-tip="Download this group's video">
+                    <Icon name="download" size={16} />
+                  </button>
+                ) : (
+                  <span className="st-step-n" role="status" aria-label={`Rendering ${Math.round(saving * 100)}%`}>{Math.round(saving * 100)}%</span>
+                )}
                 <button type="button" className="icon-btn" onClick={() => setPhase({ k: "idle" })} aria-label="Discard take" data-tip="Discard">
                   <Icon name="x" size={16} />
                 </button>
-              </span>
-            </>
-          )}
-        </div>
-
-        <div className="st-steps">
-          <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={phase.k === "countdown" || phase.k === "review" || following || onStage === 0} aria-label="Previous slide" data-tip="Previous slide (←)">
-            <Icon name="prev" size={20} />
-          </button>
-          <span className="st-step-n">{onStage + 1} / {last + 1}</span>
-          <button type="button" className="icon-btn" onClick={() => step(1)} disabled={phase.k === "countdown" || phase.k === "review" || following || onStage === last} aria-label="Next slide" data-tip="Next slide (→)">
-            <Icon name="next" size={20} />
-          </button>
-        </div>
-      </aside>
-
-      <div className="st-stage-cell">
-        <StageCanvas deck={deck} onStage={setStage}>
-          {canEdit && stage && <CameraFrame box={camBox} onChange={moveCam} onCommit={placeCam} />}
-          {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
-          {refused && <StartButton onStart={again} />}
-        </StageCanvas>
+              </div>
+            ) : dock !== "countdown" && dock !== "watching" && nav}
+            <div className={`st-track${phase.k === "review" ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
+              <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, fill))})` }} />
+            </div>
+            <div className="st-dock-acts">
+              {dock === "record" && (
+                <button type="button" className="btn is-primary is-lg st-rec" onClick={start} disabled={!canRecord}>
+                  <span className="st-dot" />Record{recordKey}
+                </button>
+              )}
+              {dock === "retake" && (
+                <>
+                  {allIn && (
+                    <button type="button" className="btn is-primary is-lg is-narrow st-dock-make" onClick={onMake}>
+                      <Icon name="film" size={16} />Make the video
+                    </button>
+                  )}
+                  <button type="button" className={`btn is-lg ${allIn ? "is-quiet" : "is-secondary"}`} onClick={start} disabled={!canRecord}>
+                    <Icon name="restart" size={16} />Retake{recordKey}
+                  </button>
+                </>
+              )}
+              {dock === "camera-off" && (
+                <button type="button" className="btn is-primary is-lg" onClick={() => camera.turn(true)}>
+                  <Icon name="camera" size={16} />Turn camera on
+                </button>
+              )}
+              {dock === "camera-error" && (
+                <button type="button" className="btn is-secondary is-lg" onClick={camera.retry}>
+                  <Icon name="restart" size={16} />Try again
+                </button>
+              )}
+              {dock === "theirs" && <span className="st-dock-note">{firstName(assignee!.name)} records this</span>}
+              {dock === "nobody" && (
+                <button type="button" className="btn is-secondary is-lg" onClick={() => onAssign(me.id)}>Assign to me</button>
+              )}
+              {dock === "watching" && (
+                <span className="st-dock-note is-live"><span className="st-live" aria-hidden="true" />{presenter ? firstName(presenter.name) : "Someone"} is recording</span>
+              )}
+              {dock === "countdown" && (
+                <button type="button" className="btn is-secondary is-lg" onClick={cancel}>Cancel<kbd className="kbd">Esc</kbd></button>
+              )}
+              {dock === "recording" && (
+                <button type="button" className="btn is-secondary is-lg st-stopbtn" onClick={() => void finish(false)} aria-label="Stop">
+                  <span className="st-square" />Stop<kbd className="kbd">Enter</kbd>
+                </button>
+              )}
+              {dock === "review" && (
+                <>
+                  <button type="button" className="btn is-primary is-lg" onClick={() => void keep()}>
+                    <Icon name="check" size={16} />Keep
+                  </button>
+                  <button type="button" className="btn is-quiet is-lg" onClick={start}>
+                    <Icon name="restart" size={16} />Retake
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
-
-      <section className="st-script-col" aria-label={group.name}>
-        <header className="st-script-head">
-          <h1 className="st-script-title">
-            <span className="st-script-dot" style={{ background: groupColor(index) }} aria-hidden="true" />
-            <span>{group.name}</span>
-          </h1>
-          {script.failed && <span className="st-error" role="alert">Not saved</span>}
-          <button
-            type="button"
-            className={`icon-btn is-sm st-script-edit${writing ? " is-on" : ""}`}
-            onClick={() => setEditing(!editing)}
-            disabled={!canEdit}
-            aria-pressed={writing}
-            aria-label={writing ? "Done editing" : "Edit transcript"}
-            data-tip={writing ? "Done" : "Edit transcript"}
-          >
-            <Icon name={writing ? "check" : "pencil"} size={16} />
-          </button>
-        </header>
-        {writing ? (
-          <ScriptEditor slides={Math.max(group.slides.length, script.draft.length)} draft={script.draft} at={preview} onChange={script.change} onFocus={(i) => { script.focus(true); setPreview(i); }} onBlur={() => script.focus(false)} />
-        ) : (
-          <Transcript
-            script={script.draft}
-            current={current}
-            onPick={phase.k === "idle" && !follow ? setPreview : undefined}
-            picked={phase.k === "idle" && !follow ? preview : null}
-          />
-        )}
-      </section>
-    </>
+    </main>
   );
 }
 
@@ -695,7 +842,6 @@ function Transcript({ script, current, picked, onPick }: { script: string[]; cur
       {items.map(({ text, i }) => (
         <li key={i} ref={(el) => { refs.current[i] = el; }} className={`st-seg${i === at ? " is-now" : i < at ? " is-past" : ""}`}>
           <button type="button" className="st-seg-hit" onClick={onPick ? () => onPick(i) : undefined} disabled={!onPick} aria-current={i === at || undefined}>
-            <span className="st-seg-n" aria-label={`Slide ${i + 1}`}>{i + 1}</span>
             <span className="st-seg-text">
               {text}
               {i < last ? (
