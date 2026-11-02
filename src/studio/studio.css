@@ -784,6 +784,18 @@
   color: var(--ink-4);
 }
 
+/* A kept take: its length, then a green check and "recorded". */
+.st-clock-label.is-done {
+  color: var(--ink-3);
+}
+
+.st-clock-label.is-done svg {
+  margin-right: var(--space-4);
+  vertical-align: -2px;
+  color: var(--green);
+  animation: st-tick var(--dur-sheet) var(--ease);
+}
+
 .st-dock-time .st-error {
   min-width: 0;
   font-size: var(--text-13);
@@ -849,6 +861,17 @@
 
 .st-dock-acts > .btn.is-quiet:first-child {
   margin-left: calc(var(--space-12) * -1);
+}
+
+/* The next group to record, after a take is kept: its name gives way before the arrow does. */
+.st-dock-next {
+  min-width: 0;
+}
+
+.st-dock-next span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .st-dock-note {

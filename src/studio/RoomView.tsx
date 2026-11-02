@@ -82,7 +82,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const [editing, setEditing] = useState(false);
   // Groups whose take this device just kept, by the room's take id before it: the group reads Saving… until the
   // room shows the new take (the upload can finish before the next poll brings it).
-  const [kept, setKept] = useState<Record<string, { before: string | null; at: number }>>({});
+  const [kept, setKept] = useState<Record<string, { before: string | null; at: number; ms: number }>>({});
   const progress = useUploads();
   const peers = usePeers({ room: room.code, me: me.id, people: room.people, stream: camera.stream });
   const peerVideos = useRef<Record<string, HTMLVideoElement | null>>({});
@@ -129,9 +129,9 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
     const landed = Object.keys(kept).filter((g) => (room.takes[g]?.id ?? null) !== kept[g].before);
     if (landed.length) setKept((k) => Object.fromEntries(Object.entries(k).filter(([g]) => !landed.includes(g))));
   }, [room.takes, kept]);
-  const markKept = (groupId: string) => {
+  const markKept = (groupId: string, ms: number) => {
     const at = Date.now();
-    setKept((k) => ({ ...k, [groupId]: { before: room.takes[groupId]?.id ?? null, at } }));
+    setKept((k) => ({ ...k, [groupId]: { before: room.takes[groupId]?.id ?? null, at, ms } }));
     // An upload the room refused never lands; the group stops saying Saving… rather than say it forever.
     window.setTimeout(() => setKept((k) => (k[groupId]?.at === at ? Object.fromEntries(Object.entries(k).filter(([g]) => g !== groupId)) : k)), 15_000);
   };
@@ -147,12 +147,27 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   });
 
   const allIn = missing.length === 0 && saving.size === 0;
-  const toRecord = deck.groups.filter((g) => !room.takes[g.id] && !saving.has(g.id) && progress[g.id] === undefined).length;
+  const unrecorded = (g: Group) => !room.takes[g.id] && !saving.has(g.id) && progress[g.id] === undefined;
+  const toRecord = deck.groups.filter(unrecorded).length;
   /** Why Make the video cannot run yet, on the button itself. */
   const blocked = toRecord ? `${toRecord} to record` : allIn ? null : "Saving…";
-  const makeLeads = allIn && !rendering && !leadsTheRoom(dock, allIn) && !busy(phase);
-  /** On a phone Make the video, once it leads, is the dock's button rather than a line in More. */
-  const makeInDock = makeLeads && dock !== "watching";
+  /** Nothing is left to record: Make the video is next, and leads the room once the last take is saved. */
+  const makeNext = toRecord === 0 && !rendering && !leadsTheRoom(dock, allIn) && !busy(phase);
+  const makeLeads = makeNext && allIn;
+  /** On a phone Make the video is the dock's button rather than a line in More. It holds that place, faded, while the
+      last take saves, so it never lands under a finger that meant something else. */
+  const makeInDock = makeNext && dock !== "watching";
+  /** After a take is kept: the next group this person can record (theirs or nobody's), in deck order from here. */
+  const next = dock === "retake"
+    ? [...deck.groups.slice(index + 1), ...deck.groups.slice(0, index)].find((g) => unrecorded(g) && [null, me.id].includes(room.assignments[g.id] ?? null)) ?? null
+    : null;
+  const pick = (gi: number, si: number) => {
+    setRendering(false);
+    setSelected(deck.groups[gi].id);
+    setPreview(si);
+  };
+  /** The length of the group's take on stage, from this device's Keep until the room has it. */
+  const recordedMs = kept[boothGroup]?.ms ?? room.takes[boothGroup]?.durationMs ?? null;
   const makeVideo = () => {
     if (allIn && !busy(phase)) setRendering(true);
   };
@@ -263,6 +278,9 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           allIn={allIn}
           makeLeads={makeLeads}
           makeInDock={makeInDock}
+          next={next}
+          onNext={() => next && pick(deck.groups.indexOf(next), 0)}
+          recordedMs={recordedMs}
           onMake={makeVideo}
           dockSlot={stacked ? dockSlot : null}
           onKept={markKept}
@@ -280,11 +298,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         assignLocked={busy(phase)}
         upload={progress}
         saving={saving}
-        onPick={(gi, si) => {
-          setRendering(false);
-          setSelected(deck.groups[gi].id);
-          setPreview(si);
-        }}
+        onPick={pick}
         onAssign={assign}
       />
       {/* Stacked, the dock sits under the strip, so it follows the strip in the page too (tab order, screen readers). */}
@@ -423,7 +437,7 @@ function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children
   );
 }
 
-function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, next, onNext, recordedMs, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -453,11 +467,16 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   makeLeads: boolean;
   /** ...and on a phone it sits first in the dock. */
   makeInDock: boolean;
+  /** The group to record after this one, once this one is kept. */
+  next: Group | null;
+  onNext(): void;
+  /** This group's take, when it has one. */
+  recordedMs: number | null;
   onMake(): void;
   /** Where the dock goes when it does not sit under the script (stacked: after the strip). */
   dockSlot: HTMLElement | null;
   /** My take of this group is safe on this device and on its way to the room. */
-  onKept(groupId: string): void;
+  onKept(groupId: string, ms: number): void;
   apply(next: RoomState): void;
 }) {
   const group = deck.groups[index];
@@ -688,7 +707,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     const same = () => phaseRef.current.k === "review" && phaseRef.current.media === media;
     try {
       await uploads.keep(room.code, group.id, me.id, media);
-      onKept(group.id);
+      onKept(group.id, media.durationMs);
       if (same()) {
         setKeepFailed(false);
         setPhase({ k: "idle" });
@@ -769,6 +788,14 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   }, [writing, stopWriting]);
 
   const canRecord = !!camera.stream && camera.on && !!stage && last >= 0;
+  // A button that has just taken another's place (Keep → Next, Retake or Make the video) ignores the second tap of a
+  // double tap meant for the one before.
+  const lead = dock === "retake" ? (next ? `next ${next.id}` : allIn ? "make" : "saving") : dock;
+  const leadAt = useRef(0);
+  useEffect(() => {
+    leadAt.current = performance.now();
+  }, [lead]);
+  const settled = () => performance.now() - leadAt.current > SETTLE_MS;
   const recordKey = <kbd className="kbd">R</kbd>;
   const nav = (
     <div className="st-dock-side">
@@ -781,10 +808,13 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       </button>
     </div>
   );
+  // A recorded group shows its take's length; one still to record, its planned length.
+  const done = phase.k === "idle" && !follow && recordedMs !== null;
   const label = dock === "camera-error" ? camera.error
     : dock === "review" && keepFailed ? "Not saved"
     : dock === "review" ? null
     : live ? "left"
+    : done ? "recorded"
     : "planned";
   const alert = dock === "camera-error" || (dock === "review" && keepFailed);
 
@@ -792,9 +822,13 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
       <div className="st-dock-time">
         <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
-          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(left)}
+          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(done ? recordedMs : left)}
         </span>
-        {label && <span className={alert ? "st-error" : "st-clock-label"} role={alert ? "alert" : undefined}>{label}</span>}
+        {label && (
+          <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : ""}`} role={alert ? "alert" : undefined}>
+            {done && <Icon name="check" size={14} />}{label}
+          </span>
+        )}
       </div>
       {dock === "review" ? (
         <div className="st-dock-side">
@@ -818,8 +852,19 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       </div>
       <div className="st-dock-acts">
         {makeInDock && (
-          <button type="button" className="btn is-primary is-lg is-narrow st-dock-make" onClick={onMake}>
+          <button
+            type="button"
+            className="btn is-primary is-lg is-narrow st-dock-make"
+            aria-disabled={!allIn || undefined}
+            aria-label={allIn ? undefined : "Make the video, Saving…"}
+            onClick={() => settled() && onMake()}
+          >
             <Icon name="film" size={16} />Make the video
+          </button>
+        )}
+        {next && (
+          <button type="button" className="btn is-primary is-lg st-dock-next" onClick={() => settled() && onNext()}>
+            <span>Next: {next.name}</span><Icon name="arrow" size={16} />
           </button>
         )}
         {dock === "record" && (
@@ -828,7 +873,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
           </button>
         )}
         {dock === "retake" && (
-          <button type="button" className="btn is-quiet is-lg" onClick={start} disabled={!canRecord}>
+          <button type="button" className="btn is-quiet is-lg" onClick={() => settled() && start()} disabled={!canRecord}>
             <Icon name="restart" size={16} />Retake{recordKey}
           </button>
         )}
@@ -962,6 +1007,9 @@ async function freshDeck(code: string): Promise<Deck> {
   if (!deck) throw new Error("The room has no slides");
   return deck;
 }
+
+/** How long a newly arrived primary ignores taps. */
+const SETTLE_MS = 500;
 
 /** Debounce for transcript saves: one PUT per pause in typing. */
 const SAVE_MS = 600;
