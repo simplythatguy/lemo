@@ -88,16 +88,9 @@
   transition: transform var(--dur-progress) linear;
 }
 
-/* Done: the finished video is the strongest thing on screen. */
+/* Done: the finished video, in the same frame the render painted in, is the strongest thing on screen. */
 .st-result {
-  position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  background: var(--ink);
-  outline: 1px solid var(--edge);
-  outline-offset: -1px;
   animation: st-result-in var(--dur-sheet) var(--ease);
 }
 
@@ -105,6 +98,7 @@
   display: block;
   width: 100%;
   height: 100%;
+  cursor: pointer;
 }
 
 @keyframes st-result-in {
@@ -114,28 +108,24 @@
   }
 }
 
-.st-done {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-8);
-  font: var(--weight-label) var(--text-15)/1 var(--font);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--ink);
+/* The playback controls stand apart from what to do next. */
+@media (min-width: 561px) {
+  .st-work-row > .st-transport {
+    margin-right: var(--space-16);
+  }
 }
 
-.st-done svg {
-  color: var(--green);
+/* With the room's own side margins once the room stacks for a phone. */
+@media (max-width: 719px), (max-width: 1099px) and (orientation: portrait) {
+  .st-render {
+    padding-inline: var(--space-16);
+  }
 }
 
-.st-done span:not(:nth-child(2)) {
-  color: var(--ink-3);
-}
-
-/* On a phone the one primary takes the full width under the row. */
+/* On a phone the row's text or controls take the first line; the actions share the second, the primary filling it. */
 @media (max-width: 560px) {
   .st-render {
-    padding: var(--space-16) 0;
+    padding-block: var(--space-16);
   }
   .st-booth {
     width: min(100%, calc((100cqh - 152px) * 16 / 9));
@@ -144,11 +134,13 @@
     flex-wrap: wrap;
     row-gap: var(--space-12);
   }
-  .st-work-row > .btn.is-primary {
-    order: 9;
+  .st-work-row:has(> .btn.is-primary) > :first-child {
     flex-basis: 100%;
   }
+  .st-work-row > .btn.is-primary {
+    flex: 1;
+  }
   .st-work-row:has(> .btn.is-primary) > .btn.is-quiet {
-    margin-right: calc(var(--space-12) * -1);
+    margin-left: calc(var(--space-12) * -1);
   }
 }

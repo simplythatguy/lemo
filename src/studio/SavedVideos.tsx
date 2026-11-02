@@ -7,6 +7,7 @@ import { startPlayback } from "./playback";
 import { takeMedia } from "./Render";
 import { createStage, exportVideo, preload, stageKey } from "./stage";
 import { clock, targetMs } from "./timing";
+import { Transport } from "./Transport";
 import type { Cue, Deck, RoomState, TakeInfo, TakeMedia } from "./types";
 import "./savedVideos.css";
 
@@ -305,15 +306,8 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
 
   const seekTo = (ms: number) => {
     const v = video.current;
-    if (!v) return;
-    v.currentTime = Math.min(length, Math.max(0, ms)) / 1000;
+    if (v) v.currentTime = ms / 1000;
   };
-  const seek = (e: React.PointerEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    seekTo(((e.clientX - r.left) / r.width) * length);
-  };
-  const ready = loaded === null;
-  const at = length ? Math.min(1, elapsed / length) : 0;
 
   return (
     <div className="st-play" role="dialog" aria-modal="true" aria-label={group.name} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -333,36 +327,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
           )}
           {refused && <StartButton onStart={toggle} />}
         </div>
-        <div className="st-play-bar">
-          <button type="button" className="icon-btn" onClick={toggle} disabled={!ready} aria-label={paused ? "Play" : "Pause"} data-tip={paused ? "Play" : "Pause"}>
-            <Icon name={paused ? "play" : "pause"} size={16} />
-          </button>
-          <div
-            className="st-play-track"
-            role="slider"
-            tabIndex={ready ? 0 : -1}
-            aria-label="Seek"
-            aria-disabled={!ready}
-            aria-valuemin={0}
-            aria-valuemax={Math.round(length / 1000)}
-            aria-valuenow={Math.round(elapsed / 1000)}
-            aria-valuetext={`${clock(elapsed)} of ${clock(length)}`}
-            onPointerDown={(e) => {
-              e.currentTarget.setPointerCapture(e.pointerId);
-              seek(e);
-            }}
-            onPointerMove={(e) => e.currentTarget.hasPointerCapture(e.pointerId) && seek(e)}
-            onKeyDown={(e) => {
-              const step = e.key === "ArrowRight" ? 5000 : e.key === "ArrowLeft" ? -5000 : 0;
-              if (!step) return;
-              e.preventDefault();
-              seekTo(elapsed + step);
-            }}
-          >
-            <span className="st-play-fill" style={{ transform: `scaleX(${at})` }} />
-            <span className="st-play-thumb" style={{ left: `${at * 100}%` }} />
-          </div>
-          <span className="st-play-time">{clock(elapsed)}<span> / {clock(length)}</span></span>
+        <Transport length={length} elapsed={elapsed} paused={paused} ready={loaded === null} onToggle={toggle} onSeek={seekTo}>
           {saving === undefined ? (
             <button type="button" className="icon-btn" onClick={onSave} aria-label={`Download ${group.name}`} data-tip="Download">
               <Icon name="download" size={16} />
@@ -370,7 +335,7 @@ function Player({ deck, room, index, take, saving, onSave, onClose }: {
           ) : (
             <span className="st-saved-pct" role="status" aria-label={`Rendering ${group.name}, ${Math.round(saving * 100)}%`}>{Math.round(saving * 100)}%</span>
           )}
-        </div>
+        </Transport>
       </div>
     </div>
   );

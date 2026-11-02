@@ -6,6 +6,7 @@ import { startPlayback } from "./playback";
 import { roomApi, RoomError } from "./room";
 import { createStage, exportVideo, preload } from "./stage";
 import { takeCache } from "./takeCache";
+import { Transport } from "./Transport";
 import { clock, INTRO_MS, OUTRO_MS } from "./timing";
 import type { Deck, RoomState, TakeInfo, TakeMedia } from "./types";
 import "./render.css";
@@ -177,30 +178,57 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
 function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: string; mime: string; ms: number; poster: string; onClose(): void }) {
   const video = useRef<HTMLVideoElement>(null);
   const [refused, setRefused] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [paused, setPaused] = useState(true);
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     let alive = true;
+    let raf = 0;
+    const tick = () => {
+      setElapsed(Math.min(ms, v.currentTime * 1000));
+      setPaused(v.paused);
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    // In full screen the browser's own controls take over: the row under the video is not there.
+    const full = () => (v.controls = document.fullscreenElement === v);
+    v.addEventListener("fullscreenchange", full);
     void startPlayback(v).then((ok) => alive && setRefused(!ok));
     return () => {
       alive = false;
+      cancelAnimationFrame(raf);
+      v.removeEventListener("fullscreenchange", full);
     };
-  }, [url]);
+  }, [url, ms]);
+  const toggle = () => {
+    const v = video.current;
+    if (!v) return;
+    if (v.paused) void v.play();
+    else v.pause();
+  };
+  const seek = (at: number) => {
+    if (video.current) video.current.currentTime = at / 1000;
+  };
+  const fullScreen = () => {
+    const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?(): void }) | null;
+    if (v?.requestFullscreen) void v.requestFullscreen().catch(() => undefined);
+    else v?.webkitEnterFullscreen?.();
+  };
   const ext = mime.includes("mp4") ? "mp4" : "webm";
 
   return (
     <>
-      <div className="st-result">
-        <video ref={video} src={url} poster={poster || undefined} controls playsInline onPlaying={() => setRefused(false)} />
-        {refused && <StartButton onStart={() => void video.current?.play()} />}
+      <div className="st-stage st-result">
+        <video ref={video} src={url} poster={poster || undefined} playsInline onClick={toggle} onPlaying={() => setRefused(false)} />
+        {refused && <StartButton onStart={toggle} />}
       </div>
       <div className="st-work-row">
-        <span className="st-done">
-          <Icon name="check" size={16} />
-          <span>{clock(ms)}</span>
-          <span aria-hidden="true">·</span>
-          <span>1080p</span>
-        </span>
+        <Transport length={ms} elapsed={elapsed} paused={paused} ready onToggle={toggle} onSeek={seek}>
+          <button type="button" className="icon-btn" onClick={fullScreen} aria-label="Full screen" data-tip="Full screen">
+            <Icon name="expand" size={16} />
+          </button>
+        </Transport>
         <button type="button" className="btn is-quiet" onClick={onClose}>Back to the room</button>
         <a className="btn is-primary is-lg" href={url} download={`${slug(deck.title)}-demo.${ext}`}>
           <Icon name="download" size={16} />Download
