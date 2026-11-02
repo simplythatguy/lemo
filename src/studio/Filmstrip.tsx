@@ -7,8 +7,6 @@ import { renderThumb } from "./stage";
 import { clock } from "./timing";
 import type { Deck, Person, RoomState } from "./types";
 
-/** One muted colour per group: it only tells the groups apart. Neighbours never share a family. */
-
 export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, upload, onPick, onAssign }: {
   deck: Deck;
   room: RoomState;
