@@ -108,6 +108,16 @@
   }
 }
 
+/* The play glyph on the picture's left edge, where the text of the other rows starts. */
+.st-work-row > .st-transport > .icon-btn:first-child {
+  margin-left: calc((16px - var(--control)) / 2);
+}
+
+/* The picture holds still when the render finishes or fails: the row under it also takes the meter's place. */
+.st-booth > .st-work-row {
+  margin-bottom: calc(4px + var(--space-12));
+}
+
 /* The playback controls stand apart from what to do next. */
 @media (min-width: 561px) {
   .st-work-row > .st-transport {
@@ -129,6 +139,16 @@
   }
   .st-booth {
     width: min(100%, calc((100cqh - 152px) * 16 / 9));
+  }
+  .st-booth > .st-work-row {
+    margin-bottom: 0;
+  }
+  .st-booth > :last-child {
+    min-height: calc(var(--control) + var(--space-12) + var(--control-lg));
+    align-content: flex-start;
+  }
+  .st-work-row > .st-transport > .icon-btn:last-child {
+    margin-right: calc((16px - var(--control)) / 2);
   }
   .st-work-row:has(> .btn.is-primary) {
     flex-wrap: wrap;
