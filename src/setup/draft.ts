@@ -34,6 +34,8 @@ export interface Draft {
   file?: string;
   /** Where the room put the camera tile; setup leaves it alone. */
   camera?: Rect;
+  /** The video's length limit, as on the deck. */
+  limitMs?: number | null;
 }
 
 export const emptyDraft = (): Draft => ({ title: "", team: [""], logo: null, slides: {}, groups: [], script: {} });
@@ -111,6 +113,23 @@ export function ungroupSlides(d: Draft, ids: Iterable<string>): Draft {
   return { ...d, groups };
 }
 
+/** Splits the group holding `id` so that `id` and the slides after it make a group of their own. The first part keeps
+ *  the group's id; a group's own recording length no longer fits either part. */
+export function splitBefore(d: Draft, id: string): Draft {
+  const groups = d.groups.flatMap((g) => {
+    const k = g.slides.indexOf(id);
+    return k > 0 ? [{ id: g.id, slides: g.slides.slice(0, k) }, { id: newGroupId(), slides: g.slides.slice(k) }] : [g];
+  });
+  return groups.length === d.groups.length ? d : { ...d, groups };
+}
+
+/** Joins group `group` with the group after it, keeping the id `groupSlides` would. */
+export function joinNext(d: Draft, group: string, taken: ReadonlySet<string> = new Set()): Draft {
+  const i = d.groups.findIndex((g) => g.id === group);
+  const [a, b] = [d.groups[i], d.groups[i + 1]];
+  return i >= 0 && b ? groupSlides(d, [...a.slides, ...b.slides], taken) : d;
+}
+
 export function removeSlide(d: Draft, id: string): Draft {
   const groups = d.groups
     .map((g) => (g.slides.includes(id) ? { id: g.id, slides: g.slides.filter((s) => s !== id) } : g))
@@ -173,6 +192,27 @@ export function renewChangedGroups(d: Draft, before: Draft): Draft {
   return changed ? { ...d, groups } : d;
 }
 
+// Splitting and joining groups from the room, with the rules above: a group keeps its id, and so its take and its
+// speaker, only while the slides its take was recorded on still open it.
+export type Regroup =
+  /** Slide `slide` and the ones after it in its group become a group of their own. */
+  | { kind: "split"; slide: string }
+  /** Group `group` and the group after it become one. */
+  | { kind: "join"; group: string };
+
+/** `deck` after `op`; the same deck when there is nothing to do. `taken`: groups with a take, whose ids a join keeps first. */
+export function regroup(deck: Deck, op: Regroup, taken: ReadonlySet<string>): Deck {
+  const before = fromDeck(deck);
+  const after = op.kind === "split" ? splitBefore(before, op.slide) : joinNext(before, op.group, taken);
+  if (after === before) return deck;
+  // Another browser may have kept a recording that has not reached the room yet.
+  return toDeck(renewChangedGroups(after, before));
+}
+
+/** Groups of `before` with a take that `after` no longer has: their takes are lost. */
+export const lostTakes = (before: Deck, after: Deck, taken: ReadonlySet<string>) =>
+  before.groups.filter((g) => taken.has(g.id) && !after.groups.some((n) => n.id === g.id));
+
 /** Removes team member `i`. Every group's speaker is 0 (the room assigns people), so nothing else moves. */
 export function removeMember(d: Draft, i: number): Draft {
   if (d.team.length <= 1) return d;
@@ -202,6 +242,7 @@ export function toDeck(d: Draft, src: (s: DraftSlide) => string = (s) => s.src, 
   const deck: Deck = { title: d.title.trim(), team, groups };
   if (logo) deck.logo = logo;
   if (d.camera) deck.camera = d.camera;
+  if (d.limitMs !== undefined) deck.limitMs = d.limitMs;
   return deck;
 }
 
@@ -235,6 +276,7 @@ export function fromDeck(deck: Deck): Draft {
     script,
   };
   if (deck.camera) draft.camera = deck.camera;
+  if (deck.limitMs !== undefined) draft.limitMs = deck.limitMs;
   return draft;
 }
 

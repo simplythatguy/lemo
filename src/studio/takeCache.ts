@@ -13,6 +13,9 @@ export interface CachedTake {
   mime: string;
   cues: Cue[];
   durationMs: number;
+  /** Missing on older cache entries and on downloaded server takes. Never guessed when resuming an upload. */
+  slides?: string[];
+  name?: string;
   /** Chunks the server has acknowledged from this device. Equals the chunk count once uploaded. */
   sent: number;
   createdAt: number;

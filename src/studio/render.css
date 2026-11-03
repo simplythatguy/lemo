@@ -16,7 +16,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-  width: min(1100px, 100%, calc((100cqh - 96px) * 16 / 9));
+  /* Under the picture every state takes the same height (the finished one's two rows), so the picture holds still. */
+  width: min(1100px, 100%, calc((100cqh - var(--space-16) - var(--control) - var(--space-8) - var(--control-lg)) * 16 / 9));
   min-width: 0;
 }
 
@@ -33,6 +34,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
+  min-height: calc(var(--control) + var(--space-8) + var(--control-lg));
 }
 
 /* Every row under the picture: what it says on the left, its actions on the right, one centre line. */
@@ -114,21 +116,35 @@
   }
 }
 
-/* The play glyph on the picture's left edge, where the text of the other rows starts. */
-.st-work-row > .st-transport > .icon-btn:first-child {
+/* Done or failed: the video's controls (or why it failed) right under it, then what to do next, centred as the end of the flow. */
+.st-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-height: calc(var(--control) + var(--space-8) + var(--control-lg));
+}
+
+/* The play and full screen glyphs sit on the picture's edges. */
+.st-done > .st-transport > .icon-btn:first-child {
   margin-left: calc((var(--space-16) - var(--control)) / 2);
 }
 
-/* The picture holds still when the render finishes or fails: the row under it also fills the meter and its gap. */
-.st-booth > .st-work-row {
-  margin-bottom: var(--space-16);
+.st-done > .st-transport > .icon-btn:last-child {
+  margin-right: calc((var(--space-16) - var(--control)) / 2);
 }
 
-/* The playback controls stand apart from what to do next. */
-@media (min-width: 561px) {
-  .st-work-row > .st-transport {
-    margin-right: var(--space-16);
-  }
+.st-done-why {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control);
+}
+
+.st-done-next {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-16);
 }
 
 /* With the room's own side margins once the room stacks for a phone. */
@@ -143,30 +159,16 @@
   .st-render {
     padding-block: var(--space-16);
   }
+  /* Download fills the width with Back under it, in reach of a thumb. */
   .st-booth {
-    width: min(100%, calc((100cqh - 152px) * 16 / 9));
+    width: min(100%, calc((100cqh - var(--space-16) - var(--control) - var(--space-8) - var(--control-lg) - var(--space-4) - var(--control)) * 16 / 9));
   }
-  .st-booth > .st-work-row {
-    margin-bottom: 0;
+  :is(.st-work, .st-done) {
+    min-height: calc(var(--control) + var(--space-8) + var(--control-lg) + var(--space-4) + var(--control));
   }
-  .st-booth > :last-child {
-    min-height: calc(var(--control) + var(--space-12) + var(--control-lg));
-    align-content: flex-start;
-  }
-  .st-work-row > .st-transport > .icon-btn:last-child {
-    margin-right: calc((var(--space-16) - var(--control)) / 2);
-  }
-  .st-work-row:has(> .btn.is-primary) {
-    flex-wrap: wrap;
-    row-gap: var(--space-12);
-  }
-  .st-work-row:has(> .btn.is-primary) > :first-child {
-    flex-basis: 100%;
-  }
-  .st-work-row > .btn.is-primary {
-    flex: 1;
-  }
-  .st-work-row:has(> .btn.is-primary) > .btn.is-quiet {
-    margin-left: calc(var(--space-12) * -1);
+  .st-done-next {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: var(--space-4);
   }
 }

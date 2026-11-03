@@ -16,13 +16,16 @@ export class RoomError extends Error {
 }
 
 
-async function send(method: string, path: string, init: { json?: unknown; body?: BodyInit; type?: string; signal?: AbortSignal } = {}): Promise<Response> {
+async function send(method: string, path: string, init: { json?: unknown; body?: BodyInit; type?: string; signal?: AbortSignal; version?: string } = {}): Promise<Response> {
   let res: Response;
   try {
     res = await fetch(`${API}${path}`, {
       method,
       signal: init.signal,
-      headers: init.json !== undefined ? { "Content-Type": "application/json" } : init.body ? { "Content-Type": init.type ?? "application/octet-stream" } : {},
+      headers: {
+        ...(init.json !== undefined ? { "Content-Type": "application/json" } : init.body ? { "Content-Type": init.type ?? "application/octet-stream" } : {}),
+        ...(init.version === undefined ? {} : { "If-Match": `"${init.version}"` }),
+      },
       body: init.json !== undefined ? JSON.stringify(init.json) : init.body,
     });
   } catch (e) {
@@ -58,7 +61,10 @@ export const roomApi = {
   /** Opens the room called `code`, making it the first time. */
   open: (code: string) => json<RoomState>(send("POST", "/rooms", { json: { code } })),
   /** Replaces the room's presentation. */
-  putDeck: (code: string, deck: Deck) => json<RoomState>(send("PUT", `${base(code)}/deck`, { json: deck })),
+  putDeck: (code: string, deck: Deck, version: string) => {
+    if (!/^[a-f0-9]{64}$/.test(version)) return Promise.reject(new RoomError(412, "Reload the room before saving. Your edit was not saved."));
+    return json<RoomState>(send("PUT", `${base(code)}/deck`, { json: deck, version }));
+  },
   /** Stores an image (image/png, image/jpeg or image/webp, at most FILE_MAX_BYTES) and returns its URL. */
   uploadFile: async (code: string, file: Blob) => {
     const { id } = await json<{ id: string }>(send("POST", `${base(code)}/files`, { body: file, type: file.type }));
@@ -72,7 +78,7 @@ export const roomApi = {
   leave: (code: string, personId: string) => json<RoomState>(send("DELETE", `${base(code)}/people/${enc(personId)}`)),
   assign: (code: string, groupId: string, personId: string | null) =>
     json<RoomState>(send("PUT", `${base(code)}/assignments/${enc(groupId)}`, { json: { personId } })),
-  startTake: (code: string, body: { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number }, signal?: AbortSignal) =>
+  startTake: (code: string, body: { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number; slides: readonly string[] }, signal?: AbortSignal) =>
     json<TakeInfo>(send("POST", `${base(code)}/takes`, { json: body, signal })),
   putChunk: (code: string, takeId: string, i: number, data: Blob, signal?: AbortSignal) =>
     json<{ received: number }>(send("PUT", `${base(code)}/takes/${enc(takeId)}/chunks/${i}`, { body: data, signal })),

@@ -6,8 +6,10 @@ import { firstName, slug, StartButton } from "./parts";
 import { startPlayback } from "./playback";
 import { takeMedia } from "./Render";
 import { createStage, exportVideo, preload, stageKey } from "./stage";
+import { boxAt } from "./stage/camera";
 import { clock } from "./timing";
 import { Transport } from "./Transport";
+import { useRetainedTakes } from "./uploads";
 import type { Cue, Deck, RoomState, TakeInfo, TakeMedia } from "./types";
 import "./savedVideos.css";
 
@@ -56,6 +58,7 @@ export function SavedVideos({ deck, room, upload }: {
   /** groupId → fraction this device has uploaded. */
   upload: Record<string, number>;
 }) {
+  const retained = useRetainedTakes().filter((t) => t.room === room.code);
   const [open, setOpen] = useState(false);
   /** The group whose take is playing, by id: the deck can change under the player. */
   const [playing, setPlaying] = useState<string | null>(null);
@@ -109,6 +112,10 @@ export function SavedVideos({ deck, room, upload }: {
   }, [open]);
 
   const saved = deck.groups.filter((g) => complete(room.takes[g.id]));
+  // The last take went (its group was split or joined away): the list goes with its trigger.
+  useEffect(() => {
+    if (!saved.length && !retained.length) setOpen(false);
+  }, [saved.length, retained.length]);
   // In whole seconds as each row shows them, so the rows add up to the total.
   const recordedMs = saved.reduce((s, g) => s + Math.ceil(room.takes[g.id].durationMs / 1000) * 1000, 0);
 
@@ -152,18 +159,20 @@ export function SavedVideos({ deck, room, upload }: {
   }, [playing]);
   return (
     <>
-      <button
-        ref={trigger}
-        type="button"
-        className={`st-saved-btn${open ? " is-open" : ""}${saved.length ? "" : " is-bare"}`}
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-label={saved.length ? `Saved videos, ${saved.length} of ${deck.groups.length}` : "Saved videos"}
-        data-tip="Saved videos"
-      >
-        <Icon name="saved" />
-        {saved.length > 0 && <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>}
-      </button>
+      {/* Nothing to play or download until the first take: it arrives with it, as "Saved 1/3". */}
+      {(saved.length > 0 || retained.length > 0) && (
+        <button
+          ref={trigger}
+          type="button"
+          className={`st-saved-btn${open ? " is-open" : ""}`}
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={`Saved videos, ${saved.length} of ${deck.groups.length}${retained.length ? `, ${retained.length} on this device` : ""}`}
+        >
+          <span>Saved</span>
+          {saved.length > 0 && <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>}
+        </button>
+      )}
 
       {list.mounted && (
         <>
@@ -181,7 +190,7 @@ export function SavedVideos({ deck, room, upload }: {
                 <Icon name="x" size={16} />
               </button>
             </header>
-            <ol className="st-saved-list">
+            {saved.length > 0 && <ol className="st-saved-list">
               {deck.groups.map((g, gi) => {
                 const take = room.takes[g.id];
                 const done = complete(take);
@@ -220,7 +229,34 @@ export function SavedVideos({ deck, room, upload }: {
                   </li>
                 );
               })}
-            </ol>
+            </ol>}
+            {retained.length > 0 && (
+              <>
+                <h3 className="st-saved-local-title">On this device</h3>
+                <ol className="st-saved-list" aria-label="Camera recordings saved on this device">
+                  {retained.map((take) => (
+                    <li key={take.key} className="st-saved-row">
+                      <span className="st-saved-i"><Icon name="camera" size={14} /></span>
+                      <span className="st-saved-main">
+                        <span className="st-saved-name">{take.name ?? "Camera recording"}</span>
+                        {(take.reason !== "unverified" || take.name) && <span className="st-saved-who">{take.reason === "slides" ? "Slides changed" : take.reason === "upload" ? "Upload not finished" : "Camera recording"}</span>}
+                      </span>
+                      <span className="st-saved-len">{clock(take.durationMs)}</span>
+                      <span className="st-saved-acts">
+                        <button type="button" className="icon-btn is-sm" aria-label={`Download camera recording${take.name ? ` for ${take.name}` : ""}`} data-tip="Download camera recording" onClick={() => {
+                          const url = URL.createObjectURL(take.blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${slug(deck.title)}-${slug(take.name ?? "camera")}-camera.${take.mime.includes("mp4") ? "mp4" : "webm"}`;
+                          a.click();
+                          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                        }}><Icon name="download" size={16} /></button>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
             {saved.length > 0 && (
               <footer className="st-saved-foot">
                 <button type="button" className="btn is-quiet is-sm st-saved-all" onClick={saveAll} aria-busy={all !== null}
@@ -317,8 +353,10 @@ function Player({ root, leaving, deck, room, index, take, saving, onSave, onClos
       v.src = url;
       video.current = v;
       let shown = 0;
+      stage.placeCamera(boxAt(media.cues, 0, deck), { instant: true });
       const tick = () => {
         const ms = v.currentTime * 1000;
+        stage.placeCamera(boxAt(media.cues, ms, deck));
         const slide = slideAt(media.cues, ms);
         if (slide !== shown) {
           stage.show(index, slide);

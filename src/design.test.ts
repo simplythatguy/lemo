@@ -32,7 +32,9 @@ test("screen CSS takes every colour, type size, weight, radius, space, shadow an
 });
 
 test("every token a stylesheet uses is defined", () => {
-  const defined = new Set([...base.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]).concat("--g"));
+  // A component may set its own per-element values inline (style={{ "--cx": ... }}); those count as defined too.
+  const inline = files(".tsx").flatMap(({ text }) => [...text.matchAll(/"(--[\w-]+)":/g)].map((m) => m[1]));
+  const defined = new Set([...base.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]).concat(inline));
   const missing = files(".css").flatMap(({ name, text }) => [...text.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]).filter((v) => !defined.has(v)).map((v) => `${name} ${v}`));
   assert.deepEqual(missing, []);
 });

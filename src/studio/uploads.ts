@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { CHUNK_BYTES, chunkCount, roomApi, RoomError } from "./room";
 import { takeCache, type CachedTake } from "./takeCache";
-import type { RoomState, TakeInfo, TakeMedia } from "./types";
+import type { Group, RecordedTake, RoomState, TakeInfo } from "./types";
 
 /** groupId → fraction uploaded, for takes this device is still sending. */
 type Progress = Record<string, number>;
@@ -11,6 +11,21 @@ type Progress = Record<string, number>;
 let progress: Progress = {};
 const listeners = new Set<() => void>();
 const running = new Map<string, AbortController>();
+interface RetainedTake extends CachedTake { reason: "slides" | "unverified" | "upload" }
+let retained: RetainedTake[] = [];
+
+function retain(take: CachedTake, reason: RetainedTake["reason"]) {
+  if (retained.some((t) => t.key === take.key)) return;
+  retained = [...retained, { ...take, reason }];
+  listeners.forEach((l) => l());
+}
+
+export function useRetainedTakes(): readonly RetainedTake[] {
+  return useSyncExternalStore(
+    (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
+    () => retained,
+  );
+}
 
 function setProgress(groupId: string, value: number | null) {
   const next = { ...progress };
@@ -45,7 +60,7 @@ const supersededBy = (theirs: TakeInfo | undefined, take: CachedTake) =>
   !!theirs && theirs.id !== take.takeId && theirs.createdAt > take.createdAt
   && (take.takeId !== null || theirs.received >= theirs.chunks || theirs.personId !== take.personId);
 
-async function upload(take: CachedTake, signal: AbortSignal) {
+async function upload(take: CachedTake, slides: readonly string[], signal: AbortSignal) {
   const chunks = chunkCount(take.blob.size);
   let backoff = 1000;
   while (!signal.aborted && take.sent < chunks) {
@@ -54,7 +69,7 @@ async function upload(take: CachedTake, signal: AbortSignal) {
       if (!take.takeId) {
         const info = await roomApi.startTake(take.room, {
           groupId: take.groupId, personId: take.personId, durationMs: Math.round(take.durationMs),
-          cues: take.cues, mime: take.mime, size: take.blob.size, chunks,
+          cues: take.cues, mime: take.mime, size: take.blob.size, chunks, slides,
         }, signal);
         if (signal.aborted) return;
         take = await takeCache.put({ ...take, takeId: info.id, sent: 0 });
@@ -66,7 +81,10 @@ async function upload(take: CachedTake, signal: AbortSignal) {
     } catch (e) {
       if (signal.aborted) return;
       // A bad request or a full room will not get better by retrying; the take stays on this device.
-      if (e instanceof RoomError && (e.status === 400 || e.status === 413)) break;
+      if (e instanceof RoomError && (e.status === 400 || e.status === 409 || e.status === 413)) {
+        retain(take, e.status === 409 ? "slides" : "upload");
+        break;
+      }
       if (e instanceof RoomError && e.status === 404) {
         // The server take is gone (replaced by a newer take for this group, or the room reset).
         let room: RoomState | null;
@@ -97,27 +115,39 @@ async function upload(take: CachedTake, signal: AbortSignal) {
 }
 
 function begin(take: CachedTake) {
+  if (!take.slides) {
+    retain(take, "unverified");
+    return;
+  }
+  if (retained.some((t) => t.key === take.key)) {
+    retained = retained.filter((t) => t.key !== take.key);
+    listeners.forEach((l) => l());
+  }
   const slot = `${take.room}:${take.groupId}`;
   running.get(slot)?.abort();
   const ctl = new AbortController();
   running.set(slot, ctl);
-  void upload(take, ctl.signal).finally(() => {
+  void upload(take, take.slides, ctl.signal).finally(() => {
     if (running.get(slot) === ctl) running.delete(slot);
   });
 }
 
 export const uploads = {
   /** Saves the take on this device, then uploads it. Replaces any earlier take of the group from here. */
-  async keep(room: string, groupId: string, personId: string, media: TakeMedia) {
-    const earlier = (await takeCache.inRoom(room)).filter((t) => t.groupId === groupId);
+  async keep(room: string, group: Pick<Group, "id" | "name">, personId: string, media: RecordedTake) {
+    const groupId = group.id;
+    const earlier = (await takeCache.inRoom(room)).filter((t) => t.groupId === groupId && !retained.some((r) => r.key === t.key) && JSON.stringify(t.slides) === JSON.stringify(media.slides));
     // The new take is stored before the earlier ones go: a failed write never leaves the group with neither.
     const take = await takeCache.put({
       key: crypto.randomUUID(), room, groupId, personId, takeId: null,
       blob: media.blob, mime: media.mime, cues: media.cues, durationMs: media.durationMs,
+      slides: [...media.slides], name: group.name,
       sent: 0, createdAt: Date.now(),
     });
     running.get(`${room}:${groupId}`)?.abort();
     await Promise.all(earlier.map((t) => takeCache.remove(t.key)));
+    const obsolete = new Set(earlier.map((t) => t.key));
+    retained = retained.filter((t) => !obsolete.has(t.key));
     setProgress(groupId, 0);
     begin(take);
   },
@@ -126,6 +156,15 @@ export const uploads = {
   async resume(room: string, state: RoomState) {
     for (const take of await takeCache.inRoom(room)) {
       if (take.sent >= chunkCount(take.blob.size) || running.has(`${room}:${take.groupId}`)) continue;
+      if (!take.slides) {
+        retain(take, "unverified");
+        continue;
+      }
+      const group = state.deck?.groups.find((g) => g.id === take.groupId);
+      if (!group || JSON.stringify(group.slides.map((s) => s.id)) !== JSON.stringify(take.slides)) {
+        retain(take, "slides");
+        continue;
+      }
       if (supersededBy(state.takes[take.groupId], take)) {
         await takeCache.remove(take.key);
         continue;

@@ -35,6 +35,12 @@ export function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((t) => t.stop());
 }
 
+export function recordingReady(stream: MediaStream | null): stream is MediaStream {
+  return !!stream
+    && stream.getVideoTracks().some((t) => t.readyState === "live")
+    && stream.getAudioTracks().some((t) => t.readyState === "live");
+}
+
 export async function listDevices(): Promise<{ cams: MediaDeviceInfo[]; mics: MediaDeviceInfo[] }> {
   const all = await navigator.mediaDevices.enumerateDevices();
   return { cams: all.filter((d) => d.kind === "videoinput"), mics: all.filter((d) => d.kind === "audioinput") };

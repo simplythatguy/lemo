@@ -192,7 +192,7 @@ function Join() {
       </button>
       {bad && (
         <p id="hm-join-error" className="hm-join-error" role="alert">
-          Not a room code
+          {code.length < 6 ? "Codes have 6 characters" : "Not a room code"}
         </p>
       )}
     </form>

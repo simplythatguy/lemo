@@ -38,7 +38,7 @@
 - `--red` and `--red-ink` mean recording or an error that blocks. Use `--red-ink` for red text.
 - `--green` means recorded.
 - `--line` and `--line-2` are hairlines. `--fill`, `--fill-hover` and `--hover` are the only tinted surfaces.
-- `--shade`, `--scrim`, `--glass` and `--veil` sit over video, slides and the page. Never use them as decoration.
+- `--shade`, `--shade-hover`, `--shade-deep`, `--scrim`, `--glass` and `--veil` sit over video, slides and the page. Never use them as decoration. `--shade-deep` is the camera picker's dim around the camera.
 - `--on-dark-wash` is the hover on a dark camera surface (`--ink` with `--on-dark` text), shown wherever a camera has no picture.
 - `--dim` is the one dim behind a modal (the player, a phone sheet): dark enough to read as a dim, never a grey fog.
 - The app has no dark theme. Do not add dark tokens.
@@ -50,7 +50,7 @@
 
 ## Motion
 
-- Use one curve, `--ease`. Use linear only for meters that follow live data.
+- Use one curve, `--ease`. Use linear only for meters that follow live data. The exception is `--camera-glide`, the stage canvas's own camera glide, for anything that outlines the camera.
 - Use `--dur-control` (150ms) for controls and `--dur-sheet` (220ms) for sheets and dialogs. Larger movements get longer durations. [17]
 - Use `--dur-meter` and `--dur-progress` only for meters and progress bars that follow a ticking value. Use `--dur-pulse` only for the recording and loading pulse.
 - Respond to every action within 400ms. If work takes longer, show progress. [3]

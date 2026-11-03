@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { emptyDraft, fromDeck, groupSlides, moveSlide, order, removeSlide, renewChangedGroups, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
+import type { Deck } from "../studio/types.ts";
+import { carriedSpeakers } from "../studio/groups.ts";
+import { emptyDraft, fromDeck, groupSlides, lostTakes, moveSlide, order, regroup, removeSlide, renewChangedGroups, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
 
 const pics = (n: number) => Array.from({ length: n }, (_, i) => ({ src: `blob:${i}` }));
 const sizes = (d: ReturnType<typeof emptyDraft>) => d.groups.map((g) => g.slides.length);
@@ -99,6 +101,12 @@ test("a stored deck round-trips with its ids", () => {
   assert.deepEqual(sizes(d1), [1, 2, 1]);
 });
 
+test("a deck keeps its length limit, a number or none, and has none set until one is picked", () => {
+  const base = toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(1)));
+  assert.equal("limitMs" in base, false);
+  for (const limitMs of [90_000, null]) assert.equal(toDeck(fromDeck({ ...base, limitMs })).limitMs, limitMs);
+});
+
 test("editing a deck keeps where the room put the camera", () => {
   const deck = { ...toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(2))), camera: { x: 48, y: 48, w: 300, h: 300 } };
   assert.deepEqual(toDeck(fromDeck(deck)).camera, deck.camera);
@@ -120,4 +128,60 @@ test("a group keeps its id, and so its take, only while its recorded slides stil
   assert.deepEqual(kept(renewChangedGroups(replaceSlides(before, pics(5)), before)), [null, null, null, null, null], "a different count moves every slide, so no take fits");
   const same = renewChangedGroups(before, before);
   assert.equal(same, before);
+});
+
+const page2 = (id: string) => ({ kind: "page" as const, id, src: `/f/${id}` });
+const roomDeck: Deck = {
+  title: "Harbor",
+  team: ["Maya"],
+  groups: [
+    { id: "intro", name: "Slides 1–2", speaker: 0, slides: [page2("a"), page2("b")], script: ["hi", "problem"] },
+    { id: "demo", name: "Slides 3–4", speaker: 0, slides: [page2("c"), page2("d")], script: ["", "demo"] },
+  ],
+  camera: { x: 1, y: 2, w: 300, h: 300 },
+};
+const ids = (d: Deck) => d.groups.map((g) => [g.id, g.slides.map((s) => s.id).join("")]);
+
+test("splitting makes the rest of the group its own group and drops the take recorded on the whole", () => {
+  const taken = new Set(["intro"]);
+  const after = regroup(roomDeck, { kind: "split", slide: "b" }, taken);
+  assert.deepEqual(after.groups.map((g) => g.slides.map((s) => s.id).join("")), ["a", "b", "cd"]);
+  assert.deepEqual(after.groups.map((g) => g.name), ["Slide 1", "Slide 2", "Slides 3–4"]);
+  assert.equal(after.groups[2].id, "demo");
+  assert.deepEqual(lostTakes(roomDeck, after, taken).map((g) => g.id), ["intro"]);
+  assert.deepEqual(after.groups.flatMap((g) => g.script), ["hi", "problem", "", "demo"]);
+  assert.deepEqual(after.camera, roomDeck.camera);
+});
+
+test("splitting an apparently unrecorded group also fences delayed recordings", () => {
+  const after = regroup(roomDeck, { kind: "split", slide: "b" }, new Set());
+  assert.notEqual(after.groups[0].id, "intro");
+  assert.notEqual(after.groups[1].id, "intro");
+  assert.deepEqual(carriedSpeakers(roomDeck.groups, after.groups, { intro: "ana" }), { [after.groups[0].id]: "ana", [after.groups[1].id]: "ana" });
+});
+
+test("joining keeps a take recorded on the first group, and drops the one recorded on the second", () => {
+  const taken = new Set(["intro", "demo"]);
+  const after = regroup(roomDeck, { kind: "join", group: "intro" }, taken);
+  assert.deepEqual(ids(after), [["intro", "abcd"]]);
+  assert.deepEqual(lostTakes(roomDeck, after, taken).map((g) => g.id), ["demo"]);
+});
+
+test("nothing to split or join leaves the deck as it is", () => {
+  assert.equal(regroup(roomDeck, { kind: "split", slide: "a" }, new Set()), roomDeck);
+  assert.equal(regroup(roomDeck, { kind: "join", group: "demo" }, new Set()), roomDeck);
+});
+
+test("a split keeps the speaker on both parts, even when the take it drops gives the first part a new id", () => {
+  const after = regroup(roomDeck, { kind: "split", slide: "b" }, new Set(["intro"]));
+  const carried = carriedSpeakers(roomDeck.groups, after.groups, { intro: "ana", demo: "ben" });
+  assert.deepEqual(after.groups.slice(0, 2).map((g) => carried[g.id]), ["ana", "ana"]);
+  assert.equal(carried.demo, undefined);
+});
+
+test("a join keeps the first part's speaker, or takes the second's when the first had none", () => {
+  const joined = regroup(roomDeck, { kind: "join", group: "intro" }, new Set());
+  assert.deepEqual(carriedSpeakers(roomDeck.groups, joined.groups, { intro: "ana", demo: "ben" }), {});
+  assert.deepEqual(carriedSpeakers(roomDeck.groups, joined.groups, { demo: "ben" }), { intro: "ben" });
+  assert.deepEqual(carriedSpeakers(roomDeck.groups, joined.groups, {}), {});
 });

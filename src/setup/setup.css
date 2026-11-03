@@ -249,13 +249,24 @@
   text-align: center;
 }
 
+/* Slides in rows. A group's slides sit --tight apart and groups a column gap apart, with a line under the group's
+   slides on each row and its range under the first of them, so a group that carries on to the next row is named there
+   too. Slides.tsx places each slide on its row (src/setup/pack.ts) and sets its --cell width and the --before and
+   --after space around it. */
 .su-grid {
+  --tight: var(--space-12);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
-  gap: var(--space-24);
+  grid-template-columns: 100%;
+  align-items: start;
+  gap: var(--space-24) var(--space-32);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* A file being read: each slide on its own, in the columns the grid will have. */
+.su-grid.is-even {
+  grid-template-columns: repeat(var(--cols), var(--cell));
 }
 
 .su-cell {
@@ -263,9 +274,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  width: var(--cell);
   border-radius: var(--radius-card);
   cursor: grab;
   outline: none;
+}
+
+/* A pointer over a slide: a quiet ring, outside it, says it can be picked. */
+@media (hover: hover) {
+  .su-cell:hover .su-thumb {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--line-2);
+  }
 }
 
 .su-cell:focus-visible .su-thumb {
@@ -287,18 +306,18 @@
   position: absolute;
   top: 0;
   width: 3px;
-  aspect-ratio: auto;
-  height: calc(100% - var(--space-24));
+  height: calc(var(--cell) * 9 / 16);
   border-radius: var(--radius-full);
   background: var(--accent);
 }
 
+/* In the middle of the gap before the slide. */
 .su-cell.is-before::before {
-  left: -12px;
+  left: calc(var(--before) / -2 - 1.5px);
 }
 
 .su-cell.is-after::after {
-  right: -12px;
+  right: calc(var(--after) / -2 - 1.5px);
 }
 
 .su-thumb {
@@ -351,50 +370,68 @@
 }
 
 /* A selected slide: an ink ring, outside the slide so it never covers it. */
+
 .su-cell.is-picked .su-thumb {
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink);
 }
 
-.su-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  height: var(--space-16);
-}
-
 .su-n {
+  height: var(--space-16);
   padding-left: var(--space-4);
-  font: var(--weight-label) var(--text-12)/1 var(--font);
+  font: var(--weight-label) var(--text-12)/var(--space-16) var(--font);
   font-variant-numeric: tabular-nums;
   color: var(--ink-4);
 }
 
-/* A group: one quiet bar under its slides, running across the gap to the next slide of the same group on its row. */
-.su-cell.is-grouped .su-label::after {
-  content: "";
-  flex: 1;
-  height: 2px;
-  border-radius: var(--radius-full);
-  background: var(--ink-4);
-}
-
-.su-cell.is-grouped .su-n {
+.su-cell[data-at="first"] > .su-n {
   color: var(--ink-2);
 }
 
-.su-cell.is-picked .su-n {
+.su-band {
+  height: 2px;
+  margin: calc(var(--space-4) / -2) 0 calc(var(--space-4) * -1.5);
+  border-radius: var(--radius-full);
+}
+
+.su-cell:not([data-at="solo"]) > .su-band {
+  background: var(--ink-4);
+}
+
+.su-cell:is([data-at="first"], [data-at="mid"]):not([data-row-end]) > .su-band {
+  margin-right: calc(var(--after) * -1);
+}
+
+/* Joins a group with the next one: a quiet glyph in the gap between them, as in the room's strip. */
+.su-join {
+  position: absolute;
+  right: calc(var(--after) / -2);
+  top: calc(var(--cell) * 9 / 32);
+  translate: 50% -50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: opacity var(--dur-control) var(--ease), color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease), background-color var(--dur-control) var(--ease);
+}
+
+.su-join:hover,
+.su-join:focus-visible {
+  background: var(--bg);
   color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink-4);
 }
 
-.su-cell.is-joined .su-label::after {
-  margin-right: calc(var(--space-24) * -1);
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.su-cell.is-grouped .su-label:not(:has(.su-n))::after {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+/* While slides are picked, Group in the header is the way to join them. */
+.su-grid.is-picking .su-join {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .su-meter {
@@ -597,6 +634,28 @@
   outline: none;
 }
 
+.su-field select {
+  appearance: none;
+  width: 100%;
+  height: var(--control-lg);
+  padding: 0 var(--space-24) 0 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 0;
+  background: transparent var(--chevron) no-repeat right 4px center;
+  font: var(--weight-body) var(--text-17)/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
+}
+
+.su-field select:focus-visible {
+  border-bottom-color: var(--focus);
+  box-shadow: 0 1px 0 var(--focus);
+}
+
 .su-field input:focus,
 .su-team input:focus {
   border-bottom-color: var(--focus);
@@ -645,15 +704,14 @@
   translate: 0 -50%;
 }
 
-.su-team-foot {
-  display: flex;
-  align-items: center;
-  gap: var(--space-16);
-  margin-top: var(--space-12);
+/* Under its line, as the project's name shows its own. */
+.su-team > .su-error {
+  display: block;
+  margin-top: var(--space-8);
 }
 
 .su-add {
-  margin-left: calc(var(--space-8) * -1);
+  margin: var(--space-12) 0 0 calc(var(--space-8) * -1);
 }
 
 /* —— Script —— */
@@ -791,17 +849,15 @@
     padding: var(--space-16) var(--space-16) var(--space-64);
   }
   .su-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-16) var(--space-12);
+    --tight: var(--space-8);
+    gap: var(--space-16) var(--space-24);
   }
-  .su-cell.is-joined .su-label::after {
-    margin-right: calc(var(--space-12) * -1);
-  }
-  .su-cell.is-before::before {
-    left: calc(var(--space-8) * -1);
-  }
-  .su-cell.is-after::after {
-    right: calc(var(--space-8) * -1);
+  /* No room past a row's end for the join: it sits under the row's last slide, on the label's line. */
+  .su-cell[data-row-end] > .su-join {
+    right: calc(var(--space-4) * -1);
+    top: auto;
+    bottom: calc(var(--space-16) / 2);
+    translate: 0 50%;
   }
   .su-head {
     margin-bottom: var(--space-16);

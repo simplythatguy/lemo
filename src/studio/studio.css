@@ -43,11 +43,19 @@
 }
 
 .st-mark {
+  display: grid;
+  place-items: center;
   width: 22px;
   height: 22px;
   flex-shrink: 0;
   border-radius: 32%;
   background: var(--accent);
+  color: var(--on-dark);
+}
+
+.st-mark svg {
+  width: 80%;
+  height: 80%;
 }
 
 /* The project's mark: its logo, or its first letter on ink. */
@@ -101,10 +109,6 @@
   .st-room .is-narrow {
     display: none;
   }
-  /* The phone's Make the video steps aside, so the quiet action after it is the first one the eye meets. */
-  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet {
-    margin-left: calc(var(--space-12) * -1);
-  }
 }
 
 /* Top bar: where you are on the left, the cameras centred, the room's controls on the right. The two sides never
@@ -137,6 +141,7 @@
 .st-edit-slides {
   margin-left: calc(var(--space-4) * -1);
   color: var(--ink-3);
+  transition: opacity var(--dur-sheet) var(--ease), visibility var(--dur-sheet), background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease), scale var(--dur-control) var(--ease);
 }
 
 /* The word where the top bar has room for it, the icon alone where it is tight. */
@@ -160,7 +165,9 @@
   }
 }
 
+/* It steps back with the room's other controls while a take runs. */
 .st-edit-slides.is-hidden {
+  opacity: 0;
   visibility: hidden;
 }
 
@@ -169,6 +176,16 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-4);
+}
+
+/* While a take runs here, the room's controls step back: the take is the one thing on screen. */
+.st-corner > :is(.is-wide, .st-saved-btn) {
+  transition: opacity var(--dur-sheet) var(--ease), visibility var(--dur-sheet), background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
+}
+
+.st-room.is-busy .st-corner > :is(.is-wide, .st-saved-btn) {
+  opacity: 0;
+  visibility: hidden;
 }
 
 /* The room code: quiet text at control height that copies the room link. */
@@ -184,30 +201,6 @@
   .st-corner .st-copy:hover {
     background: var(--wash);
   }
-}
-
-/* Turning primary once every group is in: a quiet fade, not a jump. */
-.st-make {
-  transition-property: scale, background-color, border-color, color, opacity;
-  transition-duration: var(--dur-sheet);
-}
-
-/* Blocked, the name and icon fade as any unavailable control does, and what blocks it stays readable beside them. */
-.st-make[aria-disabled="true"],
-.st-menu-item[aria-disabled="true"] {
-  opacity: 1;
-  cursor: not-allowed;
-}
-
-.st-make[aria-disabled="true"] > :not(.st-make-n),
-.st-menu-item[aria-disabled="true"] > :not(.st-menu-value) {
-  opacity: 0.4;
-}
-
-.st-make-n {
-  font-weight: var(--weight-body);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
 }
 
 /* Cameras */
@@ -444,6 +437,7 @@
 
 .st-stage-cell .st-stage {
   width: 100%;
+  container: stage / inline-size;
 }
 
 .st-stage canvas {
@@ -452,73 +446,7 @@
   height: 100%;
 }
 
-/* The camera tile, picked up: the canvas paints it, this only catches the pointer and shows the handles. */
-.st-camframe {
-  position: absolute;
-  cursor: grab;
-  touch-action: none;
-  outline: none;
-}
-
-.st-camframe:active { cursor: grabbing; }
-
-.st-camframe:hover,
-.st-camframe:focus-visible,
-.st-camframe:active {
-  box-shadow: 0 0 0 2px var(--accent);
-}
-
-.st-camframe-h {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  margin: calc(var(--space-12) * -1);
-}
-
-.st-camframe-h.is-nw, .st-camframe-h.is-ne, .st-camframe-h.is-sw, .st-camframe-h.is-se {
-  z-index: 1;
-}
-
-/* Corners show a dot; the edges between them are plain strips. */
-.st-camframe-h.is-nw::after, .st-camframe-h.is-ne::after, .st-camframe-h.is-sw::after, .st-camframe-h.is-se::after {
-  content: "";
-  position: absolute;
-  inset: 7px;
-  border-radius: var(--radius-full);
-  background: var(--bg);
-  box-shadow: 0 0 0 2px var(--accent);
-  opacity: 0;
-  transition: opacity var(--dur-control) var(--ease);
-}
-
-.st-camframe:hover .st-camframe-h::after,
-.st-camframe:focus .st-camframe-h::after {
-  opacity: 1;
-}
-
-.st-camframe-h.is-nw { left: 0; top: 0; cursor: nwse-resize; }
-.st-camframe-h.is-se { right: 0; bottom: 0; cursor: nwse-resize; }
-.st-camframe-h.is-ne { right: 0; top: 0; cursor: nesw-resize; }
-.st-camframe-h.is-sw { left: 0; bottom: 0; cursor: nesw-resize; }
-.st-camframe-h.is-n, .st-camframe-h.is-s { left: 12px; right: 12px; width: auto; margin-left: 0; margin-right: 0; cursor: ns-resize; }
-.st-camframe-h.is-w, .st-camframe-h.is-e { top: 12px; bottom: 12px; height: auto; margin-top: 0; margin-bottom: 0; cursor: ew-resize; }
-.st-camframe-h.is-n { top: 0; }
-.st-camframe-h.is-s { bottom: 0; }
-.st-camframe-h.is-w { left: 0; }
-.st-camframe-h.is-e { right: 0; }
-
-/* A finger needs bigger corners; a tap on the tile focuses it and shows them. */
-@media (pointer: coarse) {
-  .st-camframe-h.is-nw, .st-camframe-h.is-ne, .st-camframe-h.is-sw, .st-camframe-h.is-se {
-    width: 32px;
-    height: 32px;
-    margin: calc(var(--space-16) * -1);
-  }
-  .st-camframe-h.is-nw::after, .st-camframe-h.is-ne::after, .st-camframe-h.is-sw::after, .st-camframe-h.is-se::after {
-    inset: 11px;
-  }
-}
-
+/* The countdown dims the stage over the same time the room's other controls step back, and each number eases in. */
 .st-count {
   position: absolute;
   inset: 0;
@@ -530,6 +458,24 @@
   letter-spacing: var(--tracking-title);
   font-variant-numeric: tabular-nums;
   color: var(--on-dark);
+  animation: st-fade-in var(--dur-sheet) var(--ease);
+}
+
+.st-count > span {
+  animation: st-count-n var(--dur-sheet) var(--ease);
+}
+
+@keyframes st-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes st-count-n {
+  from {
+    opacity: 0;
+    scale: 1.12;
+  }
 }
 
 /* A take the browser would not start on its own: one round play button in the middle of the stage. */
@@ -608,8 +554,7 @@
 }
 
 /* The transcript: one segment per slide, read like a teleprompter. The slide on stage is in ink, the rest faded.
-   → ends a segment (next slide), ■ the last one (stop). Emoji, pauses (⏸️), slow-downs (…) and CAPS stay inline as
-   the deck wrote them. */
+   Emoji, pauses (⏸️), slow-downs (…) and CAPS stay inline as the deck wrote them. */
 
 .st-script {
   position: relative;
@@ -711,32 +656,6 @@
   overflow-wrap: break-word;
 }
 
-.st-next {
-  display: inline-flex;
-  margin-left: var(--space-8);
-  vertical-align: -2px;
-  opacity: 0.6;
-}
-
-.st-seg.is-now .st-next {
-  opacity: 1;
-}
-
-.st-stop {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin-left: var(--space-8);
-  vertical-align: 2px;
-  border-radius: 18%;
-  background: currentColor;
-  opacity: 0.6;
-}
-
-.st-seg.is-now .st-stop {
-  opacity: 1;
-}
-
 /* The dock: the time and the slide nav (or the take's tools in review), a thin track, then the actions. */
 
 .st-dock {
@@ -781,6 +700,11 @@
 .st-clock-label {
   font-size: var(--text-13);
   color: var(--ink-4);
+}
+
+/* A kept take on its way to the room breathes, so a slow upload never reads as stuck. */
+.st-clock-label.is-saving {
+  animation: st-pulse var(--dur-pulse) var(--ease) infinite;
 }
 
 /* A kept take: its length, then a green check and "recorded". */
@@ -852,6 +776,11 @@
   min-height: var(--control-lg);
 }
 
+/* An action that takes another's place (Record → Cancel → Stop, Keep → Next) fades in rather than snapping. */
+.st-dock-acts > * {
+  animation: st-fade-in var(--dur-sheet) var(--ease);
+}
+
 /* Every secondary action (Retake, Stop, Cancel, Assign to me, Try again) is quiet text; the first one's words line up
    with the clock above it. */
 .st-dock-acts > .btn.is-quiet {
@@ -865,7 +794,6 @@
 /* Controls pulled into line with the column's edge show hover in ink: a fill would reach past that edge. */
 @media (hover: hover) {
   .st-dock-acts > .btn.is-quiet:first-child:not(:disabled):hover,
-  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet:not(:disabled):hover,
   .st-dock-side .icon-btn:not(:disabled):hover,
   .st-script-head .st-script-edit:not(:disabled):hover {
     background: none;
@@ -893,12 +821,24 @@
   color: var(--ink-3);
 }
 
-/* Beside Make the video on a phone it keeps to one line. */
+/* A note keeps to one line, beside Retake on a phone too. */
 .st-dock-note:not(.is-live) {
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Who the video waits for, once my part is kept: at the row's far end, out of the way of Retake. */
+.st-dock-wait {
+  margin-left: auto;
+  font-size: var(--text-14);
+  color: var(--ink-4);
+}
+
+.st-dock-discard {
+  margin-left: auto;
+  margin-right: calc(var(--space-8) * -1);
 }
 
 .st-dock-note.is-live {
@@ -954,11 +894,11 @@
   overflow-x: auto;
   border-top: 1px solid var(--line);
   scrollbar-width: thin;
-  transition: opacity var(--dur-sheet) var(--ease);
 }
 
-.st-strip.is-locked {
-  opacity: 0.5;
+/* While a take runs the labels fade; the slides keep their own colours, so a dark slide never turns milky. */
+.st-strip.is-locked .st-strip-who {
+  opacity: 0.4;
 }
 
 /* Making the video is the one job on screen: the speakers and slides wait until it closes. */
@@ -967,6 +907,7 @@
 }
 
 .st-strip-g {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
@@ -978,6 +919,75 @@
   gap: var(--space-4);
   margin: 0 0 calc(var(--space-4) * -1) calc(var(--space-8) * -1);
   font-variant-numeric: tabular-nums;
+}
+
+/* A folded group: the eye that hid it, crossed out, under its row where its slides were. It shows them again. Its
+   speaker fades. */
+.st-strip-folded {
+  display: grid;
+  place-items: center;
+  min-width: var(--control-lg);
+  height: calc(clamp(112px, 8vw, 144px) * 9 / 16);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
+}
+
+.st-strip-folded:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.st-strip-g.is-folded .st-strip-name {
+  color: var(--ink-4);
+}
+
+/* Join: a quiet glyph in every gap between two groups; pointed at or focused, it becomes a round control. */
+.st-strip-join {
+  position: absolute;
+  right: calc(var(--space-32) / -2);
+  bottom: calc(clamp(112px, 8vw, 144px) * 9 / 32);
+  translate: 50% 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease), background-color var(--dur-control) var(--ease);
+}
+
+.st-strip-join:hover,
+.st-strip-join:focus-visible,
+.st-strip-join[aria-expanded="true"] {
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink-4);
+}
+
+/* While a join is pointed at, the label it would drop fades: the second group's, or the first's when only the second has
+   a take. */
+.st-strip-g:has(> .st-strip-join:not(.is-keep-next):hover) + .st-strip-g > .st-strip-who,
+.st-strip-g:has(> .st-strip-join.is-keep-next:hover) > .st-strip-who {
+  opacity: 0.4;
+}
+
+/* Asking before a split or join removes a recorded take: what goes, then the one way on. A click elsewhere cancels. */
+.st-strip-ask {
+  max-width: 240px;
+  margin: 0;
+  padding: var(--space-8) var(--space-12) var(--space-4) var(--space-8);
+  font: var(--weight-body) var(--text-14)/1.4 var(--font);
+  color: var(--ink-2);
 }
 
 .st-strip-who.is-none {
@@ -1024,6 +1034,8 @@
 .st-thumb {
   position: relative;
   flex-shrink: 0;
+  -webkit-touch-callout: none;
+  user-select: none;
   width: clamp(112px, 8vw, 144px);
   aspect-ratio: 16 / 9;
   padding: 0;
@@ -1112,6 +1124,12 @@
   }
 }
 
+.st-menu-sep {
+  height: 1px;
+  margin: var(--space-4) 0;
+  background: var(--line);
+}
+
 .st-menu-item {
   display: flex;
   align-items: center;
@@ -1165,34 +1183,6 @@
   letter-spacing: var(--tracking-code);
 }
 
-.st-menu-dot {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  background: var(--bg);
-  box-shadow: 0 0 0 1px var(--line-2);
-  font: var(--weight-label) var(--text-12)/1 var(--font);
-  color: var(--ink);
-}
-
-.st-menu-dot.is-me {
-  background: var(--ink);
-  box-shadow: none;
-  color: var(--on-dark);
-}
-
-.st-menu-dot.is-live {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--red);
-}
-
-.st-menu-dot.is-none {
-  background: none;
-  box-shadow: none;
-  border: 1.25px dashed var(--ink-4);
-}
-
 /* The People list: one row per person, their state, and what can be done to them. */
 .st-people {
   width: 280px;
@@ -1208,11 +1198,6 @@
   gap: var(--space-8);
   height: var(--control-lg);
   padding: 0 0 0 var(--space-8);
-}
-
-.st-people-row .st-menu-dot {
-  flex: none;
-  margin-right: var(--space-4);
 }
 
 .st-people-row .st-menu-name {
@@ -1262,8 +1247,9 @@
   }
 }
 
-/* Stacked: phones and portrait tablets. One column (top bar, stage, script, strip), the dock pinned to the bottom.
-   The booth's wrappers step aside so each part takes its own row. */
+/* Stacked: phones and portrait tablets. One column (top bar, stage, its slides, script), the dock pinned to the bottom:
+   the slides sit with the stage they change, and the words run straight into their clock and button. The booth's
+   wrappers step aside so each part takes its own row. */
 @media (max-width: 719px), (max-width: 1099px) and (orientation: portrait) {
   .st-room .is-wide {
     display: none;
@@ -1271,8 +1257,8 @@
   /* One column, at most a phone-and-a-bit wide and centred; the bars that span the page keep their contents on it. */
   .st-room {
     grid-template-columns: minmax(0, 1fr) minmax(0, var(--column)) minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
-    grid-template-areas: "top top top" ". stage ." ". head ." ". script ." "strip strip strip" "dock dock dock";
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "top top top" ". stage ." "strip strip strip" ". head ." ". script ." "dock dock dock";
     padding: 0;
   }
   .st-room.is-rendering {
@@ -1327,9 +1313,9 @@
   .st-script-head {
     grid-area: head;
     margin: 0;
-    padding: var(--space-16) var(--space-16) var(--space-4);
+    padding: var(--space-12) var(--space-16) var(--space-4);
   }
-  /* Its last line fades out above the strip, never cut by the strip's edge. */
+  /* Its last line fades out above the dock, never cut by the dock's edge. */
   .st-script {
     grid-area: script;
     margin: 0;
@@ -1339,7 +1325,8 @@
   .st-strip {
     gap: var(--space-24);
     margin: 0;
-    padding: var(--space-8) max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) var(--space-16);
+    padding: var(--space-12) max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) var(--space-4);
+    border-top: 0;
   }
   .st-room.is-busy .st-strip {
     display: none;
@@ -1353,6 +1340,13 @@
   }
   .st-strip-g {
     gap: var(--space-8);
+  }
+  .st-strip-folded {
+    height: 45px;
+  }
+  .st-strip-join {
+    right: calc(var(--space-24) / -2);
+    bottom: calc(80px * 9 / 32);
   }
   .st-dock {
     grid-area: dock;
@@ -1371,11 +1365,16 @@
 /* A short phone (320x640) gives the words its spare height: a smaller strip and a tighter dock. */
 @media (max-width: 719px) and (max-height: 700px) {
   .st-strip {
-    padding-top: var(--space-4);
-    padding-bottom: var(--space-12);
+    padding-top: var(--space-8);
   }
   .st-thumb {
     width: 64px;
+  }
+  .st-strip-folded {
+    height: 36px;
+  }
+  .st-strip-join {
+    bottom: calc(64px * 9 / 32);
   }
   .st-dock {
     row-gap: var(--space-8);

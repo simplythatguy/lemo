@@ -25,8 +25,10 @@ export interface Deck {
   /** The project's logo (a file URL from the room), painted on the intro and outro cards. */
   logo?: string;
   groups: Group[];
-  /** Where the presenter's camera tile sits, in stage pixels; the default corner when unset. Moved in the room. */
+  /** Where the camera tile sat for takes recorded before each take carried its own spot. */
   camera?: Rect;
+  /** The longest the video should be, in ms: unset is VIDEO_LIMIT_MS, null is no limit. Setup warns past it. */
+  limitMs?: number | null;
 }
 
 export type Tone = "blue" | "ink" | "grey";
@@ -61,11 +63,23 @@ export type Slide =
 export interface Panel { src: string; label: string; marks?: Mark[] }
 export interface Bar { label: string; value: number; highlight?: boolean; note?: string }
 
-/** A slide change inside a take: slide index within the group, ms from the take's first frame. */
-export interface Cue { slide: number; atMs: number }
+/** The four corners and the centre. */
+export type Place = "tl" | "tr" | "c" | "bl" | "br";
+/** Wide (landscape) or upright (portrait); the upright one is as tall as the wide one. */
+export type CameraShape = "h" | "v";
+export type CameraSize = "s" | "m" | "l";
+/** Where the presenter's camera sits, its shape, and its size; e.g. "br-v-m". */
+export type Spot = `${Place}-${CameraShape}-${CameraSize}`;
+
+/** A change inside a take, ms from its first frame: the slide on screen and where the camera sits from then on.
+ *  Takes from before spots existed have none: their camera sits where the deck's `camera` says. */
+export interface Cue { slide: number; atMs: number; spot?: Spot }
 
 /** One recorded group: the presenter's camera + mic only, plus when each slide was shown. */
 export interface TakeMedia { blob: Blob; mime: string; cues: Cue[]; durationMs: number }
+
+/** The exact slide order captured when a local recording began, retained through Keep and upload retries. */
+export interface RecordedTake extends TakeMedia { slides: string[] }
 
 export interface Person { id: string; name: string }
 
@@ -91,6 +105,8 @@ export interface RoomState {
   /** groupId → latest take */
   takes: Record<string, TakeInfo>;
   updatedAt: number;
+  /** Changes only when the stored deck or take identities change; used to guard deck writes. */
+  deckVersion: string;
   /** The presentation, once someone has set it up. */
   deck: Deck | null;
   /** The take being recorded, as its presenter last published it; null when nobody is recording. */
@@ -99,7 +115,7 @@ export interface RoomState {
 
 /** A take in progress. `at` is the presenter's clock when they sampled it, so it only orders samples.
  *  The server moves `remainingMs` on to the moment it replies. */
-export interface LiveState { presenterId: string; groupId: string; slide: number; recording: boolean; remainingMs: number; targetMs: number; at: number }
+export interface LiveState { presenterId: string; groupId: string; slide: number; spot?: Spot; recording: boolean; remainingMs: number; targetMs: number; at: number }
 
 /** A LiveState as this device heard it: `remainingMs` held at `seen`, this device's clock. */
 export interface HeardLive extends LiveState { seen: number }
@@ -116,3 +132,4 @@ export const liveLeft = (live: HeardLive, now = Date.now()) => Math.max(0, live.
 /** Spoken pace for every timing in the studio. */
 export const WORDS_PER_MINUTE = 120;
 export const VIDEO_LIMIT_MS = 5 * 60_000;
+export const limitOf = (deck: Pick<Deck, "limitMs">) => (deck.limitMs === undefined ? VIDEO_LIMIT_MS : deck.limitMs);

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import type { Camera } from "./parts";
-import { Brand, CameraToggle, CopyLink, editLink, initials, ProjectMark } from "./parts";
+import { Brand, CameraToggle, CopyLink, editLink, initials, Mark, ProjectMark } from "./parts";
 import { listDevices, liveVideo, openCamera, stopStream } from "./recorder";
 import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, saveSeat, useRoom, type Seat } from "./room";
 import { Room } from "./RoomView";
@@ -38,6 +38,8 @@ function useCamera(camId: string | undefined, micId: string | undefined): Camera
   useEffect(() => {
     let alive = true;
     let opened: MediaStream | null = null;
+    setStream(null);
+    setError(null);
     // Turning the camera off or on reopens the mic with it: one stream, opened in one place.
     opening = opening.then(async () => {
       if (!alive) return;
@@ -100,7 +102,7 @@ export function Studio({ code }: { code: string }) {
     return (
       <div className="st-page st-center" aria-busy={status.kind === "loading"}>
         <div className={`st-wait${status.kind === "offline" ? " is-offline" : ""}`}>
-          <span className="st-mark" aria-hidden="true" />
+          <Mark />
           {status.kind === "offline" && <p className="st-quiet" role="status">No connection</p>}
         </div>
       </div>
@@ -166,6 +168,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const preview = useRef<HTMLVideoElement>(null);
+  const field = useRef<HTMLInputElement>(null);
   // The stream the preview has painted a frame of: until then the slot stays in its starting state.
   const [painted, setPainted] = useState<MediaStream | null>(null);
   useEffect(() => setName((n) => n || initialName), [initialName]);
@@ -186,7 +189,12 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   if (suggested.length && suggested.join("\n") !== shown.join("\n")) setShown(suggested);
   const open = here || suggested.length > 0;
   async function go() {
-    if (!name.trim() || busy) return;
+    // Join stays the screen's primary while the name is empty: pressing it goes to the name.
+    if (!name.trim()) {
+      field.current?.focus();
+      return;
+    }
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -199,12 +207,12 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
 
   return (
     <div className="st-page st-center">
-      <form className="st-join" onSubmit={(e) => { e.preventDefault(); void go(); }}>
+      <form className="st-join" noValidate onSubmit={(e) => { e.preventDefault(); void go(); }}>
         <h1 className="st-join-title">
           <ProjectMark title={deck.title} logo={deck.logo} size={32} />
           <span>{deck.title}</span>
         </h1>
-        <div className={`st-cam${picture ? "" : " is-empty"}${starting ? " is-starting" : ""}`}>
+        <div className={`st-cam${picture ? "" : " is-empty"}${starting ? " is-starting" : ""}${camera.error ? " is-blocked" : ""}`}>
           <video ref={preview} autoPlay muted playsInline onPlaying={(e) => setPainted(e.currentTarget.srcObject as MediaStream | null)} />
           {camera.error ? (
             <div className="st-cam-error" role="alert">
@@ -216,7 +224,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
             <span className="st-cam-face" aria-hidden="true">{initials(name)}</span>
           )}
           {!camera.error && <CameraToggle camera={camera} className="st-cam-toggle" size={20} />}
-          <MicLevel stream={camera.stream} />
+          {camera.stream && <MicLevel stream={camera.stream} />}
         </div>
         <div className="st-devices">
           <DevicePicker icon="camera" label="Camera" devices={camera.cams} value={camId} onChange={(id) => { onDevice({ camId: id }); camera.turn(true); }} />
@@ -225,7 +233,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
         <div className="st-name">
           <label className="st-field">
             <span>Name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" required />
+            <input ref={field} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="name" required />
           </label>
           <div className={`st-suggest${open ? " is-open" : ""}`}>
             <div>
@@ -237,7 +245,7 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
           </div>
         </div>
         {error && <p className="st-error" role="alert">{error}</p>}
-        <button type="submit" className="btn is-primary is-lg st-join-go" disabled={!name.trim() || busy || !camera.stream}>
+        <button type="submit" className="btn is-primary is-lg st-join-go" disabled={busy || !camera.stream}>
           {busy ? "Joining" : "Join"}
         </button>
         <CopyLink code={code} />

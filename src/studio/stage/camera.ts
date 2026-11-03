@@ -1,67 +1,120 @@
-// Where the presenter's camera tile sits on the 1920×1080 stage. One placement for the whole video, kept on the deck.
+// Where the presenter's camera tile sits on the 1920×1080 stage: one of five places (four corners and the centre),
+// wide or upright, at one of three sizes. A corner's tile hugs its corner; the centre's is centred.
 
-import type { Deck, Rect } from "../types";
+import type { CameraShape, CameraSize, Cue, Deck, Place, Rect, Spot } from "../types";
 
 const W = 1920, H = 1080;
-
-/** Inset equally from the right and bottom edges so it sits cleanly over a full-bleed page. */
-export const CAMERA: Rect = { x: W - 48 - 344, y: H - 48 - 430, w: 344, h: 430 };
 const INSET = 48;
-const SNAP = 16;
 const MIN = 120;
+const RADIUS = 28;
 
-/** Which edges a resize moves: -1 the left or top edge, 1 the right or bottom one, 0 neither. Two non-zero: a corner. */
-export interface Handle { x: -1 | 0 | 1; y: -1 | 0 | 1 }
+/** A camera tile on the stage: its rectangle and corner radius, in stage pixels, and the place it sits in (none for
+ *  an old take's placement). */
+export interface CameraBox extends Rect { r: number; place?: Place }
 
-/** The tile's corner radius: 28 stage pixels, less on a small tile. */
-export const cameraRadius = (r: Rect) => Math.min(28, Math.min(r.w, r.h) / 4);
+/** The wide tile's size; the upright one is as tall, 4:5. Three large wide tiles sit side by side between the insets. */
+const HEIGHT: Record<CameraSize, number> = { s: 180, m: 252, l: 324 };
+
+export const PLACES: readonly Place[] = ["tl", "tr", "c", "bl", "br"];
+export const SHAPES: readonly CameraShape[] = ["h", "v"];
+export const SIZES: readonly CameraSize[] = ["s", "m", "l"];
+export const SPOTS: readonly Spot[] = PLACES.flatMap((p) => SHAPES.flatMap((k) => SIZES.map((s) => `${p}-${k}-${s}` as const)));
+export const DEFAULT_SPOT: Spot = "br-v-l";
+
+export const isSpot = (v: unknown): v is Spot => SPOTS.includes(v as Spot);
+
+export function spotParts(spot: Spot): { place: Place; shape: CameraShape; size: CameraSize } {
+  const [place, shape, size] = spot.split("-") as [Place, CameraShape, CameraSize];
+  return { place, shape, size };
+}
+
+export function spotBox(spot: Spot): CameraBox {
+  const { place, shape, size } = spotParts(spot);
+  return shapeBox(place, shape, HEIGHT[size]);
+}
+
+export function shapeBox(place: Place, shape: CameraShape, h: number): CameraBox {
+  const w = shape === "h" ? (h * 16) / 9 : Math.round((h * 4) / 5);
+  if (place === "c") return { x: (W - w) / 2, y: (H - h) / 2, w, h, r: RADIUS, place };
+  return { x: place[1] === "l" ? INSET : W - INSET - w, y: place[0] === "t" ? INSET : H - INSET - h, w, h, r: RADIUS, place };
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
-/** Pulls `v` onto the default inset from either edge when it is within a few pixels of it. */
-function snap(v: number, size: number, extent: number): number {
-  if (Math.abs(v - INSET) < SNAP) return INSET;
-  const far = extent - INSET - size;
-  return Math.abs(v - far) < SNAP ? far : v;
-}
+/** Where takes recorded before spots existed put the camera: the deck's one placement, else the corner tile they had. */
+const OLD_CORNER: Rect = { x: W - INSET - 344, y: H - INSET - 430, w: 344, h: 430 };
 
-/** The deck's camera placement, or the default when it has none or it does not fit the stage. */
-export function cameraOf(deck: Pick<Deck, "camera">): Rect {
-  const r = deck.camera;
-  if (!r || ![r.x, r.y, r.w, r.h].every(Number.isFinite)) return CAMERA;
+export function deckBox(deck: Pick<Deck, "camera">): CameraBox {
+  const r = deck.camera && [deck.camera.x, deck.camera.y, deck.camera.w, deck.camera.h].every(Number.isFinite) ? deck.camera : OLD_CORNER;
   const w = clamp(r.w, MIN, W), h = clamp(r.h, MIN, H);
-  return { x: clamp(r.x, 0, W - w), y: clamp(r.y, 0, H - h), w, h };
+  return { x: clamp(r.x, 0, W - w), y: clamp(r.y, 0, H - h), w, h, r: Math.min(RADIUS, Math.min(w, h) / 4) };
 }
 
-/** `start` moved by (`dx`, `dy`), kept on the stage, snapped to the default inset. */
-export function moveCamera(start: Rect, dx: number, dy: number): Rect {
-  const x = clamp(start.x + dx, 0, W - start.w), y = clamp(start.y + dy, 0, H - start.h);
-  // A tile wider than the stage less both insets would snap past an edge: the snap is clamped too.
-  return { ...start, x: clamp(snap(x, start.w, W), 0, W - start.w), y: clamp(snap(y, start.h, H), 0, H - start.h) };
+/** Where a take's camera sits `ms` into it: its latest spot by then, or the deck's placement for a take without spots. */
+export function boxAt(cues: Cue[], ms: number, deck: Pick<Deck, "camera">): CameraBox {
+  let spot: Spot | undefined;
+  let at = -Infinity;
+  for (const c of cues) {
+    if (c.spot && c.atMs <= ms && c.atMs >= at) {
+      spot = c.spot;
+      at = c.atMs;
+    }
+  }
+  return spot ? spotBox(spot) : deckBox(deck);
 }
 
-/**
- * `start` resized by dragging `handle` by (`dx`, `dy`), the opposite edge or corner held still. A corner keeps the
- * tile's shape; an edge stretches one side. Never smaller than MIN on a side, never off the stage.
- */
-export function resizeCamera(start: Rect, handle: Handle, dx: number, dy: number): Rect {
-  // The fixed edges, and the room on the stage beyond them in the direction the handle grows.
-  const ax = handle.x > 0 ? start.x : start.x + start.w;
-  const ay = handle.y > 0 ? start.y : start.y + start.h;
-  const roomW = handle.x > 0 ? W - ax : ax;
-  const roomH = handle.y > 0 ? H - ay : ay;
-  let w = start.w, h = start.h;
-  if (handle.x && handle.y) {
-    const sx = (start.w + handle.x * dx) / start.w, sy = (start.h + handle.y * dy) / start.h;
-    const s = clamp(Math.abs(sx - 1) > Math.abs(sy - 1) ? sx : sy, Math.max(MIN / start.w, MIN / start.h), Math.min(roomW / start.w, roomH / start.h));
-    w = start.w * s;
-    h = start.h * s;
-  } else if (handle.x) w = clamp(start.w + handle.x * dx, MIN, roomW);
-  else if (handle.y) h = clamp(start.h + handle.y * dy, MIN, roomH);
-  return {
-    x: handle.x < 0 ? ax - w : handle.x > 0 ? ax : start.x,
-    y: handle.y < 0 ? ay - h : handle.y > 0 ? ay : start.y,
-    w,
-    h,
-  };
+export const sameBox = (a: CameraBox, b: CameraBox) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.r === b.r;
+
+/** A new size in the same place grows or shrinks into its shape; a new place is a cut. */
+export const glides = (from: CameraBox, to: CameraBox) => from.place !== undefined && from.place === to.place;
+
+/** `a` on its way to `b`, `t` from 0 to 1. */
+export function mixBox(a: CameraBox, b: CameraBox, t: number): CameraBox {
+  const m = (p: number, q: number) => p + (q - p) * t;
+  return { x: m(a.x, b.x), y: m(a.y, b.y), w: m(a.w, b.w), h: m(a.h, b.h), r: m(a.r, b.r), place: b.place };
+}
+
+/** How long a glide takes, on the stage and in the picker drawn over it. */
+export const GLIDE_MS = 420;
+
+/** Where a glide from `a` to `b` is `ms` after it began. */
+export function glideBox(a: CameraBox, b: CameraBox, ms: number): CameraBox {
+  const t = Math.min(1, Math.max(0, ms / GLIDE_MS));
+  return mixBox(a, b, 1 - (1 - t) ** 3);
+}
+
+export interface CameraMotion { from: CameraBox; to: CameraBox; at: number }
+
+export const cameraAt = (motion: CameraMotion, now: number) => glideBox(motion.from, motion.to, now - motion.at);
+
+export function moveCamera(motion: CameraMotion, to: CameraBox, now: number, instant = false): CameraMotion {
+  if (!instant && sameBox(motion.to, to)) return motion;
+  const from = instant || !glides(motion.to, to) ? to : cameraAt(motion, now);
+  return { from, to, at: now };
+}
+
+interface CameraFrame { box: CameraBox | null; listeners: Set<(box: CameraBox) => void> }
+const frames = new WeakMap<HTMLCanvasElement, CameraFrame>();
+function cameraFrame(canvas: HTMLCanvasElement): CameraFrame {
+  let frame = frames.get(canvas);
+  if (!frame) {
+    frame = { box: null, listeners: new Set() };
+    frames.set(canvas, frame);
+  }
+  return frame;
+}
+
+/** The overlay receives the box painted this frame, on the canvas's clock. */
+export function publishCameraFrame(canvas: HTMLCanvasElement, box: CameraBox) {
+  const frame = cameraFrame(canvas);
+  if (frame.box && sameBox(frame.box, box) && frame.box.place === box.place) return;
+  frame.box = box;
+  for (const draw of frame.listeners) draw(box);
+}
+
+export function observeCameraFrame(canvas: HTMLCanvasElement, draw: (box: CameraBox) => void) {
+  const frame = cameraFrame(canvas);
+  frame.listeners.add(draw);
+  if (frame.box) draw(frame.box);
+  return () => { frame.listeners.delete(draw); };
 }

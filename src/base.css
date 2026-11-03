@@ -18,11 +18,13 @@
   --primary-hover: #2a2a31;
   --on-dark: #ffffff;
   --on-dark-2: rgba(255, 255, 255, 0.72);
+  --on-dark-3: rgba(255, 255, 255, 0.5);
   --on-dark-wash: rgba(255, 255, 255, 0.12);
   --shade: rgba(18, 18, 23, 0.5);
   --shade-hover: rgba(18, 18, 23, 0.7);
+  --shade-deep: rgba(18, 18, 23, 0.92);
   --scrim: rgba(18, 18, 23, 0.32);
-  --dim: rgba(18, 18, 23, 0.72);
+  --dim: rgba(18, 18, 23, 0.86);
   --glass: rgba(255, 255, 255, 0.92);
   --veil: rgba(255, 255, 255, 0.7);
   --accent: #5266eb;
@@ -77,6 +79,8 @@
   --dur-meter: 80ms;
   --dur-progress: 250ms;
   --dur-pulse: 1.4s;
+  /* The stage canvas's camera glide (stage.ts cameraMove, ease-out cubic); what outlines the camera moves with it. */
+  --camera-glide: 420ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -118,7 +122,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 @media (hover: hover) {
   .btn:not(:disabled, [aria-disabled="true"]):hover, .icon-btn:not(:disabled):hover { background: var(--wash); color: var(--ink); }
-  .btn.is-primary:not(:disabled, [aria-disabled="true"]):hover { background: var(--primary-hover); color: var(--on-dark); }
+  .btn.is-primary:not(:disabled, [aria-disabled="true"]):hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--on-dark); }
 }
 
 /* On touch, every control's hit area is at least 44px even where the visible control is smaller. */

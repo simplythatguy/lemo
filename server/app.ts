@@ -11,6 +11,7 @@ type Route = { method: string; path: string[]; run: (store: Store, req: Request,
 const JSON_MAX_BYTES = 256 * 1024;
 const FILE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const GROUP_ID = /^[a-z0-9-]{1,40}$/;
+const SPOT = /^(tl|tr|c|bl|br)-[hv]-[sml]$/;
 const MIME = /^video\/[\w.+-]+(;[\w=.,\s"+-]*)?$/;
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -69,7 +70,8 @@ const personId = required(str(1, 40));
 const newRoom = shape({ code: optional(nullable(trimmed(1, 12)), null) });
 const join = shape({ name: required(trimmed(1, 60)) });
 const assign = shape({ personId: required(nullable(str(1, 40))) });
-const cue = shape({ slide: required(int(0, 1000)), atMs: required(int(0)) });
+const spot = optional(str(5, 6, SPOT), undefined);
+const cue = shape({ slide: required(int(0, 1000)), atMs: required(int(0)), spot });
 const newTake = shape({
   groupId: required(str(1, 40, GROUP_ID)),
   personId,
@@ -78,11 +80,13 @@ const newTake = shape({
   mime: required(str(1, 120, MIME)),
   size: required(int(1, TAKE_MAX_BYTES)),
   chunks: required(int(1)),
+  slides: optional(list(str(1, DECK_MAX_BYTES), 1001), undefined),
 });
 const liveState: Check<LiveState> = shape({
   presenterId: personId,
   groupId: required(str(1, 40, GROUP_ID)),
   slide: required(int(0, 1000)),
+  spot,
   recording: required(bool),
   remainingMs: required(int(0, HOUR_MS)),
   targetMs: required(int(0, HOUR_MS)),
@@ -119,6 +123,7 @@ const deck = (v: unknown) => {
     if (!isObject(v.camera)) throw bad("deck.camera must be an object");
     for (const key of ["x", "y", "w", "h"]) finite(v.camera[key], `deck.camera.${key}`);
   }
+  if (v.limitMs !== undefined && v.limitMs !== null) int(1000, HOUR_MS)(v.limitMs, "deck.limitMs");
   return v;
 };
 
@@ -181,7 +186,9 @@ const routes: Route[] = [
   route("GET", "/api/rooms/:code", async (store, _req, p) => json(await store.getRoom(p.code))),
   route("PUT", "/api/rooms/:code/deck", async (store, req, p) => {
     const value = deck(await readJson(req, DECK_MAX_BYTES, "A deck"));
-    return json(await store.putDeck(p.code, JSON.stringify(value)));
+    const match = req.headers.get("if-match");
+    if (match !== null && !/^"[a-f0-9]{64}"$/.test(match)) throw bad("If-Match must be a quoted deckVersion");
+    return json(await store.putDeck(p.code, JSON.stringify(value), match?.slice(1, -1)));
   }),
   route("POST", "/api/rooms/:code/files", async (store, req, p) => {
     const type = (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();

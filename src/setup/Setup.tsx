@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { roomApi, RoomError } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
-import { VIDEO_LIMIT_MS } from "../studio/types";
-import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import { limitOf } from "../studio/types";
+import { emptyDraft, fromDeck, groupSlides, joinNext, lostTakes, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, splitBefore, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import type { Deck } from "../studio/types";
 import { Icon } from "../icons";
 import { glide } from "./glide";
 import { importSlides, SlideFileError } from "./importSlides";
@@ -40,6 +41,8 @@ export function Setup({ code: editCode }: { code?: string }) {
   const taken = useRef<Set<string>>(new Set());
   /** The room's deck as this page opened it: takes were recorded on it. */
   const loaded = useRef<Draft>(emptyDraft());
+  const loadedDeck = useRef<Deck | null>(null);
+  const committing = useRef(false);
   const room = useRef<string | null>(editCode ?? null);
   const urls = useRef<string[]>([]);
   const job = useRef<AbortController | null>(null);
@@ -67,6 +70,7 @@ export function Setup({ code: editCode }: { code?: string }) {
       (r) => {
         taken.current = new Set(Object.keys(r.takes));
         if (r.deck) {
+          loadedDeck.current = r.deck;
           loaded.current = fromDeck(r.deck);
           setDraftState(loaded.current);
           setStep("script");
@@ -171,7 +175,8 @@ export function Setup({ code: editCode }: { code?: string }) {
 
   const deck = useMemo(() => toDeck(draft), [draft]);
   const total = deck.groups.length ? deckMs(deck) : 0;
-  const over = total > VIDEO_LIMIT_MS;
+  const limit = limitOf(deck);
+  const over = limit !== null && total > limit;
 
   /** The first step that still needs something, before `upTo`. */
   const blocker = (upTo: number): Step | null => {
@@ -192,8 +197,10 @@ export function Setup({ code: editCode }: { code?: string }) {
   };
 
   const save = async () => {
+    if (committing.current) return;
     const stop = blocker(STEPS.length);
     if (stop) return go(stop);
+    committing.current = true;
     // A group whose slides changed under its take gets a new id, so the take no longer plays over the wrong slides.
     const settled = renewChangedGroups(draft, loaded.current);
     if (settled !== draft) setDraftState(settled);
@@ -205,18 +212,36 @@ export function Setup({ code: editCode }: { code?: string }) {
         onRoom: (c) => (room.current = c),
         onUploaded: (next) => setDraftState(next),
         onProgress: (done, total) => setSaving({ done, total }),
+        beforeSave: (current, uploaded) => {
+          const next = toDeck(uploaded);
+          if (!editing) return next;
+          if (JSON.stringify(current.deck) === JSON.stringify(next)) return next;
+          if (JSON.stringify(current.deck) !== JSON.stringify(loadedDeck.current)) {
+            throw new Error("The room's slides changed. Your draft is kept. Reopen the editor before saving.");
+          }
+          const lost = current.deck ? lostTakes(current.deck, next, new Set(Object.keys(current.takes))) : [];
+          const name = lost.length === 1 ? current.people.find((p) => p.id === current.takes[lost[0].id].personId)?.name : null;
+          const question = lost.length === 1 ? `This removes ${name ? `${name}’s` : "a"} take.` : `This removes ${lost.length} takes.`;
+          return lost.length && !confirm(question) ? null : next;
+        },
       });
+      if (code === null) {
+        setSaving(null);
+        return;
+      }
       navigate(`/r/${code}`);
     } catch (e) {
       setSaving((s) => ({ done: s?.done ?? 0, total: s?.total ?? 0, error: (e as Error).message || "Couldn't save" }));
+    } finally {
+      committing.current = false;
     }
   };
 
   const length = total > 0 && (
-    <span className={`su-total${over ? " is-over" : ""}`} aria-label={`Video length ${clock(total)}${over ? ", longer than 5:00" : ""}`}>
+    <span className={`su-total${over ? " is-over" : ""}`} aria-label={`Video length ${clock(total)}${over ? `, longer than ${clock(limit)}` : ""}`}>
       <Icon name="clock" size={14} />
       {clock(total)}
-      {over && <span className="su-total-of">/ {clock(VIDEO_LIMIT_MS)}</span>}
+      {over && <span className="su-total-of">/ {clock(limit)}</span>}
     </span>
   );
   /** Nothing to go on with yet: the slides step's own Choose a file is the one action. */
@@ -233,7 +258,7 @@ export function Setup({ code: editCode }: { code?: string }) {
             <>
               <h1 className="su-title">{load.kind === "missing" ? `No room ${editCode}` : "Can't open this room"}</h1>
               {load.kind === "failed" && <p className="su-error">{load.message}</p>}
-              <a className="btn is-primary" href="/">Demos</a>
+              <a className="btn is-primary" href="/">Back to demos</a>
             </>
           )}
         </div>
@@ -316,6 +341,8 @@ export function Setup({ code: editCode }: { code?: string }) {
             onMove={(from, to) => setDraft((d) => moveSlide(d, from, to))}
             onGroup={(ids) => setDraft((d) => groupSlides(d, ids, taken.current))}
             onUngroup={(ids) => setDraft((d) => ungroupSlides(d, ids))}
+            onJoin={(g) => setDraft((d) => joinNext(d, g, taken.current))}
+            onSplit={(id) => setDraft((d) => splitBefore(d, id))}
           />
         )}
         {step === "project" && <Project draft={draft} setDraft={setDraft} show={show} makeUrl={makeUrl} />}

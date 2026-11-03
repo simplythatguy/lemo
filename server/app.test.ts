@@ -10,7 +10,7 @@ import { CHUNK_BYTES, ROOM_MAX_SIGNALS, ROOM_MS, SIGNAL_MS, Store, type StoreOpt
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
-interface Call { json?: unknown; body?: Uint8Array | string; type?: string }
+interface Call { json?: unknown; body?: Uint8Array | string; type?: string; headers?: Record<string, string> }
 
 async function setup(t: TestContext, options: StoreOptions = {}) {
   let offset = 0;
@@ -32,7 +32,7 @@ async function setup(t: TestContext, options: StoreOptions = {}) {
   }
   const handle = createHandler(async () => store);
   const call = (method: string, path: string, init: Call = {}) => {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...init.headers };
     let body: RequestInit["body"];
     if (init.json !== undefined) {
       headers["Content-Type"] = "application/json";
@@ -111,6 +111,87 @@ test("assignments", async (t) => {
   assert.equal(await status(call("PUT", `/api/rooms/${code}/assignments/the-problem`, { json: {} })), 400);
 });
 
+test("a deck edit cannot commit across a new or replaced take", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const deck = { title: "Demo", team: ["Ana"], groups: [{ id: "intro", name: "Intro", slides: [{ id: "s1", kind: "statement" }, { id: "s2", kind: "statement" }], script: ["One", "Two"] }] };
+  const before = await ok("PUT", `/api/rooms/${code}/deck`, { json: deck });
+  const shorter = { ...deck, groups: [{ ...deck.groups[0], slides: deck.groups[0].slides.slice(0, 1), script: ["One"] }] };
+  await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1) }, 201);
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: shorter, headers: { "If-Match": `"${before.deckVersion}"` } })), 412);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, deck);
+  const seen = await ok("GET", `/api/rooms/${code}`);
+  await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1) }, 201);
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: shorter, headers: { "If-Match": `"${seen.deckVersion}"` } })), 412);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, deck);
+});
+
+test("deck edits carry speakers to split and joined groups in the same response", async (t) => {
+  const { ok, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana"), ben = await person(code, "Ben");
+  const first = { id: "intro", name: "Intro", slides: [{ id: "s1", kind: "statement" }, { id: "s2", kind: "statement" }], script: ["One", "Two"] };
+  const last = { id: "ending", name: "Ending", slides: [{ id: "s3", kind: "statement" }], script: ["Three"] };
+  const deck = { title: "Demo", team: ["Ana", "Ben"], groups: [first, last] };
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: deck });
+  await ok("PUT", `/api/rooms/${code}/assignments/intro`, { json: { personId: ana.id } });
+  const before = await ok("PUT", `/api/rooms/${code}/assignments/ending`, { json: { personId: ben.id } });
+  const split = { ...deck, groups: [
+    { ...first, id: "intro-a", slides: first.slides.slice(0, 1), script: ["One"] },
+    { ...first, id: "intro-b", slides: first.slides.slice(1), script: ["Two"] }, last,
+  ] };
+  const saved = await ok("PUT", `/api/rooms/${code}/deck`, { json: split, headers: { "If-Match": `"${before.deckVersion}"` } });
+  assert.equal(saved.assignments["intro-a"], ana.id);
+  assert.equal(saved.assignments["intro-b"], ana.id);
+  assert.equal(saved.assignments.ending, ben.id);
+  const joined = { ...split, groups: [split.groups[0], { ...last, id: "joined", slides: [first.slides[1], ...last.slides], script: ["Two", "Three"] }] };
+  const combined = await ok("PUT", `/api/rooms/${code}/deck`, { json: joined, headers: { "If-Match": `"${saved.deckVersion}"` } });
+  assert.equal(combined.assignments.joined, ana.id, "a join keeps the first part's assigned speaker");
+  assert.equal((await ok("GET", `/api/rooms/${code}`)).assignments.joined, ana.id);
+});
+
+test("a delayed take is fenced to the ordered slides recorded, independently of words and people", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const group = { id: "intro", name: "Intro", slides: [{ id: "s1", kind: "statement" }, { id: "s2", kind: "statement" }], script: ["One", "Two"] };
+  const deck = { title: "Demo", team: ["Ana"], groups: [group] };
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: deck });
+  const stale = takeBody(ana.id, 1, "intro", { slides: ["s1", "s2"] });
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, groups: [{ ...group, slides: group.slides.slice(0, 1), script: ["One"] }] } });
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: stale })), 409);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).takes, {});
+  const current = takeBody(ana.id, 1, "intro", { slides: ["s1"], cues: [{ slide: 0, atMs: 0 }] });
+  await ok("POST", `/api/rooms/${code}/takes`, { json: current }, 201);
+  await person(code, "Ben");
+  const edited = { ...deck, groups: [{ ...group, slides: group.slides.slice(0, 1), script: ["New words"] }] };
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: edited });
+  const accepted = await ok("POST", `/api/rooms/${code}/takes`, { json: current }, 201);
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: { ...current, cues: [{ slide: 1, atMs: 0 }] } })), 400);
+  assert.equal((await ok("GET", `/api/rooms/${code}`)).takes.intro.id, accepted.id, "a rejected upload cannot replace the usable take");
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, groups: [{ ...group, slides: [...group.slides].reverse() }] } });
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: stale })), 409, "same-count reorder also changes the layout");
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: { ...current, groupId: "removed" } })), 409);
+});
+
+test("deck edit consent survives chunk uploads and people changes, but not another deck edit", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const take = await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1) }, 201);
+  const seen = await ok("GET", `/api/rooms/${code}`);
+  await person(code, "Ben");
+  await ok("PUT", `/api/rooms/${code}/takes/${take.id}/chunks/0`, { body: new Uint8Array([1]) });
+  const deck = { title: "Demo", team: ["Ana"], groups: [] };
+  const saved = await ok("PUT", `/api/rooms/${code}/deck`, { json: deck, headers: { "If-Match": `"${seen.deckVersion}"` } });
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, title: "Stale" }, headers: { "If-Match": `"${seen.deckVersion}"` } })), 412);
+  const current = await ok("GET", `/api/rooms/${code}`);
+  assert.equal(current.deckVersion, saved.deckVersion);
+  assert.deepEqual(current.deck, deck);
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: deck, headers: { "If-Match": "invalid" } })), 400);
+});
+
 test("a take uploads, downloads and is replaced", async (t) => {
   const { ok, call, room, person } = await setup(t);
   const { code } = await room();
@@ -176,6 +257,31 @@ test("a take keeps up to 1000 slide-change cues", async (t) => {
     assert.deepEqual(take.cues, cues);
     assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).takes.intro.cues, cues);
   }
+});
+
+test("a take's cues and the live state carry where the presenter's camera sits", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const cues = [{ slide: 0, atMs: 0, spot: "br-v-m" }, { slide: 0, atMs: 800, spot: "c-h-l" }, { slide: 1, atMs: 1500, spot: "c-h-l" }];
+  const take = await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1, "intro", { cues }) }, 201);
+  assert.deepEqual(take.cues, cues);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).takes.intro.cues, cues);
+  for (const spot of ["full", "c-l", "c-x-l", "", 3]) {
+    const bad = takeBody(ana.id, 1, "intro", { cues: [{ slide: 0, atMs: 0, spot }] });
+    assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: bad })), 400, String(spot));
+  }
+  await ok("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "tl-v-s" }) });
+  assert.equal((await ok("GET", `/api/rooms/${code}`)).live.spot, "tl-v-s");
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "full" }) })), 400);
+});
+
+test("a deck's length limit is a whole number of ms from 1 s to an hour, or null for none", async (t) => {
+  const { ok, call, room } = await setup(t);
+  const { code } = await room();
+  const put = (limitMs: unknown) => call("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, limitMs } });
+  for (const limitMs of [90_000, null]) assert.equal((await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, limitMs } })).deck.limitMs, limitMs);
+  for (const limitMs of [0, 500, "5:00", 1.5e7]) assert.equal(await status(put(limitMs)), 400, String(limitMs));
 });
 
 test("an expired room is gone", async (t) => {
