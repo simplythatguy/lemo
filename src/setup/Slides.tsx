@@ -4,7 +4,7 @@
 // there. A click selects slides; selected slides become one group or are removed.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
-import { order, type Draft } from "./draft";
+import { groupName, order, type Draft } from "./draft";
 import { glide } from "./glide";
 import { Thumb } from "./Thumb";
 import { usePress } from "../studio/Filmstrip";
@@ -274,7 +274,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
     if (used + wide > cols) used = 0;
     used = g.slides.length > cols ? cols : used + wide;
     const next = draft.groups[gi + 1];
-    const out = { g, gi, first, name: range(first, g.slides.length), rowEnd: !next || used + Math.min(next.slides.length, cols) > cols };
+    const out = { g, gi, first, label: range(first, g.slides.length), name: groupName(first + 1, g.slides.length), rowEnd: !next || used + Math.min(next.slides.length, cols) > cols };
     first += g.slides.length;
     return out;
   });
@@ -328,7 +328,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
         }}
         tabIndex={0}
         data-vt={id}
-        aria-label={`Slide ${i + 1}${grouped ? `, in slides ${home.get(id)!.name}` : ""}${picked.has(id) ? ", selected" : ""}`}
+        aria-label={`Slide ${i + 1}${grouped ? `, in ${home.get(id)!.name}` : ""}${picked.has(id) ? ", selected" : ""}`}
         aria-haspopup="menu"
         aria-keyshortcuts="Space Alt+ArrowLeft Alt+ArrowRight Delete Shift+F10"
       >
@@ -346,7 +346,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
   return (
     <>
       <ol className="su-grid" ref={grid} style={{ "--cols": cols, "--cell": `${cell}px` } as React.CSSProperties}>
-        {groups.map(({ g, gi, first, name, rowEnd }) => {
+        {groups.map(({ g, gi, first, label, name, rowEnd }) => {
           const next = groups[gi + 1];
           return (
             <li
@@ -354,10 +354,10 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
               className={`su-group-slides${g.slides.length > 1 ? " is-grouped" : ""}${rowEnd ? " is-row-end" : ""}`}
               style={{ "--n": g.slides.length, ...(g.slides.length >= cols && { "--cell": `${full}px` }) } as React.CSSProperties}
             >
-              <ol aria-label={`Slides ${name}`}>{g.slides.map((id, k) => slide(id, first + k))}</ol>
-              <span className="su-n">{name}</span>
+              <ol aria-label={name}>{g.slides.map((id, k) => slide(id, first + k))}</ol>
+              <span className="su-n" aria-hidden="true">{label}</span>
               {next && (
-                <button type="button" className="su-join" aria-label={`Join slides ${name} with ${next.name}`} data-tip="Join" onClick={() => pick(() => onJoin(g.id))}>
+                <button type="button" className="su-join" aria-label={`Join ${name} with ${next.name}`} data-tip="Join" onClick={() => pick(() => onJoin(g.id))}>
                   <Icon name="fold" size={14} />
                 </button>
               )}
