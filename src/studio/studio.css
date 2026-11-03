@@ -133,6 +133,7 @@
 .st-edit-slides {
   margin-left: calc(var(--space-4) * -1);
   color: var(--ink-3);
+  transition: opacity var(--dur-sheet) var(--ease), visibility var(--dur-sheet), background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease), scale var(--dur-control) var(--ease);
 }
 
 /* The word where the top bar has room for it, the icon alone where it is tight. */
@@ -156,7 +157,9 @@
   }
 }
 
+/* It steps back with the room's other controls while a take runs. */
 .st-edit-slides.is-hidden {
+  opacity: 0;
   visibility: hidden;
 }
 

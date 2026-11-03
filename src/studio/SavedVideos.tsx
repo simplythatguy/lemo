@@ -110,6 +110,10 @@ export function SavedVideos({ deck, room, upload }: {
   }, [open]);
 
   const saved = deck.groups.filter((g) => complete(room.takes[g.id]));
+  // The last take went (its group was split or joined away): the list goes with its trigger.
+  useEffect(() => {
+    if (!saved.length) setOpen(false);
+  }, [saved.length]);
   // In whole seconds as each row shows them, so the rows add up to the total.
   const recordedMs = saved.reduce((s, g) => s + Math.ceil(room.takes[g.id].durationMs / 1000) * 1000, 0);
 
@@ -153,17 +157,20 @@ export function SavedVideos({ deck, room, upload }: {
   }, [playing]);
   return (
     <>
-      <button
-        ref={trigger}
-        type="button"
-        className={`st-saved-btn${open ? " is-open" : ""}`}
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-label={saved.length ? `Saved videos, ${saved.length} of ${deck.groups.length}` : "Saved videos"}
-      >
-        <span>Saved</span>
-        {saved.length > 0 && <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>}
-      </button>
+      {/* Nothing to play or download until the first take: it arrives with it, as "Saved 1/3". */}
+      {saved.length > 0 && (
+        <button
+          ref={trigger}
+          type="button"
+          className={`st-saved-btn${open ? " is-open" : ""}`}
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={`Saved videos, ${saved.length} of ${deck.groups.length}`}
+        >
+          <span>Saved</span>
+          <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>
+        </button>
+      )}
 
       {list.mounted && (
         <>
