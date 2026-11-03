@@ -38,6 +38,8 @@ function useCamera(camId: string | undefined, micId: string | undefined): Camera
   useEffect(() => {
     let alive = true;
     let opened: MediaStream | null = null;
+    setStream(null);
+    setError(null);
     // Turning the camera off or on reopens the mic with it: one stream, opened in one place.
     opening = opening.then(async () => {
       if (!alive) return;

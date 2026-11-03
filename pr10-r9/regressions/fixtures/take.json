@@ -1,0 +1,28 @@
+{
+  "id": "8e2552354b6644b584c8e704fe5ae5d3",
+  "groupId": "first",
+  "personId": "d4aa9dac6eb8",
+  "durationMs": 2401,
+  "cues": [
+    {
+      "slide": 0,
+      "atMs": 0,
+      "spot": "tl-v-s"
+    },
+    {
+      "slide": 0,
+      "atMs": 288,
+      "spot": "tl-v-m"
+    },
+    {
+      "slide": 1,
+      "atMs": 885,
+      "spot": "tl-v-m"
+    }
+  ],
+  "mime": "video/mp4;codecs=avc3.420020,mp4a.40.2",
+  "size": 158997,
+  "chunks": 1,
+  "received": 1,
+  "createdAt": 1793695471505
+}

@@ -7,7 +7,7 @@ export interface Camera {
   /** The page-lifetime element playing `stream`; the stage paints it as the camera tile. */
   live: HTMLVideoElement;
   error: string | null;
-  /** The camera is on. Off, `stream` carries the mic alone. */
+  /** The requested camera state. Off, a ready `stream` carries the mic alone. */
   on: boolean;
   turn(on: boolean): void;
   cams: MediaDeviceInfo[];

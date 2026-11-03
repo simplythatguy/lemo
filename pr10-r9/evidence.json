@@ -1,0 +1,125 @@
+{
+  "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+  "repositoryTests": 69,
+  "uniqueBrowserRegressions": 22,
+  "portableRerun": {
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fullFlowCaptures": {
+    "desktop": 44,
+    "phone": 44
+  },
+  "mediaInspection": {
+    "handoffFramesAt3fps": 57,
+    "composedVideoFramesAt1fps": 24,
+    "method": "Contact sheets and selected full-size originals plus live browser assertions",
+    "audibleAccepted": false,
+    "physicalDevicesAccepted": false
+  },
+  "files": [
+    {
+      "file": "setup-desktop.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 63424,
+      "sha256": "376774a472365f673f57449180eb88e59d237ed3690ec1d5f4591b60dc1118c4"
+    },
+    {
+      "file": "setup-phone.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 47948,
+      "sha256": "d75bdf69e103204ef2c3290fd06cf4bd5b5095d1ec1915e8f18ec2e8668212a8"
+    },
+    {
+      "file": "script-desktop.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 409103,
+      "sha256": "91580a6a180a23246f4be1eee24b5d1f47690d4f4960ce86f31dd03a0d06b309"
+    },
+    {
+      "file": "script-phone.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 246901,
+      "sha256": "3f28f4206b06559f19885e3f8b17d954dff463f911ba7f64710ed19433637d82"
+    },
+    {
+      "file": "camera-desktop.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 300630,
+      "sha256": "2eef921e3069593cb2283a2d7ba31ebd3c8e27f0be63cc5145521645a700a3ba"
+    },
+    {
+      "file": "camera-phone.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 132336,
+      "sha256": "10afecf60b8a88cc06be36966e84dbf3e24d28fa96761b51cb5ef62f6502a8d9"
+    },
+    {
+      "file": "recording-desktop.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 360218,
+      "sha256": "2cd4666daead7bdceb6021bd12182585e33828a8ae4c027dc1a7f3b35c7a7e10"
+    },
+    {
+      "file": "recording-phone.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 116772,
+      "sha256": "546adc902ed024f77e98f36b2aeafd058e47b17745ec7204e209e64c171285bd"
+    },
+    {
+      "file": "camera-ready-desktop.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 54849,
+      "sha256": "cbd32bc56b3e3e170d83adddc65bddf089344a6bccf4ba49401e6e48048e0df9"
+    },
+    {
+      "file": "camera-ready-phone.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 26055,
+      "sha256": "98d18376c02d84c3702ded0e2b626ede0bd2404ecd92ba7f725685e142222d61"
+    },
+    {
+      "file": "first-next.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 52643,
+      "sha256": "2285b803d2bdc82b1d474fbc0569c1425679ae684183b7c0e820e4c372ebf3ba"
+    },
+    {
+      "file": "first-retake.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 79487,
+      "sha256": "44a638f53bf79e6a0a30e079549b7263d467a08aed9108ab609d9157260f8d52"
+    },
+    {
+      "file": "merged-player.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 35351,
+      "sha256": "4b84a6760976fd17d999582dda84a81bc6b14e8ea7b52397e3023fbd1aec2c43"
+    },
+    {
+      "file": "merged-inspection.png",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 487577,
+      "sha256": "bff424ff52224a59b3a9795aa3f8cc94252e69e9027c1965d691e020155a8728"
+    },
+    {
+      "file": "desktop-demo.webm",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 736033,
+      "sha256": "7c3ba893b816a0484258645c1b4523d71606dd1fadbc52c4178db041f2d44c97"
+    },
+    {
+      "file": "phone-demo.webm",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 369074,
+      "sha256": "7b5bcc51785f634a28600f84837d0bf58120572055d86f6d7affe3974711c88a"
+    },
+    {
+      "file": "harbor-demo.mp4",
+      "sourceCommit": "5ba94ebbf1e5ceb8d657fb5dd1e982a73cbb62d6",
+      "bytes": 2869274,
+      "sha256": "fc7ec8e04685b09d6987eb9403859c3779d495765bdfc952813e3fcab1b854b4"
+    }
+  ]
+}

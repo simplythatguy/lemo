@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../icons";
-import { startRecording, type Recording } from "./recorder";
+import { recordingReady, startRecording, type Recording } from "./recorder";
 import { Render } from "./Render";
 import { roomApi } from "./room";
 import { SavedVideos } from "./SavedVideos";
@@ -607,7 +607,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   }, [setPhase]);
 
   const start = useCallback(() => {
-    if (!mine || following || !camera.stream || !camera.on || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
+    if (!mine || following || !camera.on || !recordingReady(camera.stream) || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     const token = ++attempt.current;
     recordedSlides.current = group.slides.map((s) => s.id);
     const length = planned;
@@ -763,18 +763,18 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
 
   // With the camera off, Record and Retake turn it on and start as soon as it is back; a camera that fails to come
   // back shows its error instead, and never starts a take later on its own.
-  const canRecord = !!camera.stream && !!stage && last >= 0;
+  const canRecord = !!stage && last >= 0 && !camera.error && (!camera.on || recordingReady(camera.stream));
   const startWhenOn = useRef(false);
   const record = useCallback(() => {
-    if (!mine || following || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
+    if (!mine || following || !canRecord || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     if (camera.on) return start();
     startWhenOn.current = true;
     camera.turn(true);
-  }, [camera, following, last, mine, stage, start]);
+  }, [camera, canRecord, following, mine, start]);
   useEffect(() => {
-    if (camera.error) startWhenOn.current = false;
+    if (camera.error || !camera.on) startWhenOn.current = false;
     // `on` flips at once; the stream with a picture follows when the camera has opened.
-    if (!startWhenOn.current || !camera.on || !camera.stream?.getVideoTracks().length) return;
+    if (!startWhenOn.current || !camera.on || !recordingReady(camera.stream)) return;
     startWhenOn.current = false;
     start();
   }, [camera.error, camera.on, camera.stream, start]);
@@ -848,11 +848,11 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   // A button that has just taken another's place (Keep → Next, Retake or Make the video) ignores the second tap of a
   // double tap meant for the one before.
   const lead = dock === "retake" ? (next ? `next ${next.id}` : allIn ? "make" : "saving") : dock;
-  const leadAt = useRef(0);
+  const leadAt = useRef<{ lead: string; at: number | null }>({ lead, at: null });
   useEffect(() => {
-    leadAt.current = performance.now();
+    if (leadAt.current.lead !== lead) leadAt.current = { lead, at: performance.now() };
   }, [lead]);
-  const settled = () => performance.now() - leadAt.current > SETTLE_MS;
+  const settled = () => leadAt.current.at === null || performance.now() - leadAt.current.at > SETTLE_MS;
   const recordKey = <kbd className="kbd">R</kbd>;
   /** Idle and not following: the arrows walk on into the next or previous group. */
   const walk = phase.k === "idle" && !follow;
