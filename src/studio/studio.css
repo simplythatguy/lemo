@@ -875,11 +875,11 @@
   overflow-x: auto;
   border-top: 1px solid var(--line);
   scrollbar-width: thin;
-  transition: opacity var(--dur-sheet) var(--ease);
 }
 
-.st-strip.is-locked {
-  opacity: 0.5;
+/* While a take runs the labels fade; the slides keep their own colours, so a dark slide never turns milky. */
+.st-strip.is-locked .st-strip-who {
+  opacity: 0.4;
 }
 
 /* Making the video is the one job on screen: the speakers and slides wait until it closes. */
@@ -902,27 +902,32 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A folded group: a tile with its slide count, as tall as a thumb and as wide as its label. It shows the slides again. */
+/* A folded group: the eye that hid it, crossed out, under its row where its slides were. It shows them again. Its
+   speaker fades. */
 .st-strip-folded {
+  display: grid;
+  place-items: center;
   min-width: var(--control-lg);
   height: calc(clamp(112px, 8vw, 144px) * 9 / 16);
   padding: 0;
   border: 0;
-  border-radius: var(--radius-card);
-  background: var(--fill);
-  font: var(--weight-label) var(--text-13)/1 var(--font);
-  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-control);
+  background: none;
   color: var(--ink-3);
   cursor: pointer;
-  transition: background-color var(--dur-control) var(--ease);
+  transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
 }
 
 .st-strip-folded:hover {
-  background: var(--fill-hover);
+  background: var(--hover);
+  color: var(--ink);
 }
 
-/* Join: a small round control in the gap between two groups, shown while the pointer is over either of them or while it
-   has focus. A touch screen has no hover, so there it is always shown, quieter. */
+.st-strip-g.is-folded .st-strip-name {
+  color: var(--ink-4);
+}
+
+/* Join: a quiet glyph in every gap between two groups; pointed at or focused, it becomes a round control. */
 .st-strip-join {
   position: absolute;
   right: calc(var(--space-32) / -2);
@@ -936,23 +941,16 @@
   padding: 0;
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--bg);
-  color: var(--ink-2);
-  box-shadow: 0 0 0 1px var(--line-2);
+  background: none;
+  color: var(--ink-4);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--dur-control) var(--ease), color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
-}
-
-.st-strip-g:hover .st-strip-join,
-.st-strip-g:has(+ .st-strip-g:hover) .st-strip-join,
-.st-strip-join:focus-visible,
-.st-strip-join[aria-expanded="true"] {
-  opacity: 1;
+  transition: color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease), background-color var(--dur-control) var(--ease);
 }
 
 .st-strip-join:hover,
+.st-strip-join:focus-visible,
 .st-strip-join[aria-expanded="true"] {
+  background: var(--bg);
   color: var(--ink);
   box-shadow: 0 0 0 1px var(--ink-4);
 }
@@ -962,15 +960,6 @@
 .st-strip-g:has(> .st-strip-join:not(.is-keep-next):hover) + .st-strip-g > .st-strip-who,
 .st-strip-g:has(> .st-strip-join.is-keep-next:hover) > .st-strip-who {
   opacity: 0.4;
-}
-
-@media (hover: none) {
-  .st-strip-join {
-    opacity: 1;
-    background: none;
-    box-shadow: none;
-    color: var(--ink-3);
-  }
 }
 
 /* Asking before a split or join removes a recorded take: what goes, then the one way on. A click elsewhere cancels. */
@@ -1074,6 +1063,7 @@
 .st-strip .st-thumb.is-now {
   box-shadow: 0 0 0 2px var(--accent);
 }
+
 
 /* Menus: the speaker picker and, on a phone, More. */
 
@@ -1368,7 +1358,6 @@
   }
   .st-strip-folded {
     height: 45px;
-    border-radius: var(--radius-control);
   }
   .st-dock {
     grid-area: dock;
