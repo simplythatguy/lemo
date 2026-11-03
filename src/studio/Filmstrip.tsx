@@ -129,13 +129,13 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
   onFold(group: string): void;
   onPick(group: number, slide: number): void;
   onAssign(group: number, personId: string | null): void;
-  onRegroup(op: Regroup): void;
+  onRegroup(op: Regroup, consented: ReadonlySet<string>): void;
 }) {
   const strip = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<{ group: number; anchor: HTMLElement } | null>(null);
   const [cut, setCut] = useState<{ slide: string; anchor: HTMLElement } | null>(null);
   /** A split or join that would lose a take, waiting for a yes beside the control that asked for it. */
-  const [ask, setAsk] = useState<{ op: Regroup; whose: string; anchor: HTMLElement } | null>(null);
+  const [ask, setAsk] = useState<{ op: Regroup; whose: string; anchor: HTMLElement; consented: ReadonlySet<string> } | null>(null);
   useGlide(strip);
   const press = usePress((el) => {
     if (!locked && el.dataset.split) setCut({ slide: el.dataset.split, anchor: el });
@@ -145,11 +145,12 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
   const change = (op: Regroup, anchor: HTMLElement) => {
     const taken = new Set([...Object.keys(room.takes), ...saving, ...Object.keys(upload)]);
     const lost = lostTakes(deck, regroup(deck, op, taken), taken);
-    if (!lost.length) return onRegroup(op);
+    if (!lost.length) return onRegroup(op, new Set());
     const names = lost.map((g) => room.people.find((p) => p.id === room.takes[g.id]?.personId)?.name);
     // Above the group's own row, so it covers no other label and its yes is never under the pointer that asked.
     const row = anchor.closest(".st-strip-g")?.querySelector<HTMLElement>(".st-strip-who") ?? anchor;
-    setAsk({ op, anchor: row, whose: lost.length > 1 ? `${lost.length} takes` : names[0] ? `${firstName(names[0])}’s take` : "a take" });
+    const consented = new Set(lost.map((g) => `${g.id}:${room.takes[g.id]?.id ?? "pending"}`));
+    setAsk({ op, anchor: row, consented, whose: lost.length > 1 ? `${lost.length} takes` : names[0] ? `${firstName(names[0])}’s take` : "a take" });
   };
 
   // Keep the slide on stage in view. Only the strip scrolls, never the page.
@@ -295,7 +296,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           type="button"
           className="st-menu-item"
           onClick={() => {
-            if (ask) onRegroup(ask.op);
+            if (ask) onRegroup(ask.op, ask.consented);
             setAsk(null);
           }}
         >

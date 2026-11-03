@@ -127,6 +127,54 @@ test("a deck edit cannot commit across a new or replaced take", async (t) => {
   assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, deck);
 });
 
+test("deck edits carry speakers to split and joined groups in the same response", async (t) => {
+  const { ok, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana"), ben = await person(code, "Ben");
+  const first = { id: "intro", name: "Intro", slides: [{ id: "s1", kind: "statement" }, { id: "s2", kind: "statement" }], script: ["One", "Two"] };
+  const last = { id: "ending", name: "Ending", slides: [{ id: "s3", kind: "statement" }], script: ["Three"] };
+  const deck = { title: "Demo", team: ["Ana", "Ben"], groups: [first, last] };
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: deck });
+  await ok("PUT", `/api/rooms/${code}/assignments/intro`, { json: { personId: ana.id } });
+  const before = await ok("PUT", `/api/rooms/${code}/assignments/ending`, { json: { personId: ben.id } });
+  const split = { ...deck, groups: [
+    { ...first, id: "intro-a", slides: first.slides.slice(0, 1), script: ["One"] },
+    { ...first, id: "intro-b", slides: first.slides.slice(1), script: ["Two"] }, last,
+  ] };
+  const saved = await ok("PUT", `/api/rooms/${code}/deck`, { json: split, headers: { "If-Match": `"${before.deckVersion}"` } });
+  assert.equal(saved.assignments["intro-a"], ana.id);
+  assert.equal(saved.assignments["intro-b"], ana.id);
+  assert.equal(saved.assignments.ending, ben.id);
+  const joined = { ...split, groups: [split.groups[0], { ...last, id: "joined", slides: [first.slides[1], ...last.slides], script: ["Two", "Three"] }] };
+  const combined = await ok("PUT", `/api/rooms/${code}/deck`, { json: joined, headers: { "If-Match": `"${saved.deckVersion}"` } });
+  assert.equal(combined.assignments.joined, ana.id, "a join keeps the first part's assigned speaker");
+  assert.equal((await ok("GET", `/api/rooms/${code}`)).assignments.joined, ana.id);
+});
+
+test("a delayed take is fenced to the ordered slides recorded, independently of words and people", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const group = { id: "intro", name: "Intro", slides: [{ id: "s1", kind: "statement" }, { id: "s2", kind: "statement" }], script: ["One", "Two"] };
+  const deck = { title: "Demo", team: ["Ana"], groups: [group] };
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: deck });
+  const stale = takeBody(ana.id, 1, "intro", { slides: ["s1", "s2"] });
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, groups: [{ ...group, slides: group.slides.slice(0, 1), script: ["One"] }] } });
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: stale })), 409);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).takes, {});
+  const current = takeBody(ana.id, 1, "intro", { slides: ["s1"], cues: [{ slide: 0, atMs: 0 }] });
+  await ok("POST", `/api/rooms/${code}/takes`, { json: current }, 201);
+  await person(code, "Ben");
+  const edited = { ...deck, groups: [{ ...group, slides: group.slides.slice(0, 1), script: ["New words"] }] };
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: edited });
+  const accepted = await ok("POST", `/api/rooms/${code}/takes`, { json: current }, 201);
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: { ...current, cues: [{ slide: 1, atMs: 0 }] } })), 400);
+  assert.equal((await ok("GET", `/api/rooms/${code}`)).takes.intro.id, accepted.id, "a rejected upload cannot replace the usable take");
+  await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, groups: [{ ...group, slides: [...group.slides].reverse() }] } });
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: stale })), 409, "same-count reorder also changes the layout");
+  assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: { ...current, groupId: "removed" } })), 409);
+});
+
 test("deck edit consent survives chunk uploads and people changes, but not another deck edit", async (t) => {
   const { ok, call, room, person } = await setup(t);
   const { code } = await room();

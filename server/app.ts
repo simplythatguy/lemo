@@ -80,6 +80,7 @@ const newTake = shape({
   mime: required(str(1, 120, MIME)),
   size: required(int(1, TAKE_MAX_BYTES)),
   chunks: required(int(1)),
+  slides: optional(list(str(1, DECK_MAX_BYTES), 1001), undefined),
 });
 const liveState: Check<LiveState> = shape({
   presenterId: personId,

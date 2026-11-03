@@ -205,22 +205,8 @@ export function regroup(deck: Deck, op: Regroup, taken: ReadonlySet<string>): De
   const before = fromDeck(deck);
   const after = op.kind === "split" ? splitBefore(before, op.slide) : joinNext(before, op.group, taken);
   if (after === before) return deck;
-  // Only a take can stop fitting its group: groups nobody recorded keep their ids, and so their speakers.
-  const renewed = renewChangedGroups(after, before);
-  return toDeck({ ...after, groups: renewed.groups.map((g, i) => (taken.has(after.groups[i].id) ? g : after.groups[i])) });
-}
-
-/** Speakers for the groups of `after` that have none, from the groups of `before` their slides came from: a split
- *  keeps its speaker on both parts, a join takes the first part's speaker or else the second's. */
-export function carriedSpeakers(before: Deck, after: Deck, assignments: Readonly<Record<string, string>>): Record<string, string> {
-  const from = new Map(before.groups.flatMap((g) => g.slides.map((s) => [s.id, assignments[g.id]] as const)));
-  const carried: Record<string, string> = {};
-  for (const g of after.groups) {
-    if (assignments[g.id]) continue;
-    const who = g.slides.map((s) => from.get(s.id)).find((p) => p !== undefined);
-    if (who) carried[g.id] = who;
-  }
-  return carried;
+  // Another browser may have kept a recording that has not reached the room yet.
+  return toDeck(renewChangedGroups(after, before));
 }
 
 /** Groups of `before` with a take that `after` no longer has: their takes are lost. */

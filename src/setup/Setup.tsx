@@ -215,6 +215,7 @@ export function Setup({ code: editCode }: { code?: string }) {
         beforeSave: (current, uploaded) => {
           const next = toDeck(uploaded);
           if (!editing) return next;
+          if (JSON.stringify(current.deck) === JSON.stringify(next)) return next;
           if (JSON.stringify(current.deck) !== JSON.stringify(loadedDeck.current)) {
             throw new Error("The room's slides changed. Your draft is kept. Reopen the editor before saving.");
           }

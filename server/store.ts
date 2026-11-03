@@ -8,6 +8,24 @@
 // refreshes it about once a second; a row older than LIVE_MS reads as nothing.
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { openDb, type Db, type Target, type Tx, type Value } from "./db.ts";
+import { carriedSpeakers, type GroupLayout } from "../src/studio/groups.ts";
+
+const object = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Older decks can have slides without ids; they cannot lend a verified recording layout or speaker mapping. */
+function layouts(deck: unknown): GroupLayout[] {
+  if (!object(deck) || !Array.isArray(deck.groups)) return [];
+  const groups: GroupLayout[] = [];
+  for (const value of deck.groups as unknown[]) {
+    if (!object(value) || typeof value.id !== "string" || !Array.isArray(value.slides)) continue;
+    const slides: { id: string }[] = [];
+    for (const slide of value.slides as unknown[]) {
+      if (object(slide) && typeof slide.id === "string") slides.push({ id: slide.id });
+    }
+    if (slides.length === value.slides.length) groups.push({ id: value.id, slides });
+  }
+  return groups;
+}
 
 export const CHUNK_BYTES = 3 * 1024 * 1024;
 export const TAKE_MAX_BYTES = 150 * 1024 * 1024;
@@ -37,7 +55,7 @@ export interface RoomState {
   code: string; people: Person[]; assignments: Record<string, string>; takes: Record<string, TakeInfo>;
   updatedAt: number; deckVersion: string; deck: unknown; live: LiveState | null;
 }
-export interface NewTake { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number }
+export interface NewTake { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number; slides?: string[] }
 export interface Signal { seq: number; from: string; kind: SignalKind; data: unknown; at: number }
 
 export class HttpError extends Error {
@@ -253,10 +271,15 @@ export class Store {
 
   putDeck(code: string, deckJson: string, version?: string): Promise<RoomState> {
     return this.inRoom(code, async (tx, code) => {
-      if (version !== undefined && (await this.state(tx, code)).deckVersion !== version) {
+      const current = await this.state(tx, code);
+      if (version !== undefined && current.deckVersion !== version) {
         throw new HttpError(412, "The room's slides or takes changed. Your edit was not saved. Try again.");
       }
+      const next: unknown = JSON.parse(deckJson);
       await tx.run("UPDATE studio_rooms SET deck_json=? WHERE code=?", [deckJson, code]);
+      for (const [group, person] of Object.entries(carriedSpeakers(layouts(current.deck), layouts(next), current.assignments))) {
+        await tx.run("INSERT INTO studio_assignments(room_code,group_id,person_id) VALUES (?,?,?)", [code, group, person]);
+      }
       await this.stamp(tx, code);
       return this.state(tx, code);
     });
@@ -323,10 +346,19 @@ export class Store {
     }
     return this.inRoom(code, async (tx, code) => {
       await this.person(tx, code, take.personId);
+      const { slides, ...media } = take;
+      if (slides !== undefined) {
+        const current = await this.state(tx, code);
+        const group = layouts(current.deck).find((g) => g.id === take.groupId);
+        if (!group || JSON.stringify(group.slides.map((s) => s.id)) !== JSON.stringify(slides)) {
+          throw new HttpError(409, "The slides changed. Your recording is saved on this device.");
+        }
+        if (take.cues.some((c) => c.slide >= slides.length)) throw new HttpError(400, "A cue must address a recorded slide");
+      }
       if ((await this.used(tx, code, take.groupId)) + take.size > this.roomMaxBytes) throw new HttpError(413, "This room is out of space");
       // Chunks cascade with the take they belong to.
       await tx.run("DELETE FROM studio_takes WHERE room_code=? AND group_id=?", [code, take.groupId]);
-      const info: TakeInfo = { id: hex(), ...take, received: 0, createdAt: this.ms() };
+      const info: TakeInfo = { id: hex(), ...media, received: 0, createdAt: this.ms() };
       await tx.run(
         "INSERT INTO studio_takes(id,room_code,group_id,person_id,duration_ms,cues_json,mime,size,chunks,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
         [info.id, code, info.groupId, info.personId, info.durationMs, JSON.stringify(info.cues), info.mime, info.size, info.chunks, info.createdAt],

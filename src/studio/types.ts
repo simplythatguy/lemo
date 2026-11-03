@@ -78,6 +78,9 @@ export interface Cue { slide: number; atMs: number; spot?: Spot }
 /** One recorded group: the presenter's camera + mic only, plus when each slide was shown. */
 export interface TakeMedia { blob: Blob; mime: string; cues: Cue[]; durationMs: number }
 
+/** The exact slide order captured when a local recording began, retained through Keep and upload retries. */
+export interface RecordedTake extends TakeMedia { slides: string[] }
+
 export interface Person { id: string; name: string }
 
 export interface TakeInfo {

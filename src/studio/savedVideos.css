@@ -109,6 +109,12 @@
   color: var(--ink);
 }
 
+.st-saved-local-title {
+  margin: var(--space-12) var(--space-12) 0;
+  font: var(--weight-label) var(--text-13)/1.4 var(--font);
+  color: var(--ink-3);
+}
+
 /* Under the rows: Download all with its text on the rows' left edge, and the total under the lengths when it fits. */
 .st-saved-foot {
   display: flex;

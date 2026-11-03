@@ -165,6 +165,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
     const key = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
+      if (k === "enter" && e.target instanceof Element && layer.current?.contains(e.target) && e.target.closest("button")) return;
       const now = pref.place;
       if (k === "escape" || k === "enter" || k === "c") close();
       else if (k === "1" || k === "2" || k === "3") toPlace(now, { size: SIZES[Number(k) - 1] });

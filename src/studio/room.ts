@@ -78,7 +78,7 @@ export const roomApi = {
   leave: (code: string, personId: string) => json<RoomState>(send("DELETE", `${base(code)}/people/${enc(personId)}`)),
   assign: (code: string, groupId: string, personId: string | null) =>
     json<RoomState>(send("PUT", `${base(code)}/assignments/${enc(groupId)}`, { json: { personId } })),
-  startTake: (code: string, body: { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number }, signal?: AbortSignal) =>
+  startTake: (code: string, body: { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number; slides: readonly string[] }, signal?: AbortSignal) =>
     json<TakeInfo>(send("POST", `${base(code)}/takes`, { json: body, signal })),
   putChunk: (code: string, takeId: string, i: number, data: Blob, signal?: AbortSignal) =>
     json<{ received: number }>(send("PUT", `${base(code)}/takes/${enc(takeId)}/chunks/${i}`, { body: data, signal })),

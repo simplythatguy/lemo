@@ -13,20 +13,20 @@ import { spotOf, useSpotPref } from "./spot";
 import { CameraSpots } from "./CameraSpots";
 import { Cams } from "./Cams";
 import { Filmstrip, useFolded } from "./Filmstrip";
-import { carriedSpeakers, lostTakes, regroup, type Regroup } from "../setup/draft";
+import { lostTakes, regroup, type Regroup } from "../setup/draft";
 import { CopyLink, editLink, firstName, initials, Menu, ProjectMark, roomLink, slug, StartButton, type Camera } from "./parts";
 import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
 import { clock, targetMs } from "./timing";
-import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RoomState, type TakeInfo, type TakeMedia } from "./types";
-import { uploads, useUploads } from "./uploads";
+import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RecordedTake, type RoomState, type TakeInfo } from "./types";
+import { uploads, useRetainedTakes, useUploads } from "./uploads";
 
 type Phase =
   | { k: "idle" }
   | { k: "countdown"; n: number }
   /** `target` is the group's length when the take started: an edit elsewhere never moves a running clock. */
   | { k: "recording"; startedAt: number; slide: number; target: number }
-  | { k: "review"; media: TakeMedia };
+  | { k: "review"; media: RecordedTake };
 
 /** What the dock offers, from the take's phase, whose group this is, and this device's camera. With the camera off,
     Record and Retake turn it on first. */
@@ -85,6 +85,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   // room shows the new take (the upload can finish before the next poll brings it).
   const [kept, setKept] = useState<Record<string, { before: string | null; at: number; ms: number }>>({});
   const progress = useUploads();
+  const retained = useRetainedTakes();
   const peers = usePeers({ room: room.code, me: me.id, people: room.people, stream: camera.stream });
   const peerVideos = useRef<Record<string, HTMLVideoElement | null>>({});
 
@@ -127,9 +128,9 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const presenter = busy(phase) ? me.id : follow ? follow.presenterId : rendering ? null : room.assignments[deck.groups[index].id] ?? null;
 
   useEffect(() => {
-    const landed = Object.keys(kept).filter((g) => (room.takes[g]?.id ?? null) !== kept[g].before);
+    const landed = Object.keys(kept).filter((g) => (room.takes[g]?.id ?? null) !== kept[g].before || retained.some((t) => t.room === room.code && t.groupId === g));
     if (landed.length) setKept((k) => Object.fromEntries(Object.entries(k).filter(([g]) => !landed.includes(g))));
-  }, [room.takes, kept]);
+  }, [room.takes, room.code, kept, retained]);
   const markKept = (groupId: string, ms: number) => {
     const at = Date.now();
     setKept((k) => ({ ...k, [groupId]: { before: room.takes[groupId]?.id ?? null, at, ms } }));
@@ -180,12 +181,8 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const pendingGroups = useRef<ReadonlySet<string>>(new Set());
   pendingGroups.current = new Set([...saving, ...Object.keys(progress)]);
   const regrouping = useRef(false);
-  const regroupDeck = async (op: Regroup) => {
+  const regroupDeck = async (op: Regroup, consented: ReadonlySet<string>) => {
     if (regrouping.current) return;
-    const taken = new Set([...Object.keys(room.takes), ...pendingGroups.current]);
-    const mine = regroup(deck, op, taken);
-    if (mine === deck) return;
-    const consented = new Set(lostTakes(deck, mine, taken).map((g) => `${g.id}:${room.takes[g.id]?.id ?? "pending"}`));
     const on = deck.groups[index]?.slides[shown]?.id;
     regrouping.current = true;
     try {
@@ -196,8 +193,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
       const lost = lostTakes(fresh.deck, next, current).filter((g) => !consented.has(`${g.id}:${fresh.takes[g.id]?.id ?? "pending"}`));
       const whose = lost.map((g) => fresh.people.find((p) => p.id === fresh.takes[g.id]?.personId)?.name);
       if (lost.length && !confirm(lost.length === 1 ? `This removes ${whose[0] ? `${firstName(whose[0])}’s` : "a"} take.` : `This removes ${lost.length} takes.`)) return apply(fresh);
-      let saved = await roomApi.putDeck(room.code, next, fresh.deckVersion);
-      for (const [g, person] of Object.entries(carriedSpeakers(fresh.deck, next, saved.assignments))) saved = await roomApi.assign(room.code, g, person);
+      const saved = await roomApi.putDeck(room.code, next, fresh.deckVersion);
       apply(saved);
       const group = next.groups.find((g) => g.slides.some((s) => s.id === on));
       if (group) {
@@ -339,7 +335,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         onFold={fold}
         onPick={pick}
         onAssign={assign}
-        onRegroup={(op) => void regroupDeck(op)}
+        onRegroup={(op, consented) => void regroupDeck(op, consented)}
       />
       {/* Stacked, the dock sits under the strip, so it follows the strip in the page too (tab order, screen readers). */}
       <div ref={setDockSlot} className="st-dock-slot" />
@@ -521,6 +517,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   const [elapsed, setElapsed] = useState(0);
   const rec = useRef<Recording | null>(null);
   const cues = useRef<Cue[]>([]);
+  const recordedSlides = useRef<string[]>([]);
   const timers = useRef<number[]>([]);
   const attempt = useRef(0);
   const replay = useRef<HTMLVideoElement | null>(null);
@@ -606,12 +603,13 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     clearTimers();
     const durationMs = auto ? p.target : Math.min(p.target, Math.round(performance.now() - r.startedAt));
     const { blob, mime } = await r.stop();
-    setPhase({ k: "review", media: { blob, mime, cues: cues.current, durationMs } });
+    setPhase({ k: "review", media: { blob, mime, cues: cues.current, durationMs, slides: recordedSlides.current } });
   }, [setPhase]);
 
   const start = useCallback(() => {
     if (!mine || following || !camera.stream || !camera.on || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     const token = ++attempt.current;
+    recordedSlides.current = group.slides.map((s) => s.id);
     const length = planned;
     (document.activeElement as HTMLElement | null)?.blur?.();
     stage.setCamera(camera.live, initials(me.name));
@@ -634,7 +632,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
         }, () => setPhase({ k: "idle" }));
       }, 3000),
     );
-  }, [camera.live, camera.on, camera.stream, finish, following, index, last, me.name, mine, planned, setPhase, stage]);
+  }, [camera.live, camera.on, camera.stream, finish, following, group.slides, index, last, me.name, mine, planned, setPhase, stage]);
 
   const cancel = useCallback(() => {
     attempt.current++;
@@ -742,7 +740,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     // Only the review this Keep came from closes: a retake started meanwhile carries on.
     const same = () => phaseRef.current.k === "review" && phaseRef.current.media === media;
     try {
-      await uploads.keep(room.code, group.id, me.id, media);
+      await uploads.keep(room.code, group, me.id, media);
       onKept(group.id, media.durationMs);
       if (same()) {
         setKeepFailed(false);
@@ -754,7 +752,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     } finally {
       keeping.current = false;
     }
-  }, [group.id, me.id, media, onKept, room.code, setPhase]);
+  }, [group, me.id, media, onKept, room.code, setPhase]);
 
   const again = () => {
     const v = replay.current;
@@ -788,7 +786,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       if (el.closest("input, select, textarea, [role=menu], [role=dialog]") || e.metaKey || e.ctrlKey || e.altKey) return;
       // A saved take playing over the room has the keys.
       if (document.querySelector("[aria-modal=true]")) return;
-      if (e.key === " " && el.closest("button, a[href], [role=button]")) return;
+      if ((e.key === " " || e.key === "Enter") && el.closest("button, a[href], [role=button]")) return;
       const p = phaseRef.current;
       if (e.key === "Escape" && (p.k === "countdown" || p.k === "recording" || p.k === "review")) {
         e.preventDefault();
