@@ -1039,9 +1039,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A folded group: a narrow tile with its slide count, as tall as a thumb. It shows the slides again. */
+/* A folded group: a tile with its slide count, as tall as a thumb and as wide as its label. It shows the slides again. */
 .st-strip-folded {
-  width: var(--control-lg);
+  min-width: var(--control-lg);
   height: calc(clamp(112px, 8vw, 144px) * 9 / 16);
   padding: 0;
   border: 0;
@@ -1092,6 +1092,13 @@
 .st-strip-join[aria-expanded="true"] {
   color: var(--ink);
   box-shadow: 0 0 0 1px var(--ink-4);
+}
+
+/* While a join is pointed at, the label it would drop fades: the second group's, or the first's when only the second has
+   a take. */
+.st-strip-g:has(> .st-strip-join:not(.is-keep-next):hover) + .st-strip-g > .st-strip-who,
+.st-strip-g:has(> .st-strip-join.is-keep-next:hover) > .st-strip-who {
+  opacity: 0.4;
 }
 
 @media (hover: none) {

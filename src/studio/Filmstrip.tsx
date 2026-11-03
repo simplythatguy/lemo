@@ -230,7 +230,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
               {gi < deck.groups.length - 1 && !locked && (
                 <button
                   type="button"
-                  className="st-strip-join"
+                  className={`st-strip-join${!room.takes[g.id] && room.takes[deck.groups[gi + 1].id] ? " is-keep-next" : ""}`}
                   aria-label={`Join ${g.name} with ${deck.groups[gi + 1].name}`}
                   data-tip="Join"
                   aria-expanded={ask?.op.kind === "join" && ask.op.group === g.id}
