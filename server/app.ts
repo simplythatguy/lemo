@@ -122,6 +122,7 @@ const deck = (v: unknown) => {
     if (!isObject(v.camera)) throw bad("deck.camera must be an object");
     for (const key of ["x", "y", "w", "h"]) finite(v.camera[key], `deck.camera.${key}`);
   }
+  if (v.limitMs !== undefined && v.limitMs !== null) int(1000, HOUR_MS)(v.limitMs, "deck.limitMs");
   return v;
 };
 

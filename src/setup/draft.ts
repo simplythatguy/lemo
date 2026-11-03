@@ -34,6 +34,8 @@ export interface Draft {
   file?: string;
   /** Where the room put the camera tile; setup leaves it alone. */
   camera?: Rect;
+  /** The video's length limit, as on the deck. */
+  limitMs?: number | null;
 }
 
 export const emptyDraft = (): Draft => ({ title: "", team: [""], logo: null, slides: {}, groups: [], script: {} });
@@ -240,6 +242,7 @@ export function toDeck(d: Draft, src: (s: DraftSlide) => string = (s) => s.src, 
   const deck: Deck = { title: d.title.trim(), team, groups };
   if (logo) deck.logo = logo;
   if (d.camera) deck.camera = d.camera;
+  if (d.limitMs !== undefined) deck.limitMs = d.limitMs;
   return deck;
 }
 
@@ -273,6 +276,7 @@ export function fromDeck(deck: Deck): Draft {
     script,
   };
   if (deck.camera) draft.camera = deck.camera;
+  if (deck.limitMs !== undefined) draft.limitMs = deck.limitMs;
   return draft;
 }
 

@@ -597,6 +597,35 @@
   outline: none;
 }
 
+/* The length limit: a choice, drawn like the fields around it. */
+.su-limit {
+  flex: none;
+  width: 100%;
+  max-width: 240px;
+}
+
+.su-field select {
+  appearance: none;
+  width: 100%;
+  height: var(--control-lg);
+  padding: 0 var(--space-24) 0 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 0;
+  background: transparent var(--chevron) no-repeat right 4px center;
+  font: var(--weight-body) var(--text-17)/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
+}
+
+.su-field select:focus-visible {
+  border-bottom-color: var(--focus);
+  box-shadow: 0 1px 0 var(--focus);
+}
+
 .su-field input:focus,
 .su-team input:focus {
   border-bottom-color: var(--focus);

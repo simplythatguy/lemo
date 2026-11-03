@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { roomApi, RoomError } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
-import { VIDEO_LIMIT_MS } from "../studio/types";
+import { limitOf } from "../studio/types";
 import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
 import { Icon } from "../icons";
 import { glide } from "./glide";
@@ -171,7 +171,8 @@ export function Setup({ code: editCode }: { code?: string }) {
 
   const deck = useMemo(() => toDeck(draft), [draft]);
   const total = deck.groups.length ? deckMs(deck) : 0;
-  const over = total > VIDEO_LIMIT_MS;
+  const limit = limitOf(deck);
+  const over = limit !== null && total > limit;
 
   /** The first step that still needs something, before `upTo`. */
   const blocker = (upTo: number): Step | null => {
@@ -213,10 +214,10 @@ export function Setup({ code: editCode }: { code?: string }) {
   };
 
   const length = total > 0 && (
-    <span className={`su-total${over ? " is-over" : ""}`} aria-label={`Video length ${clock(total)}${over ? ", longer than 5:00" : ""}`}>
+    <span className={`su-total${over ? " is-over" : ""}`} aria-label={`Video length ${clock(total)}${over ? `, longer than ${clock(limit)}` : ""}`}>
       <Icon name="clock" size={14} />
       {clock(total)}
-      {over && <span className="su-total-of">/ {clock(VIDEO_LIMIT_MS)}</span>}
+      {over && <span className="su-total-of">/ {clock(limit)}</span>}
     </span>
   );
   /** Nothing to go on with yet: the slides step's own Choose a file is the one action. */

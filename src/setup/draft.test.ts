@@ -100,6 +100,12 @@ test("a stored deck round-trips with its ids", () => {
   assert.deepEqual(sizes(d1), [1, 2, 1]);
 });
 
+test("a deck keeps its length limit, a number or none, and has none set until one is picked", () => {
+  const base = toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(1)));
+  assert.equal("limitMs" in base, false);
+  for (const limitMs of [90_000, null]) assert.equal(toDeck(fromDeck({ ...base, limitMs })).limitMs, limitMs);
+});
+
 test("editing a deck keeps where the room put the camera", () => {
   const deck = { ...toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(2))), camera: { x: 48, y: 48, w: 300, h: 300 } };
   assert.deepEqual(toDeck(fromDeck(deck)).camera, deck.camera);

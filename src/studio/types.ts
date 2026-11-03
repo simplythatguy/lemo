@@ -27,6 +27,8 @@ export interface Deck {
   groups: Group[];
   /** Where the camera tile sat for takes recorded before each take carried its own spot. */
   camera?: Rect;
+  /** The longest the video should be, in ms: unset is VIDEO_LIMIT_MS, null is no limit. Setup warns past it. */
+  limitMs?: number | null;
 }
 
 export type Tone = "blue" | "ink" | "grey";
@@ -125,3 +127,4 @@ export const liveLeft = (live: HeardLive, now = Date.now()) => Math.max(0, live.
 /** Spoken pace for every timing in the studio. */
 export const WORDS_PER_MINUTE = 120;
 export const VIDEO_LIMIT_MS = 5 * 60_000;
+export const limitOf = (deck: Pick<Deck, "limitMs">) => (deck.limitMs === undefined ? VIDEO_LIMIT_MS : deck.limitMs);

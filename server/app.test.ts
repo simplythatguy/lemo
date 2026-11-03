@@ -195,6 +195,14 @@ test("a take's cues and the live state carry where the presenter's camera sits",
   assert.equal(await status(call("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "full" }) })), 400);
 });
 
+test("a deck's length limit is a whole number of ms from 1 s to an hour, or null for none", async (t) => {
+  const { ok, call, room } = await setup(t);
+  const { code } = await room();
+  const put = (limitMs: unknown) => call("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, limitMs } });
+  for (const limitMs of [90_000, null]) assert.equal((await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, limitMs } })).deck.limitMs, limitMs);
+  for (const limitMs of [0, 500, "5:00", 1.5e7]) assert.equal(await status(put(limitMs)), 400, String(limitMs));
+});
+
 test("an expired room is gone", async (t) => {
   const { call, room, clock } = await setup(t);
   const { code } = await room();

@@ -2,11 +2,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { ProjectMark } from "../studio/parts";
+import { clock } from "../studio/timing";
+import { limitOf } from "../studio/types";
 import { removeMember, type Draft, type Pic } from "./draft";
 import { squareLogo } from "./logo";
 
 /** The logo's side, in px: the height of the project's label and name beside it. */
 const LOGO = 76;
+/** Length limits to pick from, in seconds; hackathons and demo days mostly ask for one of these. */
+const LIMITS = [60, 90, 120, 180, 240, 300, 420, 600, 900];
 
 export function Project({ draft, setDraft, show, makeUrl }: {
   draft: Draft;
@@ -150,6 +154,22 @@ export function Project({ draft, setDraft, show, makeUrl }: {
           {show.team && !draft.team.some((t) => t.trim()) && <em className="su-error">Add at least one name</em>}
         </div>
       </fieldset>
+
+      <label className="su-field su-limit">
+        <span>Length limit</span>
+        <select
+          value={String(limitOf(draft) ?? "none")}
+          onChange={(e) => {
+            const v = e.currentTarget.value;
+            setDraft((d) => ({ ...d, limitMs: v === "none" ? null : Number(v) }));
+          }}
+        >
+          {LIMITS.map((s) => (
+            <option key={s} value={s * 1000}>{clock(s * 1000)}</option>
+          ))}
+          <option value="none">No limit</option>
+        </select>
+      </label>
     </div>
   );
 }
