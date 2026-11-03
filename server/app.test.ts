@@ -178,6 +178,23 @@ test("a take keeps up to 1000 slide-change cues", async (t) => {
   }
 });
 
+test("a take's cues and the live state carry where the presenter's camera sits", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const cues = [{ slide: 0, atMs: 0, spot: "br-m" }, { slide: 0, atMs: 800, spot: "c-l" }, { slide: 1, atMs: 1500, spot: "c-l" }];
+  const take = await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1, "intro", { cues }) }, 201);
+  assert.deepEqual(take.cues, cues);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).takes.intro.cues, cues);
+  for (const spot of ["full", "c-xl", "", 3]) {
+    const bad = takeBody(ana.id, 1, "intro", { cues: [{ slide: 0, atMs: 0, spot }] });
+    assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: bad })), 400, String(spot));
+  }
+  await ok("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "tl-s" }) });
+  assert.equal((await ok("GET", `/api/rooms/${code}`)).live.spot, "tl-s");
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "full" }) })), 400);
+});
+
 test("an expired room is gone", async (t) => {
   const { call, room, clock } = await setup(t);
   const { code } = await room();

@@ -11,6 +11,7 @@ type Route = { method: string; path: string[]; run: (store: Store, req: Request,
 const JSON_MAX_BYTES = 256 * 1024;
 const FILE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const GROUP_ID = /^[a-z0-9-]{1,40}$/;
+const SPOT = /^(tl|tr|c|bl|br)-[sml]$/;
 const MIME = /^video\/[\w.+-]+(;[\w=.,\s"+-]*)?$/;
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -69,7 +70,8 @@ const personId = required(str(1, 40));
 const newRoom = shape({ code: optional(nullable(trimmed(1, 12)), null) });
 const join = shape({ name: required(trimmed(1, 60)) });
 const assign = shape({ personId: required(nullable(str(1, 40))) });
-const cue = shape({ slide: required(int(0, 1000)), atMs: required(int(0)) });
+const spot = optional(str(3, 4, SPOT), undefined);
+const cue = shape({ slide: required(int(0, 1000)), atMs: required(int(0)), spot });
 const newTake = shape({
   groupId: required(str(1, 40, GROUP_ID)),
   personId,
@@ -83,6 +85,7 @@ const liveState: Check<LiveState> = shape({
   presenterId: personId,
   groupId: required(str(1, 40, GROUP_ID)),
   slide: required(int(0, 1000)),
+  spot,
   recording: required(bool),
   remainingMs: required(int(0, HOUR_MS)),
   targetMs: required(int(0, HOUR_MS)),

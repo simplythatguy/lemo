@@ -6,6 +6,7 @@ import { firstName, slug, StartButton } from "./parts";
 import { startPlayback } from "./playback";
 import { takeMedia } from "./Render";
 import { createStage, exportVideo, preload, stageKey } from "./stage";
+import { boxAt } from "./stage/camera";
 import { clock } from "./timing";
 import { Transport } from "./Transport";
 import type { Cue, Deck, RoomState, TakeInfo, TakeMedia } from "./types";
@@ -317,8 +318,10 @@ function Player({ root, leaving, deck, room, index, take, saving, onSave, onClos
       v.src = url;
       video.current = v;
       let shown = 0;
+      stage.placeCamera(boxAt(media.cues, 0, deck), { instant: true });
       const tick = () => {
         const ms = v.currentTime * 1000;
+        stage.placeCamera(boxAt(media.cues, ms, deck));
         const slide = slideAt(media.cues, ms);
         if (slide !== shown) {
           stage.show(index, slide);

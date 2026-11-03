@@ -8,15 +8,16 @@ import { Render } from "./Render";
 import { roomApi } from "./room";
 import { SavedVideos } from "./SavedVideos";
 import { createStage, exportVideo, preload, stageKey, type Stage } from "./stage";
-import { cameraOf } from "./stage/camera";
-import { CameraFrame } from "./CameraFrame";
+import { boxAt, deckBox, spotBox } from "./stage/camera";
+import { spotOf, useSpotPref } from "./spot";
+import { CameraSpots } from "./CameraSpots";
 import { Cams } from "./Cams";
 import { Filmstrip } from "./Filmstrip";
 import { Brand, CopyLink, editLink, firstName, initials, Menu, roomLink, slug, StartButton, type Camera } from "./parts";
 import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
 import { clock, deckMs, targetMs } from "./timing";
-import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type Rect, type RoomState, type TakeInfo, type TakeMedia } from "./types";
+import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RoomState, type TakeInfo, type TakeMedia } from "./types";
 import { uploads, useUploads } from "./uploads";
 
 type Phase =
@@ -280,6 +281,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           makeInDock={makeInDock}
           next={next}
           onNext={() => next && pick(deck.groups.indexOf(next), 0)}
+          onPick={pick}
           recordedMs={recordedMs}
           onMake={makeVideo}
           dockSlot={stacked ? dockSlot : null}
@@ -437,7 +439,7 @@ function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children
   );
 }
 
-function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, next, onNext, recordedMs, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, next, onNext, onPick, recordedMs, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -470,6 +472,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   /** The group to record after this one, once this one is kept. */
   next: Group | null;
   onNext(): void;
+  /** Opens another group's slide: the arrows walk on past this group's first and last slides. */
+  onPick(group: number, slide: number): void;
   /** This group's take, when it has one. */
   recordedMs: number | null;
   onMake(): void;
@@ -540,27 +544,24 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     if (phase.k === "idle" && following) stage.setCamera(followCam, theirFace);
     else stage.setCamera(camera.live, myFace);
   }, [stage, camera.live, phase.k, following, followCam, myFace, theirFace]);
-  // The camera tile's place: the room's, or where this device is dragging it until the room has the new one.
-  const [camDraft, setCamDraft] = useState<Rect | null>(null);
-  const camGesture = useRef(0);
-  const camBox = camDraft ?? cameraOf(deck);
+  // The camera tile's spot: this device's own, or the teammate's while following them. A review places it from its cues.
+  const mySpot = spotOf(useSpotPref());
+  const spotRef = useRef(mySpot);
+  spotRef.current = mySpot;
+  const [spotsOpen, setSpotsOpen] = useState(false);
+  const theirSpot = follow?.spot;
+  const camPlaced = useRef(false);
   useEffect(() => {
-    stage?.placeCamera({ x: camBox.x, y: camBox.y, w: camBox.w, h: camBox.h });
-  }, [stage, camBox.x, camBox.y, camBox.w, camBox.h]);
-  const moveCam = useCallback((r: Rect) => {
-    camGesture.current++;
-    setCamDraft(r);
-  }, []);
-  const placeCam = useCallback(async (r: Rect) => {
-    const gesture = ++camGesture.current;
-    setCamDraft(r);
-    try {
-      apply(await roomApi.putDeck(room.code, { ...(await freshDeck(room.code)), camera: r }));
-    } catch {
-      // Not saved: the tile goes back to where the room has it.
-    }
-    if (gesture === camGesture.current) setCamDraft(null);
-  }, [apply, room.code]);
+    if (!stage || phase.k === "review") return;
+    stage.placeCamera(following ? (theirSpot ? spotBox(theirSpot) : deckBox(deck)) : spotBox(mySpot), { instant: !camPlaced.current });
+    camPlaced.current = true;
+  }, [stage, phase.k, following, theirSpot, mySpot, deck]);
+  // A move mid-take is part of the take: the video glides there at the same moment.
+  useEffect(() => {
+    const p = phaseRef.current;
+    if (p.k !== "recording" || cues.current[cues.current.length - 1]?.spot === mySpot) return;
+    cues.current = [...cues.current, { slide: p.slide, atMs: Math.round(performance.now() - p.startedAt), spot: mySpot }];
+  }, [mySpot]);
   const placed = useRef(false);
   // Before the first paint, so a new booth never shows an empty stage.
   useLayoutEffect(() => {
@@ -598,7 +599,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
         void startRecording(stream).then((r) => {
           if (token !== attempt.current) return r.cancel();
           rec.current = r;
-          cues.current = [{ slide: 0, atMs: 0 }];
+          cues.current = [{ slide: 0, atMs: 0, spot: spotRef.current }];
           stage.show(index, 0, { instant: true });
           setPhase({ k: "recording", startedAt: r.startedAt, slide: 0, target: length });
           timers.current.push(window.setTimeout(() => void finish(true), length - (performance.now() - r.startedAt)));
@@ -617,14 +618,20 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
 
   const step = useCallback((d: 1 | -1) => {
     const p = phaseRef.current;
-    if (p.k === "idle" && !following) return setPreview(Math.min(last, Math.max(0, preview + d)));
+    if (p.k === "idle" && !following) {
+      const to = preview + d;
+      if (to >= 0 && to <= last) return setPreview(to);
+      const gi = index + d;
+      if (gi >= 0 && gi < deck.groups.length) onPick(gi, d > 0 ? 0 : Math.max(0, deck.groups[gi].slides.length - 1));
+      return;
+    }
     if (p.k !== "recording" || !stage) return;
     const slide = Math.min(last, Math.max(0, p.slide + d));
     if (slide === p.slide) return;
-    cues.current = [...cues.current, { slide, atMs: Math.round(performance.now() - p.startedAt) }];
+    cues.current = [...cues.current, { slide, atMs: Math.round(performance.now() - p.startedAt), spot: spotRef.current }];
     stage.show(index, slide);
     setPhase({ ...p, slide });
-  }, [following, index, last, preview, setPhase, setPreview, stage]);
+  }, [deck.groups, following, index, last, onPick, preview, setPhase, setPreview, stage]);
 
   // Leaving the group mid-take (or unmounting) never leaves a recorder running, or the team following a take that ended.
   useEffect(() => () => {
@@ -645,7 +652,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       const ms = performance.now() - phase.startedAt;
       setElapsed(ms);
       sent.current = true;
-      send.current({ presenterId: me.id, groupId: group.id, slide: phase.slide, recording: true, remainingMs: Math.max(0, Math.round(target - ms)), targetMs: target, at: Date.now() });
+      send.current({ presenterId: me.id, groupId: group.id, slide: phase.slide, spot: spotRef.current, recording: true, remainingMs: Math.max(0, Math.round(target - ms)), targetMs: target, at: Date.now() });
     };
     tick();
     const t = window.setInterval(tick, 250);
@@ -668,6 +675,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     const tick = () => {
       const ms = v.currentTime * 1000;
       const slide = slideAt(media.cues, ms);
+      stage.placeCamera(boxAt(media.cues, ms, deck), { instant: shown === -1 });
       if (slide !== shown) {
         stage.show(index, slide, { instant: shown === -1 });
         shown = slide;
@@ -694,7 +702,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
         URL.revokeObjectURL(url);
       }, 1000);
     };
-  }, [media, stage, index, camera.live, me.name]);
+  }, [media, stage, index, camera.live, me.name, deck]);
 
   // The review stays open until the take is safe on this device; a failed write leaves it there to try again.
   const [keepFailed, setKeepFailed] = useState(false);
@@ -781,6 +789,11 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
 
   // The transcript can be edited only while nothing is being recorded here or followed from a teammate.
   const canEdit = phase.k === "idle" && !follow;
+  /** Your own camera is on stage (not a teammate's, not a take under review): you can move it, also mid-take. */
+  const canMove = !!stage && !follow && phase.k !== "review";
+  useEffect(() => {
+    if (!canMove) setSpotsOpen(false);
+  }, [canMove]);
   const writing = editing && canEdit;
   const stopWriting = script.stop;
   useEffect(() => {
@@ -797,13 +810,17 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   }, [lead]);
   const settled = () => performance.now() - leadAt.current > SETTLE_MS;
   const recordKey = <kbd className="kbd">R</kbd>;
+  /** Idle and not following: the arrows walk on into the next or previous group. */
+  const walk = phase.k === "idle" && !follow;
+  const firstSlide = onStage === 0 && !(walk && index !== 0);
+  const lastSlide = onStage === last && !(walk && index !== deck.groups.length - 1);
   const nav = (
     <div className="st-dock-side">
-      <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={onStage === 0} aria-label="Previous slide" data-tip="Previous slide (←)">
+      <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={firstSlide} aria-label="Previous slide" data-tip="Previous slide (←)">
         <Icon name="prev" size={20} />
       </button>
       <span className="st-step-n">{onStage + 1} / {last + 1}</span>
-      <button type="button" className="icon-btn" onClick={() => step(1)} disabled={onStage === last} aria-label="Next slide" data-tip="Next slide (→)">
+      <button type="button" className="icon-btn" onClick={() => step(1)} disabled={lastSlide} aria-label="Next slide" data-tip="Next slide (→)">
         <Icon name="next" size={20} />
       </button>
     </div>
@@ -926,7 +943,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       <div className="st-desk">
         <div className="st-stage-cell">
           <StageCanvas canvas={canvas}>
-            {canEdit && stage && <CameraFrame box={camBox} onChange={moveCam} onCommit={placeCam} />}
+            {canMove && <CameraSpots open={spotsOpen} onOpen={setSpotsOpen} />}
             {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
             {refused && <StartButton onStart={again} />}
           </StageCanvas>

@@ -3,7 +3,7 @@
 
 import type { Deck, Rect, Slide } from "../types";
 import { clipUrl, fontsReady as fontsLoaded, loadFonts } from "./assets";
-import { cameraOf, cameraRadius } from "./camera";
+import { deckBox, glides, mixBox, sameBox, type CameraBox } from "./camera";
 import { C, coverSource, font, frame, text, type Ctx } from "./draw";
 import { clamp01, inOutSine, outCubic } from "./ease";
 import { hasTitle, paintCard, paintSlide, paintTitle } from "./slides";
@@ -14,8 +14,8 @@ export interface Stage {
   show(group: number, slide: number, opts?: { instant?: boolean }): void;
   /** The camera tile: `src` when it has frames, otherwise `initials` on a dark tile. Neither: no tile. */
   setCamera(src: HTMLVideoElement | null, initials?: string): void;
-  /** Moves the camera tile to `r`, in stage pixels, from the next frame on. */
-  placeCamera(r: Rect): void;
+  /** Moves the camera tile to `box`: a new size in the same place glides there, a new place (or `instant`) cuts. */
+  placeCamera(box: CameraBox, opts?: { instant?: boolean }): void;
   showCard(card: "intro" | "outro"): void;
   destroy(): void;
 }
@@ -26,6 +26,7 @@ const T = {
   rise: 10, // a changed title lifts this far into place in the second half of the dissolve
   camera: 650,
   cameraOut: 420,
+  cameraMove: 420, // the tile gliding to another spot
 };
 
 type Content =
@@ -133,7 +134,9 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
   let cur: Layer | null = null;
   let dissolve: Dissolve | null = null;
   let cams: Cam[] = [];
-  let camRect = cameraOf(deck);
+  let camFrom = deckBox(deck);
+  let camTo = camFrom;
+  let camMoved = -Infinity;
   let raf = 0;
   let dead = false;
 
@@ -193,7 +196,8 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
     });
     const tile = Math.max(...alphas);
     if (tile <= 0) return;
-    const r = camRect;
+    const moving = now - camMoved < T.cameraMove;
+    const r = moving ? mixBox(camFrom, camTo, outCubic(clamp01((now - camMoved) / T.cameraMove))) : camTo;
     ctx.save();
     ctx.globalAlpha = tile;
     frame(ctx, r, (c) => {
@@ -211,7 +215,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
         } else paintInitials(c, r, cam.initials!);
         c.restore();
       });
-    }, cameraRadius(r));
+    }, r.r, !moving);
     ctx.restore();
   }
 
@@ -250,6 +254,8 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
       const slide = deck.groups[group]?.slides[index];
       if (!slide) return;
       const sameGroup = cur?.content.kind === "slide" && cur.content.group === group;
+      // A cue that only moves the camera names the slide already up: nothing to dissolve.
+      if (!opts?.instant && sameGroup && cur?.content.kind === "slide" && cur.content.index === index) return;
       enter({ kind: "slide", group, index, slide }, opts?.instant ? "instant" : sameGroup ? "slide" : "group");
     },
     showCard(which) {
@@ -262,8 +268,12 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
       for (const c of cams) c.out ??= now;
       if (el || initials) cams.push({ el, initials, at: cams.length || cur ? now : -Infinity });
     },
-    placeCamera(r) {
-      camRect = r;
+    placeCamera(box, opts) {
+      if (sameBox(box, camTo)) return;
+      const now = performance.now();
+      camFrom = opts?.instant || !glides(camTo, box) ? box : mixBox(camFrom, camTo, outCubic(clamp01((now - camMoved) / T.cameraMove)));
+      camTo = box;
+      camMoved = now;
     },
     destroy() {
       dead = true;

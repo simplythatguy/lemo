@@ -444,6 +444,7 @@
 
 .st-stage-cell .st-stage {
   width: 100%;
+  container: stage / inline-size;
 }
 
 .st-stage canvas {
@@ -452,71 +453,132 @@
   height: 100%;
 }
 
-/* The camera tile, picked up: the canvas paints it, this only catches the pointer and shows the handles. */
-.st-camframe {
+/* The camera tile: the canvas paints it, this only catches the tap that opens the places it can go. */
+.st-spots-handle {
   position: absolute;
-  cursor: grab;
-  touch-action: none;
-  outline: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: box-shadow var(--dur-control) var(--ease);
 }
 
-.st-camframe:active { cursor: grabbing; }
-
-.st-camframe:hover,
-.st-camframe:focus-visible,
-.st-camframe:active {
-  box-shadow: 0 0 0 2px var(--accent);
+.st-spots-handle:hover,
+.st-spots-handle[aria-expanded="true"] {
+  box-shadow: 0 0 0 2px var(--on-dark);
 }
 
-.st-camframe-h {
+.st-spots {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  margin: calc(var(--space-12) * -1);
+  inset: 0;
+  animation: st-spots-in var(--dur-control) var(--ease);
 }
 
-.st-camframe-h.is-nw, .st-camframe-h.is-ne, .st-camframe-h.is-sw, .st-camframe-h.is-se {
-  z-index: 1;
+@keyframes st-spots-in {
+  from { opacity: 0; }
 }
 
-/* Corners show a dot; the edges between them are plain strips. */
-.st-camframe-h.is-nw::after, .st-camframe-h.is-ne::after, .st-camframe-h.is-sw::after, .st-camframe-h.is-se::after {
-  content: "";
+.st-spots-dim {
   position: absolute;
-  inset: 7px;
+  inset: 0;
+  background: var(--shade);
+}
+
+/* Each place: the wide rectangle (large), the upright one inside it (medium). Yours is drawn solid. */
+.st-spot,
+.st-spot-upright {
+  position: absolute;
+  border: 1.5px dashed var(--on-dark-2);
+}
+
+.st-spot {
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  transition: background-color var(--dur-control) var(--ease), border-color var(--dur-control) var(--ease);
+}
+
+.st-spot:hover {
+  border-color: var(--on-dark);
+  background: var(--on-dark-wash);
+}
+
+.st-spot[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--on-dark);
+}
+
+.st-spot-upright {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* S M L: each letter in a thin ring, above the centre and beside each corner, facing the middle. The size in use is
+   white; the others are dimmer. */
+.st-spot-size {
+  position: absolute;
+  display: flex;
+  gap: var(--space-8);
+}
+
+.st-spot-size.is-above {
+  left: var(--cx);
+  bottom: calc(100% - var(--top));
+  translate: -50% 0;
+  margin-bottom: var(--space-12);
+}
+
+.st-spot-size.is-right,
+.st-spot-size.is-left {
+  top: var(--cy);
+  translate: 0 -50%;
+  flex-direction: column;
+}
+
+.st-spot-size.is-right { left: var(--right); margin-left: var(--space-12); }
+.st-spot-size.is-left { right: calc(100% - var(--left)); margin-right: var(--space-12); }
+
+.st-spot-size button {
+  display: grid;
+  place-items: center;
+  width: var(--control);
+  height: var(--control);
+  padding: 0;
+  border: 1.5px solid var(--on-dark-3);
   border-radius: var(--radius-full);
-  background: var(--bg);
-  box-shadow: 0 0 0 2px var(--accent);
-  opacity: 0;
-  transition: opacity var(--dur-control) var(--ease);
+  background: none;
+  font: var(--weight-label) var(--text-15)/1 var(--font);
+  color: var(--on-dark-3);
+  cursor: pointer;
+  transition: color var(--dur-control) var(--ease), border-color var(--dur-control) var(--ease);
 }
 
-.st-camframe:hover .st-camframe-h::after,
-.st-camframe:focus .st-camframe-h::after {
-  opacity: 1;
+.st-spot-size button:hover {
+  border-color: var(--on-dark-2);
+  color: var(--on-dark-2);
 }
 
-.st-camframe-h.is-nw { left: 0; top: 0; cursor: nwse-resize; }
-.st-camframe-h.is-se { right: 0; bottom: 0; cursor: nwse-resize; }
-.st-camframe-h.is-ne { right: 0; top: 0; cursor: nesw-resize; }
-.st-camframe-h.is-sw { left: 0; bottom: 0; cursor: nesw-resize; }
-.st-camframe-h.is-n, .st-camframe-h.is-s { left: 12px; right: 12px; width: auto; margin-left: 0; margin-right: 0; cursor: ns-resize; }
-.st-camframe-h.is-w, .st-camframe-h.is-e { top: 12px; bottom: 12px; height: auto; margin-top: 0; margin-bottom: 0; cursor: ew-resize; }
-.st-camframe-h.is-n { top: 0; }
-.st-camframe-h.is-s { bottom: 0; }
-.st-camframe-h.is-w { left: 0; }
-.st-camframe-h.is-e { right: 0; }
+.st-spot-size button[aria-checked="true"] {
+  border-color: var(--on-dark);
+  color: var(--on-dark);
+  font-weight: var(--weight-title);
+}
 
-/* A finger needs bigger corners; a tap on the tile focuses it and shows them. */
-@media (pointer: coarse) {
-  .st-camframe-h.is-nw, .st-camframe-h.is-ne, .st-camframe-h.is-sw, .st-camframe-h.is-se {
-    width: 32px;
-    height: 32px;
-    margin: calc(var(--space-16) * -1);
+/* A small stage has no room beside the places: the sizes sit in a row in the middle of each, smaller. */
+@container stage (max-width: 640px) {
+  .st-spot-size.is-above,
+  .st-spot-size.is-right,
+  .st-spot-size.is-left {
+    left: var(--cx);
+    right: auto;
+    top: var(--cy);
+    bottom: auto;
+    margin: 0;
+    translate: -50% -50%;
+    flex-direction: row;
+    gap: var(--space-4);
   }
-  .st-camframe-h.is-nw::after, .st-camframe-h.is-ne::after, .st-camframe-h.is-sw::after, .st-camframe-h.is-se::after {
-    inset: 11px;
-  }
+  .st-spot-size button { width: 24px; height: 24px; font-size: var(--text-12); }
 }
 
 .st-count {

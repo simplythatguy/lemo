@@ -96,11 +96,14 @@ function shadowSprite(w: number, h: number, radius: number): HTMLCanvasElement {
   return sprite;
 }
 
-/** A rounded media frame: very soft shadow, white fill, contents drawn by `inner` clipped to it, then a 1px hairline. */
-export function frame(ctx: Ctx, r: Rect, inner?: (ctx: Ctx) => void, radius: number = L.radius) {
-  const sprite = shadowSprite(r.w, r.h, radius);
-  const pad = SHADOW.blur * 2;
-  ctx.drawImage(sprite, r.x - pad, r.y - pad, sprite.width, sprite.height);
+/** A rounded media frame: very soft shadow, white fill, contents drawn by `inner` clipped to it, then a 1px hairline.
+ *  A frame changing size every frame goes without the shadow: each size would cost a new blurred sprite. */
+export function frame(ctx: Ctx, r: Rect, inner?: (ctx: Ctx) => void, radius: number = L.radius, shadow = true) {
+  if (shadow) {
+    const sprite = shadowSprite(r.w, r.h, radius);
+    const pad = SHADOW.blur * 2;
+    ctx.drawImage(sprite, r.x - pad, r.y - pad, sprite.width, sprite.height);
+  }
   ctx.save();
   roundRectPath(ctx, r, radius);
   ctx.fillStyle = C.white;
@@ -113,7 +116,7 @@ export function frame(ctx: Ctx, r: Rect, inner?: (ctx: Ctx) => void, radius: num
   }
   ctx.restore();
   ctx.save();
-  roundRectPath(ctx, { x: r.x + 0.5, y: r.y + 0.5, w: r.w - 1, h: r.h - 1 }, radius - 0.5);
+  roundRectPath(ctx, { x: r.x + 0.5, y: r.y + 0.5, w: r.w - 1, h: r.h - 1 }, Math.max(0, radius - 0.5));
   ctx.strokeStyle = C.hairline;
   ctx.lineWidth = 1;
   ctx.stroke();

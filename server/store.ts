@@ -26,9 +26,9 @@ export const ROOM_MAX_SIGNALS = 2000;
 export const LIVE_MS = 10_000;
 
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
-export interface Cue { slide: number; atMs: number }
+export interface Cue { slide: number; atMs: number; spot?: string }
 export interface Person { id: string; name: string }
-export interface LiveState { presenterId: string; groupId: string; slide: number; recording: boolean; remainingMs: number; targetMs: number; at: number }
+export interface LiveState { presenterId: string; groupId: string; slide: number; spot?: string; recording: boolean; remainingMs: number; targetMs: number; at: number }
 export interface TakeInfo {
   id: string; groupId: string; personId: string; durationMs: number; cues: Cue[];
   mime: string; size: number; chunks: number; received: number; createdAt: number;

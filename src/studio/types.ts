@@ -25,7 +25,7 @@ export interface Deck {
   /** The project's logo (a file URL from the room), painted on the intro and outro cards. */
   logo?: string;
   groups: Group[];
-  /** Where the presenter's camera tile sits, in stage pixels; the default corner when unset. Moved in the room. */
+  /** Where the camera tile sat for takes recorded before each take carried its own spot. */
   camera?: Rect;
 }
 
@@ -61,8 +61,16 @@ export type Slide =
 export interface Panel { src: string; label: string; marks?: Mark[] }
 export interface Bar { label: string; value: number; highlight?: boolean; note?: string }
 
-/** A slide change inside a take: slide index within the group, ms from the take's first frame. */
-export interface Cue { slide: number; atMs: number }
+/** The four corners and the centre. */
+export type Place = "tl" | "tr" | "c" | "bl" | "br";
+/** Small and medium are upright; large is wide, with medium fitting inside it. */
+export type CameraSize = "s" | "m" | "l";
+/** Where the presenter's camera sits, and how big it is there. */
+export type Spot = `${Place}-${CameraSize}`;
+
+/** A change inside a take, ms from its first frame: the slide on screen and where the camera sits from then on.
+ *  Takes from before spots existed have none: their camera sits where the deck's `camera` says. */
+export interface Cue { slide: number; atMs: number; spot?: Spot }
 
 /** One recorded group: the presenter's camera + mic only, plus when each slide was shown. */
 export interface TakeMedia { blob: Blob; mime: string; cues: Cue[]; durationMs: number }
@@ -99,7 +107,7 @@ export interface RoomState {
 
 /** A take in progress. `at` is the presenter's clock when they sampled it, so it only orders samples.
  *  The server moves `remainingMs` on to the moment it replies. */
-export interface LiveState { presenterId: string; groupId: string; slide: number; recording: boolean; remainingMs: number; targetMs: number; at: number }
+export interface LiveState { presenterId: string; groupId: string; slide: number; spot?: Spot; recording: boolean; remainingMs: number; targetMs: number; at: number }
 
 /** A LiveState as this device heard it: `remainingMs` held at `seen`, this device's clock. */
 export interface HeardLive extends LiveState { seen: number }

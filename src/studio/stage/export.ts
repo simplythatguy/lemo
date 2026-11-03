@@ -4,6 +4,7 @@
 import { INTRO_MS, OUTRO_MS } from "../timing";
 import type { Deck, TakeMedia } from "../types";
 import { preload } from "./assets";
+import { boxAt } from "./camera";
 import { makeStage } from "./stage";
 
 const MIMES = [
@@ -126,9 +127,11 @@ export async function exportVideo(opts: {
       let cue = 0;
       while (cue < cues.length && cues[cue].atMs <= 0) cue++;
       stage.show(index, cue ? cues[cue - 1].slide : 0);
+      stage.placeCamera(boxAt(cues, 0, deck), { instant: true });
       tick = () => {
         const ms = v.currentTime * 1000;
         while (cue < cues.length && cues[cue].atMs <= ms) stage.show(index, cues[cue++].slide);
+        stage.placeCamera(boxAt(cues, ms, deck));
       };
       current = v;
       await race(v.play());
