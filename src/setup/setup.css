@@ -264,17 +264,9 @@
   list-style: none;
 }
 
-.su-grid > .su-cell {
-  grid-column: 1;
-}
-
 /* A file being read: each slide on its own, in the columns the grid will have. */
 .su-grid.is-even {
   grid-template-columns: repeat(var(--cols), var(--cell));
-}
-
-.su-grid.is-even > .su-cell {
-  grid-column: auto;
 }
 
 .su-cell {
@@ -912,5 +904,4 @@
     right: var(--space-4);
   }
 }
-
 

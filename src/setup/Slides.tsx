@@ -204,8 +204,8 @@ function Progress({ importing, onPainted }: { importing: Importing; onPainted():
 /** "4" or "3–5", from a 0-based start. */
 const range = (first: number, n: number) => (n > 1 ? `${first + 1}–${first + n}` : String(first + 1));
 
-/** The grid's width, how many slides a full row holds, and the space between slides of a group and between groups; and
- *  for the grid of a file being read, every slide on its own, the same columns as CSS. */
+/** The grid's width, how many slides a full row holds and the two spaces between slides; and, for a file being read,
+ *  the even columns its slides fill. */
 function useRow(grid: React.RefObject<HTMLOListElement | null>): { metrics: Metrics; style: React.CSSProperties } {
   const [metrics, setMetrics] = useState<Metrics>({ width: 0, cols: 5, tight: 0, apart: 0 });
   useLayoutEffect(() => {
@@ -280,9 +280,8 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
     return (
       <li
         key={id}
-        style={{ gridRow: p.row + 1, marginLeft: p.x, "--cell": `${p.w}px`, "--before": `${p.before}px`, "--after": `${p.after}px` } as React.CSSProperties}
+        style={{ gridArea: `${p.row + 1} / 1`, marginLeft: p.x, "--cell": `${p.w}px`, "--before": `${p.before}px`, "--after": `${p.after}px` } as React.CSSProperties}
         data-at={!grouped ? "solo" : k === 0 ? "first" : k === g.slides.length - 1 ? "last" : "mid"}
-        data-head={p.head || undefined}
         data-row-end={p.end || undefined}
         className={`su-cell${drag === i ? " is-dragging" : ""}${at === i && drag !== null ? " is-before" : ""}${at === i + 1 && drag !== null && i === ids.length - 1 ? " is-after" : ""}${picked.has(id) ? " is-picked" : ""}`}
         draggable
