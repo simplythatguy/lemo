@@ -43,11 +43,19 @@
 }
 
 .st-mark {
+  display: grid;
+  place-items: center;
   width: 22px;
   height: 22px;
   flex-shrink: 0;
   border-radius: 32%;
   background: var(--accent);
+  color: var(--on-dark);
+}
+
+.st-mark svg {
+  width: 80%;
+  height: 80%;
 }
 
 /* The project's mark: its logo, or its first letter on ink. */
@@ -438,6 +446,7 @@
   height: 100%;
 }
 
+/* The countdown dims the stage over the same time the room's other controls step back, and each number eases in. */
 .st-count {
   position: absolute;
   inset: 0;
@@ -449,6 +458,24 @@
   letter-spacing: var(--tracking-title);
   font-variant-numeric: tabular-nums;
   color: var(--on-dark);
+  animation: st-fade-in var(--dur-sheet) var(--ease);
+}
+
+.st-count > span {
+  animation: st-count-n var(--dur-sheet) var(--ease);
+}
+
+@keyframes st-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes st-count-n {
+  from {
+    opacity: 0;
+    scale: 1.12;
+  }
 }
 
 /* A take the browser would not start on its own: one round play button in the middle of the stage. */
@@ -527,8 +554,7 @@
 }
 
 /* The transcript: one segment per slide, read like a teleprompter. The slide on stage is in ink, the rest faded.
-   → ends a segment (next slide), ■ the last one (stop). Emoji, pauses (⏸️), slow-downs (…) and CAPS stay inline as
-   the deck wrote them. */
+   Emoji, pauses (⏸️), slow-downs (…) and CAPS stay inline as the deck wrote them. */
 
 .st-script {
   position: relative;
@@ -630,23 +656,6 @@
   overflow-wrap: break-word;
 }
 
-/* While a take runs, the line being spoken ends in what comes after it: the next slide, or Stop's square. */
-.st-next {
-  display: inline-flex;
-  margin-left: var(--space-8);
-  vertical-align: -2px;
-}
-
-.st-stop {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  margin-left: var(--space-8);
-  vertical-align: 2px;
-  border-radius: 18%;
-  background: currentColor;
-}
-
 /* The dock: the time and the slide nav (or the take's tools in review), a thin track, then the actions. */
 
 .st-dock {
@@ -691,6 +700,11 @@
 .st-clock-label {
   font-size: var(--text-13);
   color: var(--ink-4);
+}
+
+/* A kept take on its way to the room breathes, so a slow upload never reads as stuck. */
+.st-clock-label.is-saving {
+  animation: st-pulse var(--dur-pulse) var(--ease) infinite;
 }
 
 /* A kept take: its length, then a green check and "recorded". */
@@ -760,6 +774,11 @@
   gap: var(--space-8);
   min-width: 0;
   min-height: var(--control-lg);
+}
+
+/* An action that takes another's place (Record → Cancel → Stop, Keep → Next) fades in rather than snapping. */
+.st-dock-acts > * {
+  animation: st-fade-in var(--dur-sheet) var(--ease);
 }
 
 /* Every secondary action (Retake, Stop, Cancel, Assign to me, Try again) is quiet text; the first one's words line up
@@ -1164,34 +1183,6 @@
   letter-spacing: var(--tracking-code);
 }
 
-.st-menu-dot {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  background: var(--bg);
-  box-shadow: 0 0 0 1px var(--line-2);
-  font: var(--weight-label) var(--text-12)/1 var(--font);
-  color: var(--ink);
-}
-
-.st-menu-dot.is-me {
-  background: var(--ink);
-  box-shadow: none;
-  color: var(--on-dark);
-}
-
-.st-menu-dot.is-live {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--red);
-}
-
-.st-menu-dot.is-none {
-  background: none;
-  box-shadow: none;
-  border: 1.25px dashed var(--ink-4);
-}
-
 /* The People list: one row per person, their state, and what can be done to them. */
 .st-people {
   width: 280px;
@@ -1207,11 +1198,6 @@
   gap: var(--space-8);
   height: var(--control-lg);
   padding: 0 0 0 var(--space-8);
-}
-
-.st-people-row .st-menu-dot {
-  flex: none;
-  margin-right: var(--space-4);
 }
 
 .st-people-row .st-menu-name {

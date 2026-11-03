@@ -77,11 +77,23 @@ export function CopyLink({ code }: { code: string }) {
   );
 }
 
+/** Lemo's mark: a slide with the presenter's camera in its corner, on indigo. */
+export function Mark() {
+  return (
+    <span className="st-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <rect x="4" y="6" width="16" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
+        <rect x="12.5" y="11.5" width="5" height="4" rx="1" fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
 /** The app's mark, a link home to every demo this device knows. `named` adds the product name beside it. */
 export function Brand({ named = false }: { named?: boolean }) {
   return (
     <a className="st-brand" href="/" aria-label="Lemo" data-tip="My demos">
-      <span className="st-mark" aria-hidden="true" />
+      <Mark />
       {named && <span aria-hidden="true">Lemo</span>}
     </a>
   );

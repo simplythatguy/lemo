@@ -4,7 +4,7 @@
 // slide splits its group there. Each change glides the strip to its new shape.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
-import { firstName, initials, Menu } from "./parts";
+import { firstName, Menu } from "./parts";
 import { renderThumb } from "./stage";
 import { clock } from "./timing";
 import { lostTakes, regroup, type Regroup } from "../setup/draft";
@@ -260,7 +260,6 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                 setMenu(null);
               }}
             >
-              <span className={`st-menu-dot${o.id ? "" : " is-none"}${o.id === me.id ? " is-me" : ""}`}>{o.id ? initials(o.name) : ""}</span>
               <span className="st-menu-name">{o.id === me.id ? `${o.name} (you)` : o.name}</span>
               {current && <Icon name="check" size={14} />}
             </button>

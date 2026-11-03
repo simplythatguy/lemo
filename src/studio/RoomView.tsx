@@ -215,6 +215,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   };
   /** The length of the group's take on stage, from this device's Keep until the room has it. */
   const recordedMs = kept[boothGroup]?.ms ?? room.takes[boothGroup]?.durationMs ?? null;
+  const arriving = saving.has(boothGroup) || progress[boothGroup] !== undefined || (!!room.takes[boothGroup] && !complete(room.takes[boothGroup]));
   const makeVideo = () => {
     if (allIn && !busy(phase)) setRendering(true);
   };
@@ -318,6 +319,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           onPick={pick}
           around={around}
           recordedMs={recordedMs}
+          arriving={arriving}
           onMake={makeVideo}
           dockSlot={stacked ? dockSlot : null}
           onKept={markKept}
@@ -459,7 +461,7 @@ function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children
   );
 }
 
-function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, arriving, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -502,6 +504,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   around: { prev: number | null; next: number | null };
   /** This group's take, when it has one. */
   recordedMs: number | null;
+  /** That take is still on its way to the room. */
+  arriving: boolean;
   onMake(): void;
   /** Where the dock goes when it does not sit under the script (stacked: after the strip). */
   dockSlot: HTMLElement | null;
@@ -866,12 +870,16 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       </button>
     </div>
   );
-  // A recorded group shows its take's length; one still to record, its planned length.
-  const done = phase.k === "idle" && !follow && recordedMs !== null;
+  // A recorded group shows its take's length; one still to record, its planned length. The check waits until the
+  // room has the take, as the strip's Saving… does.
+  const taken = phase.k === "idle" && !follow && recordedMs !== null;
+  const done = taken && !arriving;
+  const sending = taken && arriving;
   const label = dock === "camera-error" ? camera.error
     : dock === "review" && keepFailed ? "Not saved"
     : dock === "review" ? null
     : live ? "left"
+    : sending ? "saving…"
     : done ? "recorded"
     : "planned";
   const alert = dock === "camera-error" || (dock === "review" && keepFailed);
@@ -880,10 +888,10 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
       <div className="st-dock-time">
         <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
-          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(done ? recordedMs : left)}
+          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(taken ? recordedMs : left)}
         </span>
         {label && (
-          <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : ""}`} role={alert ? "alert" : undefined}>
+          <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : sending ? " is-saving" : ""}`} role={alert ? "alert" : undefined}>
             {done && <Icon name="check" size={14} />}{label}
           </span>
         )}
@@ -981,7 +989,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
         <div className="st-stage-cell">
           <StageCanvas canvas={canvas}>
             {canMove && <CameraSpots open={spotsOpen} onOpen={setSpotsOpen} />}
-            {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
+            {phase.k === "countdown" && <div className="st-count" aria-live="assertive"><span key={phase.n}>{phase.n}</span></div>}
             {refused && <StartButton onStart={again} />}
           </StageCanvas>
         </div>
@@ -1011,7 +1019,6 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
               current={current}
               onPick={phase.k === "idle" && !follow ? setPreview : undefined}
               picked={phase.k === "idle" && !follow ? preview : null}
-              cued={phase.k === "recording"}
             />
           )}
 
@@ -1022,8 +1029,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   );
 }
 
-/** `cued`: a take runs here, and the line being spoken ends in what comes after it, the next slide (→) or Stop (■). */
-function Transcript({ script, current, picked, onPick, cued }: { script: string[]; current: number | null; picked: number | null; onPick?: (slide: number) => void; cued: boolean }) {
+function Transcript({ script, current, picked, onPick }: { script: string[]; current: number | null; picked: number | null; onPick?: (slide: number) => void }) {
   const list = useRef<HTMLOListElement>(null);
   const refs = useRef<(HTMLElement | null)[]>([]);
   // The segment being spoken sits at the top with the next ones under it. Only the list scrolls,
@@ -1034,7 +1040,6 @@ function Transcript({ script, current, picked, onPick, cued }: { script: string[
     const top = refs.current[0]?.offsetTop ?? 0;
     if (el && list.current) list.current.scrollTo({ top: Math.max(0, el.offsetTop - top), behavior: "smooth" });
   }, [current]);
-  const last = script.length - 1;
   const at = current ?? picked ?? -1;
   const items = useMemo(() => script.map((text, i) => ({ text, i })), [script]);
   return (
@@ -1042,14 +1047,7 @@ function Transcript({ script, current, picked, onPick, cued }: { script: string[
       {items.map(({ text, i }) => (
         <li key={i} ref={(el) => { refs.current[i] = el; }} className={`st-seg${i === at ? " is-now" : i < at ? " is-past" : ""}`}>
           <button type="button" className="st-seg-hit" onClick={onPick ? () => onPick(i) : undefined} disabled={!onPick} aria-current={i === at || undefined}>
-            <span className="st-seg-text">
-              {text}
-              {cued && i === at && (i < last ? (
-                <span className="st-next" role="img" aria-label="then the next slide"><Icon name="arrow" size={16} /></span>
-              ) : (
-                <span className="st-stop" role="img" aria-label="then stop" />
-              ))}
-            </span>
+            <span className="st-seg-text">{text}</span>
           </button>
         </li>
       ))}
