@@ -1181,34 +1181,6 @@
   letter-spacing: var(--tracking-code);
 }
 
-.st-menu-dot {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-full);
-  background: var(--bg);
-  box-shadow: 0 0 0 1px var(--line-2);
-  font: var(--weight-label) var(--text-12)/1 var(--font);
-  color: var(--ink);
-}
-
-.st-menu-dot.is-me {
-  background: var(--ink);
-  box-shadow: none;
-  color: var(--on-dark);
-}
-
-.st-menu-dot.is-live {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--red);
-}
-
-.st-menu-dot.is-none {
-  background: none;
-  box-shadow: none;
-  border: 1.25px dashed var(--ink-4);
-}
-
 /* The People list: one row per person, their state, and what can be done to them. */
 .st-people {
   width: 280px;
@@ -1224,11 +1196,6 @@
   gap: var(--space-8);
   height: var(--control-lg);
   padding: 0 0 0 var(--space-8);
-}
-
-.st-people-row .st-menu-dot {
-  flex: none;
-  margin-right: var(--space-4);
 }
 
 .st-people-row .st-menu-name {
