@@ -234,7 +234,7 @@ export function Setup({ code: editCode }: { code?: string }) {
             <>
               <h1 className="su-title">{load.kind === "missing" ? `No room ${editCode}` : "Can't open this room"}</h1>
               {load.kind === "failed" && <p className="su-error">{load.message}</p>}
-              <a className="btn is-primary" href="/">Demos</a>
+              <a className="btn is-primary" href="/">Back to demos</a>
             </>
           )}
         </div>
@@ -292,7 +292,6 @@ export function Setup({ code: editCode }: { code?: string }) {
           ))}
         </nav>
         <div className="su-top-end">
-          {last && length}
           {waiting ? null : last || editing ? (
             <button type="button" className="btn is-primary" onClick={() => void save()} disabled={!!importing}>
               {editing ? "Save" : "Create"}

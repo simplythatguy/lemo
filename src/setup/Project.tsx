@@ -147,15 +147,13 @@ export function Project({ draft, setDraft, show, makeUrl }: {
             </li>
           ))}
         </ol>
-        <div className="su-team-foot">
-          <button type="button" className="btn is-quiet is-sm su-add" onClick={() => addMember(draft.team.length - 1)} disabled={draft.team.length >= 12}>
-            <Icon name="plus" size={16} />Add
-          </button>
-          {show.team && !draft.team.some((t) => t.trim()) && <em className="su-error">Add at least one name</em>}
-        </div>
+        {show.team && !draft.team.some((t) => t.trim()) && <em className="su-error">Add at least one name</em>}
+        <button type="button" className="btn is-quiet is-sm su-add" onClick={() => addMember(draft.team.length - 1)} disabled={draft.team.length >= 12}>
+          <Icon name="plus" size={16} />Add
+        </button>
       </fieldset>
 
-      <label className="su-field su-limit">
+      <label className="su-field">
         <span>Length limit</span>
         <select
           value={String(limitOf(draft) ?? "none")}
