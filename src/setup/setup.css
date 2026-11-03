@@ -249,10 +249,31 @@
   text-align: center;
 }
 
+/* Groups as the room's strip shows them: a group's slides sit together, a wider gap between groups. A group starts a
+   new row when it does not fit the rest of one, so it only breaks across rows when it is longer than a row. The grid sets
+   --cols and --cell for its width (Slides.tsx). */
 .su-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
-  gap: var(--space-24);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-24) var(--space-32);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.su-group-slides {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: calc(min(var(--n), var(--cols)) * var(--cell) + (min(var(--n), var(--cols)) - 1) * var(--space-8));
+}
+
+.su-group-slides > ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -260,12 +281,17 @@
 
 .su-cell {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+  width: var(--cell);
   border-radius: var(--radius-card);
   cursor: grab;
   outline: none;
+}
+
+/* A pointer over a slide: a quiet ring, outside it, says it can be picked. */
+@media (hover: hover) {
+  .su-cell:hover .su-thumb {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--line-2);
+  }
 }
 
 .su-cell:focus-visible .su-thumb {
@@ -288,17 +314,22 @@
   top: 0;
   width: 3px;
   aspect-ratio: auto;
-  height: calc(100% - var(--space-24));
+  height: 100%;
   border-radius: var(--radius-full);
   background: var(--accent);
 }
 
+/* In the middle of the gap before the slide: a group's own gap, or the wider one before a group's first slide. */
 .su-cell.is-before::before {
-  left: -12px;
+  left: calc(var(--space-8) / -2 - 1.5px);
+}
+
+.su-cell.is-before:first-child::before {
+  left: calc(var(--space-32) / -2 - 1.5px);
 }
 
 .su-cell.is-after::after {
-  right: -12px;
+  right: calc(var(--space-32) / -2 - 1.5px);
 }
 
 .su-thumb {
@@ -351,50 +382,63 @@
 }
 
 /* A selected slide: an ink ring, outside the slide so it never covers it. */
+
 .su-cell.is-picked .su-thumb {
   box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink);
 }
 
-.su-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  height: var(--space-16);
-}
-
 .su-n {
+  height: var(--space-16);
   padding-left: var(--space-4);
-  font: var(--weight-label) var(--text-12)/1 var(--font);
+  font: var(--weight-label) var(--text-12)/var(--space-16) var(--font);
   font-variant-numeric: tabular-nums;
   color: var(--ink-4);
 }
 
-/* A group: one quiet bar under its slides, running across the gap to the next slide of the same group on its row. */
-.su-cell.is-grouped .su-label::after {
-  content: "";
-  flex: 1;
-  height: 2px;
-  border-radius: var(--radius-full);
-  background: var(--ink-4);
-}
-
-.su-cell.is-grouped .su-n {
+.su-group-slides.is-grouped > .su-n {
   color: var(--ink-2);
 }
 
-.su-cell.is-picked .su-n {
+/* Joins a group with the next one, in the gap between them, as in the room's strip. */
+.su-join {
+  position: absolute;
+  right: calc(var(--space-32) / -2);
+  bottom: calc(var(--space-24) + var(--cell) * 9 / 32);
+  translate: 50% 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  color: var(--ink-2);
+  box-shadow: 0 0 0 1px var(--line-2);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur-control) var(--ease), color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
+}
+
+.su-group-slides:hover > .su-join,
+.su-group-slides:has(+ .su-group-slides:hover) > .su-join,
+.su-join:focus-visible {
+  opacity: 1;
+}
+
+.su-join:hover {
   color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink-4);
 }
 
-.su-cell.is-joined .su-label::after {
-  margin-right: calc(var(--space-24) * -1);
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.su-cell.is-grouped .su-label:not(:has(.su-n))::after {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+@media (hover: none) {
+  .su-join {
+    opacity: 1;
+    background: none;
+    box-shadow: none;
+    color: var(--ink-3);
+  }
 }
 
 .su-meter {
@@ -820,17 +864,22 @@
     padding: var(--space-16) var(--space-16) var(--space-64);
   }
   .su-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-16) var(--space-12);
+    gap: var(--space-16) var(--space-24);
   }
-  .su-cell.is-joined .su-label::after {
-    margin-right: calc(var(--space-12) * -1);
-  }
-  .su-cell.is-before::before {
-    left: calc(var(--space-8) * -1);
+  .su-cell.is-before:first-child::before {
+    left: calc(var(--space-24) / -2 - 1.5px);
   }
   .su-cell.is-after::after {
-    right: calc(var(--space-8) * -1);
+    right: calc(var(--space-24) / -2 - 1.5px);
+  }
+  .su-join {
+    right: calc(var(--space-24) / -2);
+  }
+  /* No gap past the row's end for the join: it sits at the group's corner, under its last slide, on the label's line. */
+  .su-group-slides.is-row-end > .su-join {
+    right: calc(var(--space-4) * -1);
+    bottom: calc(var(--space-16) / 2);
+    translate: 0 50%;
   }
   .su-head {
     margin-bottom: var(--space-16);
@@ -877,3 +926,4 @@
     right: var(--space-4);
   }
 }
+

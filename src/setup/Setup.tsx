@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { roomApi, RoomError } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
 import { limitOf } from "../studio/types";
-import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import { emptyDraft, fromDeck, groupSlides, joinNext, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, splitBefore, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
 import { Icon } from "../icons";
 import { glide } from "./glide";
 import { importSlides, SlideFileError } from "./importSlides";
@@ -317,6 +317,8 @@ export function Setup({ code: editCode }: { code?: string }) {
             onMove={(from, to) => setDraft((d) => moveSlide(d, from, to))}
             onGroup={(ids) => setDraft((d) => groupSlides(d, ids, taken.current))}
             onUngroup={(ids) => setDraft((d) => ungroupSlides(d, ids))}
+            onJoin={(g) => setDraft((d) => joinNext(d, g, taken.current))}
+            onSplit={(id) => setDraft((d) => splitBefore(d, id))}
           />
         )}
         {step === "project" && <Project draft={draft} setDraft={setDraft} show={show} makeUrl={makeUrl} />}
