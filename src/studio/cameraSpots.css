@@ -26,7 +26,7 @@
 .st-spots-dim {
   position: absolute;
   inset: 0;
-  background: var(--shade);
+  background: var(--shade-hover);
 }
 
 /* Each place: the wide shape, the upright one inside it and on top. The one your camera is in is drawn solid. */
@@ -53,8 +53,8 @@
   border-color: var(--on-dark);
 }
 
-/* S M L: each letter in a thin ring, in a row on the inner edge of the place's wide shape, riding it as it grows. The
-   size in use is white and bold; the others have a dimmer ring. */
+/* S M L: each letter in a thin ring, in a row on the inner edge of each place's wide shape, riding it as it grows. The
+   size in use is white and bold; the others have a dimmer ring. A small stage keeps one row. */
 .st-spot-size {
   position: absolute;
   display: flex;
@@ -96,6 +96,7 @@
 }
 
 @container stage (max-width: 640px) {
+  .st-spot-size:not(.is-kept) { display: none; }
   .st-spot-size { gap: var(--space-4); }
   .st-spot-size:is(.is-at-tl, .is-at-tr) { margin-top: var(--space-4); }
   .st-spot-size:is(.is-at-bl, .is-at-br, .is-at-c) { margin-top: calc(-1 * var(--space-4)); }
