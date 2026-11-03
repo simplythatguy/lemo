@@ -48,14 +48,14 @@ function rowAt(p: Place, size: CameraSize) {
   return { x: p[1] === "l" ? b.x : b.x + b.w, y: p[0] === "t" ? b.y + b.h : b.y };
 }
 
-function Sizes({ p, size, current, shown }: { p: Place; size: CameraSize; current: boolean; shown: boolean }) {
+function Sizes({ p, size, current, kept }: { p: Place; size: CameraSize; current: boolean; kept: boolean }) {
   // Under a mouse the row stays where it was clicked until the pointer leaves it, so S M L can be clicked through
   // without chasing the edge; then it rides the edge again.
   const [held, setHeld] = useState<CameraSize | null>(null);
   const at = rowAt(p, held ?? size);
   return (
     <div
-      className={`st-spot-size is-at-${p}${shown ? " is-shown" : ""}`}
+      className={`st-spot-size is-at-${p}${kept ? " is-kept" : ""}`}
       style={{ left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) }}
       role="radiogroup"
       aria-label={`${PLACE_NAME[p]} size`}
@@ -83,7 +83,7 @@ function Sizes({ p, size, current, shown }: { p: Place; size: CameraSize; curren
 
 export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: boolean): void }) {
   const pref = useSpotPref();
-  // The place pointed at or focused last; on a small stage its sizes show instead of the current place's.
+  // The place pointed at or focused last; a small stage keeps its sizes instead of the current place's.
   const [aim, setAim] = useState<Place | null>(null);
   if (!open && aim) setAim(null);
   const here = spotBox(spotOf(pref));
@@ -165,7 +165,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
                     }}
                   />
                 ))}
-                <Sizes p={p} size={size} current={pref.place === p} shown={p === (aim ?? pref.place)} />
+                <Sizes p={p} size={size} current={pref.place === p} kept={p === (aim ?? pref.place)} />
               </div>
             );
           })}
