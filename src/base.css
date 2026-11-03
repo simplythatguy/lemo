@@ -22,6 +22,7 @@
   --on-dark-wash: rgba(255, 255, 255, 0.12);
   --shade: rgba(18, 18, 23, 0.5);
   --shade-hover: rgba(18, 18, 23, 0.7);
+  --shade-deep: rgba(18, 18, 23, 0.92);
   --scrim: rgba(18, 18, 23, 0.32);
   --dim: rgba(18, 18, 23, 0.86);
   --glass: rgba(255, 255, 255, 0.92);
