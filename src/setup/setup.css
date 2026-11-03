@@ -249,38 +249,27 @@
   text-align: center;
 }
 
-/* Groups as the room's strip shows them: a group's slides sit together, a wider gap between groups. A group starts a
-   new row when it does not fit the rest of one, so it only breaks across rows when it is longer than a row. The grid sets
-   --cols and --cell for its width (Slides.tsx). */
+/* Slides in a grid of even columns. A group is a line under its slides, across its own gaps and on past a row's end,
+   so it reads the same where it wraps; its range sits under its first slide. The grid sets --cols and --cell for its
+   width, and --gap, its column gap (Slides.tsx). */
 .su-grid {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--cell));
+  align-items: start;
   gap: var(--space-24) var(--space-32);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.su-group-slides {
+.su-cell { margin-right: var(--gap); }
+.su-grid[data-v="c"] > .su-cell:is([data-at="first"], [data-at="mid"]) { margin-right: var(--space-8); }
+
+.su-cell {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  width: calc(min(var(--n), var(--cols)) * var(--cell) + (min(var(--n), var(--cols)) - 1) * var(--space-8));
-}
-
-.su-group-slides > ol {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.su-cell {
-  position: relative;
   width: var(--cell);
   border-radius: var(--radius-card);
   cursor: grab;
@@ -313,23 +302,18 @@
   position: absolute;
   top: 0;
   width: 3px;
-  aspect-ratio: auto;
-  height: 100%;
+  height: calc(var(--cell) * 9 / 16);
   border-radius: var(--radius-full);
   background: var(--accent);
 }
 
-/* In the middle of the gap before the slide: a group's own gap, or the wider one before a group's first slide. */
+/* In the middle of the gap before the slide. */
 .su-cell.is-before::before {
-  left: calc(var(--space-8) / -2 - 1.5px);
-}
-
-.su-cell.is-before:first-child::before {
-  left: calc(var(--space-32) / -2 - 1.5px);
+  left: calc(var(--gap) / -2 - 1.5px);
 }
 
 .su-cell.is-after::after {
-  right: calc(var(--space-32) / -2 - 1.5px);
+  right: calc(var(--gap) / -2 - 1.5px);
 }
 
 .su-thumb {
@@ -395,16 +379,30 @@
   color: var(--ink-4);
 }
 
-.su-group-slides.is-grouped > .su-n {
+.su-cell[data-at="first"] > .su-n {
   color: var(--ink-2);
 }
 
-/* Joins a group with the next one, in the gap between them, as in the room's strip. */
+.su-band {
+  height: 2px;
+  margin: calc(var(--space-4) / -2) 0 calc(var(--space-4) * -1.5);
+  border-radius: var(--radius-full);
+}
+
+.su-cell:not([data-at="solo"]) > .su-band {
+  background: var(--ink-4);
+}
+
+.su-cell:is([data-at="first"], [data-at="mid"]):not([data-row-end]) > .su-band {
+  margin-right: calc(var(--gap) * -1);
+}
+
+/* Joins a group with the next one: a quiet glyph in the gap between them, as in the room's strip. */
 .su-join {
   position: absolute;
-  right: calc(var(--space-32) / -2);
-  bottom: calc(var(--space-24) + var(--cell) * 9 / 32);
-  translate: 50% 50%;
+  right: calc(var(--gap) / -2);
+  top: calc(var(--cell) * 9 / 32);
+  translate: 50% -50%;
   z-index: 1;
   display: grid;
   place-items: center;
@@ -413,32 +411,23 @@
   padding: 0;
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--bg);
-  color: var(--ink-2);
-  box-shadow: 0 0 0 1px var(--line-2);
+  background: none;
+  color: var(--ink-4);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--dur-control) var(--ease), color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
+  transition: opacity var(--dur-control) var(--ease), color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease), background-color var(--dur-control) var(--ease);
 }
 
-.su-group-slides:hover > .su-join,
-.su-group-slides:has(+ .su-group-slides:hover) > .su-join,
+.su-join:hover,
 .su-join:focus-visible {
-  opacity: 1;
-}
-
-.su-join:hover {
+  background: var(--bg);
   color: var(--ink);
   box-shadow: 0 0 0 1px var(--ink-4);
 }
 
-@media (hover: none) {
-  .su-join {
-    opacity: 1;
-    background: none;
-    box-shadow: none;
-    color: var(--ink-3);
-  }
+/* While slides are picked, Group in the header is the way to join them. */
+.su-grid.is-picking .su-join {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .su-meter {
@@ -858,18 +847,10 @@
   .su-grid {
     gap: var(--space-16) var(--space-24);
   }
-  .su-cell.is-before:first-child::before {
-    left: calc(var(--space-24) / -2 - 1.5px);
-  }
-  .su-cell.is-after::after {
-    right: calc(var(--space-24) / -2 - 1.5px);
-  }
-  .su-join {
-    right: calc(var(--space-24) / -2);
-  }
-  /* No gap past the row's end for the join: it sits at the group's corner, under its last slide, on the label's line. */
-  .su-group-slides.is-row-end > .su-join {
+  /* No room past a row's end for the join: it sits under the row's last slide, on the label's line. */
+  .su-cell[data-row-end] > .su-join {
     right: calc(var(--space-4) * -1);
+    top: auto;
     bottom: calc(var(--space-16) / 2);
     translate: 0 50%;
   }
