@@ -160,12 +160,14 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
               </div>
             </div>
           ) : (
-            <div className="st-work-row">
-              <p className="st-error" role="alert">{state.message}</p>
-              <button type="button" className="btn is-quiet" onClick={onClose}>Back to the room</button>
-              <button type="button" className="btn is-primary" onClick={() => setAttempt((n) => n + 1)}>
-                <Icon name="restart" size={16} />Try again
-              </button>
+            <div className="st-done">
+              <p className="st-error st-done-why" role="alert">{state.message}</p>
+              <div className="st-done-next">
+                <button type="button" className="btn is-quiet" onClick={onClose}>Back to the room</button>
+                <button type="button" className="btn is-primary is-lg" onClick={() => setAttempt((n) => n + 1)}>
+                  <Icon name="restart" size={16} />Try again
+                </button>
+              </div>
             </div>
           )}
         </>
@@ -235,16 +237,18 @@ function Finished({ deck, url, mime, ms, poster, onClose }: { deck: Deck; url: s
           onVolumeChange={(e) => setMuted(e.currentTarget.muted)} />
         {refused && <StartButton onStart={toggle} />}
       </div>
-      <div className="st-work-row">
+      <div className="st-done">
         <Transport length={ms} elapsed={elapsed} paused={paused} muted={muted} ready onToggle={toggle} onSeek={seek} onMute={mute}>
           <button type="button" className="icon-btn" onClick={fullScreen} aria-label="Full screen" data-tip="Full screen">
             <Icon name="expand" size={16} />
           </button>
         </Transport>
-        <button type="button" className="btn is-quiet" onClick={onClose}>Back to the room</button>
-        <a className="btn is-primary is-lg" href={url} download={`${slug(deck.title)}-demo.${ext}`}>
-          <Icon name="download" size={16} />Download
-        </a>
+        <div className="st-done-next">
+          <button type="button" className="btn is-quiet" onClick={onClose}>Back to the room</button>
+          <a className="btn is-primary is-lg" href={url} download={`${slug(deck.title)}-demo.${ext}`}>
+            <Icon name="download" size={16} />Download
+          </a>
+        </div>
       </div>
     </>
   );
