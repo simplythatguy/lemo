@@ -482,7 +482,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   setEditing(on: boolean): void;
   /** Every group is recorded and saved. */
   allIn: boolean;
-  /** Make the video is the room's one primary (in the top bar on a wide screen)... */
+  /** Make the video is the room's one primary... */
   makeLeads: boolean;
   /** ...and it sits first in the dock. */
   makeInDock: boolean;
@@ -909,7 +909,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
             className="btn is-primary is-lg st-dock-make"
             aria-disabled={!allIn || undefined}
             aria-label={blocked ? `Make the video, ${blocked}` : undefined}
-            onClick={() => allIn && settled() && onMake()}
+            onClick={() => settled() && onMake()}
           >
             <Icon name="film" size={16} />Make the video
           </button>

@@ -630,15 +630,11 @@
   overflow-wrap: break-word;
 }
 
+/* While a take runs, the line being spoken ends in what comes after it: the next slide, or Stop's square. */
 .st-next {
   display: inline-flex;
   margin-left: var(--space-8);
   vertical-align: -2px;
-  opacity: 0.6;
-}
-
-.st-seg.is-now .st-next {
-  opacity: 1;
 }
 
 .st-stop {
@@ -649,11 +645,6 @@
   vertical-align: 2px;
   border-radius: 18%;
   background: currentColor;
-  opacity: 0.6;
-}
-
-.st-seg.is-now .st-stop {
-  opacity: 1;
 }
 
 /* The dock: the time and the slide nav (or the take's tools in review), a thin track, then the actions. */
