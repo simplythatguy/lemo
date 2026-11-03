@@ -848,11 +848,11 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   // A button that has just taken another's place (Keep → Next, Retake or Make the video) ignores the second tap of a
   // double tap meant for the one before.
   const lead = dock === "retake" ? (next ? `next ${next.id}` : allIn ? "make" : "saving") : dock;
-  const leadAt = useRef(0);
+  const leadAt = useRef<{ lead: string; at: number | null }>({ lead, at: null });
   useEffect(() => {
-    leadAt.current = performance.now();
+    if (leadAt.current.lead !== lead) leadAt.current = { lead, at: performance.now() };
   }, [lead]);
-  const settled = () => performance.now() - leadAt.current > SETTLE_MS;
+  const settled = () => leadAt.current.at === null || performance.now() - leadAt.current.at > SETTLE_MS;
   const recordKey = <kbd className="kbd">R</kbd>;
   /** Idle and not following: the arrows walk on into the next or previous group. */
   const walk = phase.k === "idle" && !follow;
