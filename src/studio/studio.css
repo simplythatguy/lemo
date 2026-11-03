@@ -43,11 +43,19 @@
 }
 
 .st-mark {
+  display: grid;
+  place-items: center;
   width: 22px;
   height: 22px;
   flex-shrink: 0;
   border-radius: 32%;
   background: var(--accent);
+  color: var(--on-dark);
+}
+
+.st-mark svg {
+  width: 80%;
+  height: 80%;
 }
 
 /* The project's mark: its logo, or its first letter on ink. */

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import type { Camera } from "./parts";
-import { Brand, CameraToggle, CopyLink, editLink, initials, ProjectMark } from "./parts";
+import { Brand, CameraToggle, CopyLink, editLink, initials, Mark, ProjectMark } from "./parts";
 import { listDevices, liveVideo, openCamera, stopStream } from "./recorder";
 import { lastSeat, loadSeat, rememberRoom, roomApi, RoomError, saveLastSeat, saveSeat, useRoom, type Seat } from "./room";
 import { Room } from "./RoomView";
@@ -100,7 +100,7 @@ export function Studio({ code }: { code: string }) {
     return (
       <div className="st-page st-center" aria-busy={status.kind === "loading"}>
         <div className={`st-wait${status.kind === "offline" ? " is-offline" : ""}`}>
-          <span className="st-mark" aria-hidden="true" />
+          <Mark />
           {status.kind === "offline" && <p className="st-quiet" role="status">No connection</p>}
         </div>
       </div>
