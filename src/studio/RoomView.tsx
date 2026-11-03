@@ -1008,7 +1008,6 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
               current={current}
               onPick={phase.k === "idle" && !follow ? setPreview : undefined}
               picked={phase.k === "idle" && !follow ? preview : null}
-              cued={phase.k === "recording"}
             />
           )}
 
@@ -1019,8 +1018,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   );
 }
 
-/** `cued`: a take runs here, and the line being spoken ends in what comes after it, the next slide (→) or Stop (■). */
-function Transcript({ script, current, picked, onPick, cued }: { script: string[]; current: number | null; picked: number | null; onPick?: (slide: number) => void; cued: boolean }) {
+function Transcript({ script, current, picked, onPick }: { script: string[]; current: number | null; picked: number | null; onPick?: (slide: number) => void }) {
   const list = useRef<HTMLOListElement>(null);
   const refs = useRef<(HTMLElement | null)[]>([]);
   // The segment being spoken sits at the top with the next ones under it. Only the list scrolls,
@@ -1031,7 +1029,6 @@ function Transcript({ script, current, picked, onPick, cued }: { script: string[
     const top = refs.current[0]?.offsetTop ?? 0;
     if (el && list.current) list.current.scrollTo({ top: Math.max(0, el.offsetTop - top), behavior: "smooth" });
   }, [current]);
-  const last = script.length - 1;
   const at = current ?? picked ?? -1;
   const items = useMemo(() => script.map((text, i) => ({ text, i })), [script]);
   return (
@@ -1039,14 +1036,7 @@ function Transcript({ script, current, picked, onPick, cued }: { script: string[
       {items.map(({ text, i }) => (
         <li key={i} ref={(el) => { refs.current[i] = el; }} className={`st-seg${i === at ? " is-now" : i < at ? " is-past" : ""}`}>
           <button type="button" className="st-seg-hit" onClick={onPick ? () => onPick(i) : undefined} disabled={!onPick} aria-current={i === at || undefined}>
-            <span className="st-seg-text">
-              {text}
-              {cued && i === at && (i < last ? (
-                <span className="st-next" role="img" aria-label="then the next slide"><Icon name="arrow" size={16} /></span>
-              ) : (
-                <span className="st-stop" role="img" aria-label="then stop" />
-              ))}
-            </span>
+            <span className="st-seg-text">{text}</span>
           </button>
         </li>
       ))}
