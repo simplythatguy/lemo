@@ -1,0 +1,268 @@
+/* Home: the page name, join by code and New demo on one line, over a grid of 16:9 covers. Each cover is the deck's own
+   first slide, the only colour on the page; a title and one grey line sit under it. No box per demo. */
+
+.hm-page {
+  max-width: 1168px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: var(--space-48) var(--space-24) var(--space-64);
+  font: var(--weight-body) var(--text-14)/1.5 var(--font);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hm-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-24);
+  margin-bottom: var(--space-32);
+}
+
+.hm-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: var(--weight-title) var(--text-28)/1.1 var(--font);
+  letter-spacing: var(--tracking-title);
+}
+
+.hm-join {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--line-2);
+  transition: border-color var(--dur-control) var(--ease), box-shadow var(--dur-control) var(--ease);
+}
+
+.hm-join:focus-within {
+  border-bottom-color: var(--focus);
+  box-shadow: 0 1px 0 var(--focus);
+}
+
+.hm-join.is-bad {
+  border-bottom-color: var(--red);
+  box-shadow: 0 1px 0 var(--red);
+}
+
+.hm-join input {
+  width: 88px;
+  height: var(--control-sm);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--weight-label) var(--text-14)/1 var(--font);
+  letter-spacing: var(--tracking-code);
+  text-transform: uppercase;
+  color: var(--ink);
+  outline: none;
+}
+
+.hm-page .hm-join input:focus-visible {
+  outline: none;
+}
+
+.hm-join input::placeholder {
+  font-weight: var(--weight-body);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-4);
+}
+
+/* Under the field, inside the space the header always keeps below it, so nothing moves and it never meets the grid. */
+.hm-join-error {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  right: 0;
+  margin: 0;
+  font: var(--weight-body) var(--text-13)/1 var(--font);
+  white-space: nowrap;
+  color: var(--red-ink);
+  animation: hm-fade var(--dur-control) var(--ease);
+}
+
+@keyframes hm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.hm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: var(--space-32) var(--space-24);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hm-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-card);
+  outline-offset: var(--space-4);
+}
+
+.hm-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  margin-bottom: var(--space-12);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--fill);
+  transition: scale var(--dur-control) var(--ease);
+}
+
+/* A hairline edge, so a white first slide still reads as a cover; on hover it darkens a touch. */
+.hm-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--edge);
+  pointer-events: none;
+  transition: background-color var(--dur-control) var(--ease);
+}
+
+@media (hover: hover) {
+  a.hm-card:hover .hm-cover::after {
+    background: var(--wash);
+  }
+}
+
+a.hm-card:active .hm-cover {
+  scale: 0.99;
+}
+
+.hm-cover > img,
+.hm-cover > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: hm-fade var(--dur-control) var(--ease);
+}
+
+/* A demo with no slide to show: the quiet surface with the project's mark, or a quiet icon for no slides or offline. */
+.hm-cover.is-blank {
+  display: grid;
+  place-items: center;
+  color: var(--ink-4);
+}
+
+.hm-cover.is-blank::after {
+  box-shadow: none;
+}
+
+.hm-cover .st-pmark {
+  border-radius: 24%;
+  object-fit: contain;
+}
+
+.hm-cover .st-pmark.is-letter {
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  font-weight: var(--weight-title);
+  line-height: 1;
+  color: var(--on-dark);
+}
+
+.hm-name,
+.hm-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-name {
+  font: var(--weight-title) var(--text-15)/1.4 var(--font);
+}
+
+.hm-line {
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-4);
+}
+
+.hm-card.is-wait > span {
+  animation: hm-wait var(--dur-pulse) var(--ease) infinite;
+}
+
+.hm-card.is-wait .hm-name,
+.hm-card.is-wait .hm-line {
+  height: 1lh;
+  border-radius: var(--radius-tag);
+  background: var(--fill);
+  background-clip: content-box;
+  padding: var(--space-4) 0;
+}
+
+.hm-card.is-wait .hm-name {
+  width: 40%;
+}
+
+.hm-card.is-wait .hm-line {
+  width: 64%;
+}
+
+@keyframes hm-wait {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* No demos on this device: the page name, New demo and the room code, as one centred column. */
+.hm-page.is-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-24);
+  padding-block: var(--space-48);
+}
+
+.hm-page.is-empty .hm-title {
+  flex: none;
+}
+
+.hm-page.is-empty .hm-join {
+  margin-top: var(--space-8);
+}
+
+.hm-page.is-empty .hm-join-error {
+  right: 50%;
+  translate: 50% 0;
+}
+
+@media (max-width: 600px) {
+  .hm-page {
+    padding: var(--space-24) var(--space-16) var(--space-48);
+  }
+  .hm-top {
+    gap: var(--space-12);
+  }
+  .hm-join input {
+    width: 76px;
+  }
+  .hm-new-more {
+    display: none;
+  }
+  .hm-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-24);
+  }
+}
+
+@media (max-width: 360px) {
+  .hm-top {
+    gap: var(--space-8);
+  }
+  .hm-title {
+    font-size: var(--text-20);
+  }
+}

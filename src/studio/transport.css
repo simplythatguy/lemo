@@ -1,0 +1,83 @@
+/* Playback controls under a video: one row, one centre line. */
+.st-transport {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.st-transport .icon-btn {
+  color: var(--ink-2);
+}
+
+.st-transport-track {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  height: var(--control);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.st-transport-track[aria-disabled="true"] {
+  cursor: default;
+}
+
+/* Inset by the thumb's radius, so the thumb at either end keeps the row's gap to its neighbours. */
+.st-transport-rail {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: calc(50% - 2px);
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--fill);
+}
+
+.st-transport-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--ink);
+  transform-origin: left;
+}
+
+.st-transport-thumb {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--ink);
+  translate: -50% -50%;
+  opacity: 0;
+  transition: opacity var(--dur-control) var(--ease);
+}
+
+.st-transport-track:is(:hover, :focus-visible, :active) .st-transport-thumb {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .st-transport-thumb {
+    opacity: 1;
+  }
+}
+
+.st-transport-time {
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
+.st-transport-time span {
+  color: var(--ink-4);
+}
+
+@media (max-width: 600px) {
+  .st-transport {
+    gap: var(--space-8);
+  }
+}

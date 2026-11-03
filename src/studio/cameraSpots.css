@@ -1,0 +1,123 @@
+/* The camera tile: the canvas paints it, this only catches the tap that opens the places it can go. */
+.st-spots-handle {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: box-shadow var(--dur-control) var(--ease);
+}
+
+.st-spots-handle[aria-expanded="true"] {
+  box-shadow: 0 0 0 2px var(--on-dark);
+}
+
+.st-spots {
+  position: absolute;
+  inset: 0;
+  animation: st-spots-in var(--dur-control) var(--ease);
+}
+
+@keyframes st-spots-in {
+  from { opacity: 0; }
+}
+
+/* Taps outside the places close the picker; the dim itself is the shadow around the camera, so the slide recedes and
+   the camera stays bright. */
+.st-spots-dim {
+  position: absolute;
+  inset: 0;
+}
+
+.st-spots-dim-hole {
+  position: absolute;
+  pointer-events: none;
+  box-shadow: 0 0 0 200vmax var(--shade-deep);
+  transition-property: none;
+}
+
+/* Each place: the wide shape, the upright one inside it and on top, in hairlines. The one your camera is in is drawn
+   in white. */
+.st-spot {
+  position: absolute;
+  border: 1px solid var(--on-dark-3);
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  transition: background-color var(--dur-control) var(--ease), border-color var(--dur-control) var(--ease);
+}
+
+.st-spot[aria-pressed="true"] {
+  border: 1.5px solid var(--on-dark);
+}
+
+/* S M L: each letter in a thin ring, a row per place on its wide shape's inner edge. The size in use is white and
+   bold, on the place the camera is in only. A small stage keeps one row, closer to its shape. */
+.st-spot-size {
+  position: absolute;
+  display: flex;
+  gap: var(--space-8);
+  transition-property: none;
+}
+
+.st-spot-size.is-below { margin-top: var(--space-8); }
+.st-spot-size.is-above { margin-top: calc(-1 * var(--space-8)); translate: 0 -100%; }
+.st-spot-size.is-below.is-end { translate: -100% 0; }
+.st-spot-size.is-above.is-end { translate: -100% -100%; }
+.st-spot-size.is-mid { translate: -50% -100%; }
+
+.st-spot-size button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--control);
+  height: var(--control);
+  padding: 0;
+  border: 1.5px solid var(--on-dark-3);
+  border-radius: var(--radius-full);
+  background: none;
+  font: var(--weight-label) var(--text-15)/1 var(--font);
+  color: var(--on-dark-2);
+  cursor: pointer;
+  transition: color var(--dur-control) var(--ease), border-color var(--dur-control) var(--ease);
+}
+
+@media (hover: hover) {
+  .st-spots-handle:hover { box-shadow: 0 0 0 2px var(--on-dark); }
+  .st-spot:hover { border-color: var(--on-dark); background: var(--on-dark-wash); }
+  .st-spot-size button:hover { border-color: var(--on-dark-2); color: var(--on-dark); }
+}
+
+.st-spot-size.is-here button[aria-checked="true"] {
+  border-color: var(--on-dark);
+  color: var(--on-dark);
+  font-weight: var(--weight-title);
+}
+
+@container stage (max-width: 640px) {
+  .st-spot-size:not(.is-kept) { display: none; }
+  .st-spot-size { gap: calc(var(--space-12) / 2); }
+  .st-spot-size.is-below { margin-top: var(--space-4); }
+  .st-spot-size.is-above { margin-top: calc(-1 * var(--space-4)); }
+  .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
+}
+
+/* On touch each ring takes its share of the row and 44px of height, grown away from its place's shape (from the
+   ring's outer edge, past its 1.5px border), so the gaps between rings tap too and the shape keeps all of its own. */
+@media (pointer: coarse) {
+  .st-spot-size button::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: var(--control-lg);
+    height: var(--control-lg);
+    translate: -50% 0;
+  }
+
+  .st-spot-size.is-below button::after { top: -1.5px; }
+  .st-spot-size.is-above button::after { bottom: -1.5px; }
+
+  @container stage (max-width: 640px) {
+    .st-spot-size button::after { width: calc(var(--control-sm) + var(--space-12) / 2); }
+  }
+}
