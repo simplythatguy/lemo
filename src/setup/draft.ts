@@ -210,6 +210,19 @@ export function regroup(deck: Deck, op: Regroup, taken: ReadonlySet<string>): De
   return toDeck({ ...after, groups: renewed.groups.map((g, i) => (taken.has(after.groups[i].id) ? g : after.groups[i])) });
 }
 
+/** Speakers for the groups of `after` that have none, from the groups of `before` their slides came from: a split
+ *  keeps its speaker on both parts, a join takes the first part's speaker or else the second's. */
+export function carriedSpeakers(before: Deck, after: Deck, assignments: Readonly<Record<string, string>>): Record<string, string> {
+  const from = new Map(before.groups.flatMap((g) => g.slides.map((s) => [s.id, assignments[g.id]] as const)));
+  const carried: Record<string, string> = {};
+  for (const g of after.groups) {
+    if (assignments[g.id]) continue;
+    const who = g.slides.map((s) => from.get(s.id)).find((p) => p !== undefined);
+    if (who) carried[g.id] = who;
+  }
+  return carried;
+}
+
 /** Groups of `before` with a take that `after` no longer has: their takes are lost. */
 export const lostTakes = (before: Deck, after: Deck, taken: ReadonlySet<string>) =>
   before.groups.filter((g) => taken.has(g.id) && !after.groups.some((n) => n.id === g.id));

@@ -1,7 +1,7 @@
 // Every slide in deck order, grouped: spacing separates the groups, and one quiet row above each says who records it,
 // Saving… while a kept take is on its way, and then how long it is. That row is also the way to change the group's speaker
-// and to fold the group away, for this person only. The gap between two groups joins them (shown on hover, always on a
-// touch screen); right-clicking or holding a slide splits its group there. Each change glides the strip to its new shape.
+// and to fold the group away, for this person only. The gap between two groups joins them; right-clicking or holding a
+// slide splits its group there. Each change glides the strip to its new shape.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { firstName, initials, Menu } from "./parts";
@@ -147,7 +147,9 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
     const lost = lostTakes(deck, regroup(deck, op, taken), taken);
     if (!lost.length) return onRegroup(op);
     const names = lost.map((g) => room.people.find((p) => p.id === room.takes[g.id]?.personId)?.name);
-    setAsk({ op, anchor, whose: lost.length > 1 ? `${lost.length} takes` : names[0] ? `${firstName(names[0])}’s take` : "a take" });
+    // Above the group's own row, so it covers no other label and its yes is never under the pointer that asked.
+    const row = anchor.closest(".st-strip-g")?.querySelector<HTMLElement>(".st-strip-who") ?? anchor;
+    setAsk({ op, anchor: row, whose: lost.length > 1 ? `${lost.length} takes` : names[0] ? `${firstName(names[0])}’s take` : "a take" });
   };
 
   // Keep the slide on stage in view. Only the strip scrolls, never the page.
@@ -180,7 +182,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           const note = pending ? (up ? `Saving ${Math.round(up * 100)}%` : "Saving…") : done ? clock(take.durationMs) : null;
           const status = done ? `recorded ${clock(take.durationMs)}` : note?.toLowerCase() ?? "not recorded";
           return (
-            <div key={g.id} className="st-strip-g" role="group" aria-label={g.name}>
+            <div key={g.id} className={`st-strip-g${folded.has(g.id) ? " is-folded" : ""}`} role="group" aria-label={g.name}>
               <button
                 type="button"
                 data-glide={`who-${g.id}`}
@@ -201,7 +203,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
               </button>
               {folded.has(g.id) ? (
                 <button type="button" data-glide={`fold-${g.id}`} className="st-strip-folded" aria-label={`Show ${g.name}`} data-tip="Show slides" onClick={() => onFold(g.id)}>
-                  {g.slides.length}
+                  <Icon name="eye-off" size={16} />
                 </button>
               ) : (
                 <div className="st-strip-slides">

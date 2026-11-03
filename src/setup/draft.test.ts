@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Deck } from "../studio/types.ts";
-import { emptyDraft, fromDeck, groupSlides, lostTakes, moveSlide, order, regroup, removeSlide, renewChangedGroups, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
+import { carriedSpeakers, emptyDraft, fromDeck, groupSlides, lostTakes, moveSlide, order, regroup, removeSlide, renewChangedGroups, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
 
 const pics = (n: number) => Array.from({ length: n }, (_, i) => ({ src: `blob:${i}` }));
 const sizes = (d: ReturnType<typeof emptyDraft>) => d.groups.map((g) => g.slides.length);
@@ -167,4 +167,18 @@ test("joining keeps a take recorded on the first group, and drops the one record
 test("nothing to split or join leaves the deck as it is", () => {
   assert.equal(regroup(roomDeck, { kind: "split", slide: "a" }, new Set()), roomDeck);
   assert.equal(regroup(roomDeck, { kind: "join", group: "demo" }, new Set()), roomDeck);
+});
+
+test("a split keeps the speaker on both parts, even when the take it drops gives the first part a new id", () => {
+  const after = regroup(roomDeck, { kind: "split", slide: "b" }, new Set(["intro"]));
+  const carried = carriedSpeakers(roomDeck, after, { intro: "ana", demo: "ben" });
+  assert.deepEqual(after.groups.slice(0, 2).map((g) => carried[g.id]), ["ana", "ana"]);
+  assert.equal(carried.demo, undefined);
+});
+
+test("a join keeps the first part's speaker, or takes the second's when the first had none", () => {
+  const joined = regroup(roomDeck, { kind: "join", group: "intro" }, new Set());
+  assert.deepEqual(carriedSpeakers(roomDeck, joined, { intro: "ana", demo: "ben" }), {});
+  assert.deepEqual(carriedSpeakers(roomDeck, joined, { demo: "ben" }), { intro: "ben" });
+  assert.deepEqual(carriedSpeakers(roomDeck, joined, {}), {});
 });

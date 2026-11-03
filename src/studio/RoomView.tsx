@@ -13,7 +13,7 @@ import { spotOf, useSpotPref } from "./spot";
 import { CameraSpots } from "./CameraSpots";
 import { Cams } from "./Cams";
 import { Filmstrip, useFolded } from "./Filmstrip";
-import { lostTakes, regroup, type Regroup } from "../setup/draft";
+import { carriedSpeakers, lostTakes, regroup, type Regroup } from "../setup/draft";
 import { CopyLink, editLink, firstName, initials, Menu, ProjectMark, roomLink, slug, StartButton, type Camera } from "./parts";
 import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
@@ -191,7 +191,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
       setPreview(g.slides.findIndex((s) => s.id === on));
     };
     // Newer than the room as it was, so a poll already on its way cannot put the old groups back.
-    apply({ ...room, deck: mine, updatedAt: room.updatedAt + 1 });
+    apply({ ...room, deck: mine, assignments: { ...room.assignments, ...carriedSpeakers(deck, mine, room.assignments) }, updatedAt: room.updatedAt + 1 });
     stay(mine);
     try {
       const fresh = await freshDeck(room.code);
@@ -204,7 +204,10 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
       const lost = lostTakes(fresh, next, taken).filter((g) => !asked.has(g.id));
       const whose = lost.map((g) => room.people.find((p) => p.id === room.takes[g.id]?.personId)?.name);
       if (lost.length && !confirm(lost.length === 1 ? `This removes ${whose[0] ? `${firstName(whose[0])}’s` : "a"} take.` : `This removes ${lost.length} takes.`)) return;
-      apply(await roomApi.putDeck(room.code, next));
+      let saved = await roomApi.putDeck(room.code, next);
+      // Speakers are kept by group id, so a part that took a new one gets the speaker it had.
+      for (const [g, person] of Object.entries(carriedSpeakers(fresh, next, saved.assignments))) saved = await roomApi.assign(room.code, g, person);
+      apply(saved);
       stay(next);
     } catch (e) {
       console.error(e);
