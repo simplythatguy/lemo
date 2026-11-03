@@ -13,6 +13,8 @@ export function Tooltip() {
     const el = tip.current!;
     let target: HTMLElement | null = null;
     let timer = 0;
+    // The control just pressed: its tip stays away until the mouse leaves it.
+    let pressed: HTMLElement | null = null;
     // Moving from one control to the next while a tip is showing swaps it at once instead of waiting again.
     let warmUntil = 0;
 
@@ -46,36 +48,43 @@ export function Tooltip() {
     };
     const tipOf = (n: EventTarget | null) => (n instanceof Element ? n.closest<HTMLElement>("[data-tip]") : null);
 
-    const onOver = (e: PointerEvent) => {
+    // On a move, not on pointerover: a control that slides under a mouse that never moved (the layout changed after a
+    // click) gets a pointerover too, and its tip would open for nobody.
+    const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
       const t = tipOf(e.target);
-      if (t === target) return;
+      if (t === target || t === pressed) return;
+      pressed = null;
       if (!t) return hide();
       show(t, performance.now() < warmUntil || el.matches(":popover-open") ? 0 : HOVER_DELAY_MS);
     };
     const onOut = (e: PointerEvent) => {
       if (target && !(e.relatedTarget instanceof Node && target.contains(e.relatedTarget))) hide();
     };
+    const onDown = (e: PointerEvent) => {
+      hide();
+      pressed = tipOf(e.target);
+    };
     const onFocus = (e: FocusEvent) => {
       const t = tipOf(e.target);
       if (t && t.matches(":focus-visible")) show(t, 0);
     };
 
-    document.addEventListener("pointerover", onOver);
+    document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerout", onOut);
     document.addEventListener("focusin", onFocus);
     document.addEventListener("focusout", hide);
-    document.addEventListener("pointerdown", hide, true);
+    document.addEventListener("pointerdown", onDown, true);
     document.addEventListener("keydown", hide, true);
     addEventListener("scroll", hide, true);
     addEventListener("resize", hide);
     return () => {
       clearTimeout(timer);
-      document.removeEventListener("pointerover", onOver);
+      document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerout", onOut);
       document.removeEventListener("focusin", onFocus);
       document.removeEventListener("focusout", hide);
-      document.removeEventListener("pointerdown", hide, true);
+      document.removeEventListener("pointerdown", onDown, true);
       document.removeEventListener("keydown", hide, true);
       removeEventListener("scroll", hide, true);
       removeEventListener("resize", hide);
