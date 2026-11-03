@@ -12,7 +12,8 @@ import { boxAt, deckBox, spotBox } from "./stage/camera";
 import { spotOf, useSpotPref } from "./spot";
 import { CameraSpots } from "./CameraSpots";
 import { Cams } from "./Cams";
-import { Filmstrip } from "./Filmstrip";
+import { Filmstrip, useFolded } from "./Filmstrip";
+import { lostTakes, regroup, type Regroup } from "../setup/draft";
 import { Brand, CopyLink, editLink, firstName, initials, Menu, roomLink, slug, StartButton, type Camera } from "./parts";
 import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
@@ -167,6 +168,31 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
     setSelected(deck.groups[gi].id);
     setPreview(si);
   };
+  // Groups folded away on this device: the arrows walk past them.
+  const [folded, fold] = useFolded(room.code);
+  const unfolded = (d: 1 | -1) => {
+    for (let gi = index + d; gi >= 0 && gi < deck.groups.length; gi += d) if (!folded.has(deck.groups[gi].id)) return gi;
+    return null;
+  };
+  const around = { prev: unfolded(-1), next: unfolded(1) };
+  // A split or join on the room's latest deck; the slide on stage stays on stage. Losing a take asks first.
+  const regroupDeck = async (op: Regroup) => {
+    try {
+      const fresh = await freshDeck(room.code);
+      const taken = new Set([...Object.keys(room.takes), ...saving, ...Object.keys(progress)]);
+      const next = regroup(fresh, op, taken);
+      if (next === fresh) return;
+      const lost = lostTakes(fresh, next, taken);
+      const whose = lost.map((g) => room.people.find((p) => p.id === room.takes[g.id]?.personId)?.name);
+      if (lost.length && !confirm(lost.length === 1 ? `This removes ${whose[0] ? `${firstName(whose[0])}’s` : "a"} take.` : `This removes ${lost.length} takes.`)) return;
+      const on = deck.groups[index]?.slides[shown]?.id;
+      apply(await roomApi.putDeck(room.code, next));
+      const gi = next.groups.findIndex((g) => g.slides.some((s) => s.id === on));
+      if (gi >= 0) pick(gi, next.groups[gi].slides.findIndex((s) => s.id === on));
+    } catch (e) {
+      console.error(e);
+    }
+  };
   /** The length of the group's take on stage, from this device's Keep until the room has it. */
   const recordedMs = kept[boothGroup]?.ms ?? room.takes[boothGroup]?.durationMs ?? null;
   const makeVideo = () => {
@@ -282,6 +308,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           next={next}
           onNext={() => next && pick(deck.groups.indexOf(next), 0)}
           onPick={pick}
+          around={around}
           recordedMs={recordedMs}
           onMake={makeVideo}
           dockSlot={stacked ? dockSlot : null}
@@ -300,8 +327,11 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
         assignLocked={busy(phase)}
         upload={progress}
         saving={saving}
+        folded={folded}
+        onFold={fold}
         onPick={pick}
         onAssign={assign}
+        onRegroup={(op) => void regroupDeck(op)}
       />
       {/* Stacked, the dock sits under the strip, so it follows the strip in the page too (tab order, screen readers). */}
       <div ref={setDockSlot} className="st-dock-slot" />
@@ -439,7 +469,7 @@ function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children
   );
 }
 
-function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, next, onNext, onPick, recordedMs, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, next, onNext, onPick, around, recordedMs, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -474,6 +504,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   onNext(): void;
   /** Opens another group's slide: the arrows walk on past this group's first and last slides. */
   onPick(group: number, slide: number): void;
+  /** The groups the arrows walk on into, folded ones skipped; null at either end. */
+  around: { prev: number | null; next: number | null };
   /** This group's take, when it has one. */
   recordedMs: number | null;
   onMake(): void;
@@ -621,8 +653,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     if (p.k === "idle" && !following) {
       const to = preview + d;
       if (to >= 0 && to <= last) return setPreview(to);
-      const gi = index + d;
-      if (gi >= 0 && gi < deck.groups.length) onPick(gi, d > 0 ? 0 : Math.max(0, deck.groups[gi].slides.length - 1));
+      const gi = d > 0 ? around.next : around.prev;
+      if (gi !== null) onPick(gi, d > 0 ? 0 : Math.max(0, deck.groups[gi].slides.length - 1));
       return;
     }
     if (p.k !== "recording" || !stage) return;
@@ -631,7 +663,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     cues.current = [...cues.current, { slide, atMs: Math.round(performance.now() - p.startedAt), spot: spotRef.current }];
     stage.show(index, slide);
     setPhase({ ...p, slide });
-  }, [deck.groups, following, index, last, onPick, preview, setPhase, setPreview, stage]);
+  }, [around.next, around.prev, deck.groups, following, last, onPick, preview, setPhase, setPreview, stage]);
 
   // Leaving the group mid-take (or unmounting) never leaves a recorder running, or the team following a take that ended.
   useEffect(() => () => {
@@ -812,8 +844,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   const recordKey = <kbd className="kbd">R</kbd>;
   /** Idle and not following: the arrows walk on into the next or previous group. */
   const walk = phase.k === "idle" && !follow;
-  const firstSlide = onStage === 0 && !(walk && index !== 0);
-  const lastSlide = onStage === last && !(walk && index !== deck.groups.length - 1);
+  const firstSlide = onStage === 0 && !(walk && around.prev !== null);
+  const lastSlide = onStage === last && !(walk && around.next !== null);
   const nav = (
     <div className="st-dock-side">
       <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={firstSlide} aria-label="Previous slide" data-tip="Previous slide (←)">

@@ -111,6 +111,16 @@ export function ungroupSlides(d: Draft, ids: Iterable<string>): Draft {
   return { ...d, groups };
 }
 
+/** Splits the group holding `id` so that `id` and the slides after it make a group of their own. The first part keeps
+ *  the group's id; a group's own recording length no longer fits either part. */
+export function splitBefore(d: Draft, id: string): Draft {
+  const groups = d.groups.flatMap((g) => {
+    const k = g.slides.indexOf(id);
+    return k > 0 ? [{ id: g.id, slides: g.slides.slice(0, k) }, { id: newGroupId(), slides: g.slides.slice(k) }] : [g];
+  });
+  return groups.length === d.groups.length ? d : { ...d, groups };
+}
+
 export function removeSlide(d: Draft, id: string): Draft {
   const groups = d.groups
     .map((g) => (g.slides.includes(id) ? { id: g.id, slides: g.slides.filter((s) => s !== id) } : g))
@@ -172,6 +182,34 @@ export function renewChangedGroups(d: Draft, before: Draft): Draft {
   });
   return changed ? { ...d, groups } : d;
 }
+
+// Splitting and joining groups from the room, with the rules above: a group keeps its id, and so its take and its
+// speaker, only while the slides its take was recorded on still open it.
+export type Regroup =
+  /** Slide `slide` and the ones after it in its group become a group of their own. */
+  | { kind: "split"; slide: string }
+  /** Group `group` and the group after it become one. */
+  | { kind: "join"; group: string };
+
+/** `deck` after `op`; the same deck when there is nothing to do. `taken`: groups with a take, whose ids a join keeps first. */
+export function regroup(deck: Deck, op: Regroup, taken: ReadonlySet<string>): Deck {
+  const before = fromDeck(deck);
+  let after = before;
+  if (op.kind === "split") after = splitBefore(before, op.slide);
+  else {
+    const i = before.groups.findIndex((g) => g.id === op.group);
+    const [a, b] = [before.groups[i], before.groups[i + 1]];
+    if (i >= 0 && b) after = groupSlides(before, [...a.slides, ...b.slides], taken);
+  }
+  if (after === before) return deck;
+  // Only a take can stop fitting its group: groups nobody recorded keep their ids, and so their speakers.
+  const renewed = renewChangedGroups(after, before);
+  return toDeck({ ...after, groups: renewed.groups.map((g, i) => (taken.has(after.groups[i].id) ? g : after.groups[i])) });
+}
+
+/** Groups of `before` with a take that `after` no longer has: their takes are lost. */
+export const lostTakes = (before: Deck, after: Deck, taken: ReadonlySet<string>) =>
+  before.groups.filter((g) => taken.has(g.id) && !after.groups.some((n) => n.id === g.id));
 
 /** Removes team member `i`. Every group's speaker is 0 (the room assigns people), so nothing else moves. */
 export function removeMember(d: Draft, i: number): Draft {
