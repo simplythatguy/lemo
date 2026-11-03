@@ -8,6 +8,7 @@ import { emptyDraft, fromDeck, groupSlides, moveSlide, removeSlide, renewChanged
 import { Icon } from "../icons";
 import { glide } from "./glide";
 import { importSlides, SlideFileError } from "./importSlides";
+import { navigate, setLeaveGuard } from "../route";
 import { Project } from "./Project";
 import { saveDraft } from "./save";
 import { Script } from "./Script";
@@ -26,6 +27,7 @@ type Saving = { done: number; total: number; error?: string } | null;
 
 export function Setup({ code: editCode }: { code?: string }) {
   const editing = !!editCode;
+  const leaveQuestion = editing ? "Leave without saving?" : "Discard this demo?";
   const [load, setLoad] = useState<Load>(editing ? { kind: "loading" } : { kind: "ready" });
   const [draft, setDraftState] = useState<Draft>(emptyDraft);
   const [step, setStep] = useState<Step>("slides");
@@ -85,8 +87,12 @@ export function Setup({ code: editCode }: { code?: string }) {
     if (!dirty || savingNow) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, savingNow]);
+    setLeaveGuard(leaveQuestion);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      setLeaveGuard(null);
+    };
+  }, [dirty, savingNow, leaveQuestion]);
 
   const onFile = useCallback(
     async (file: File) => {
@@ -200,7 +206,7 @@ export function Setup({ code: editCode }: { code?: string }) {
         onUploaded: (next) => setDraftState(next),
         onProgress: (done, total) => setSaving({ done, total }),
       });
-      location.assign(`/r/${code}`);
+      navigate(`/r/${code}`);
     } catch (e) {
       setSaving((s) => ({ done: s?.done ?? 0, total: s?.total ?? 0, error: (e as Error).message || "Couldn't save" }));
     }
@@ -271,7 +277,7 @@ export function Setup({ code: editCode }: { code?: string }) {
           aria-label={editing ? "Back to the room" : "Close"}
           data-tip={editing ? "Back to the room" : "Close"}
           onClick={(e) => {
-            if (dirty && !confirm(editing ? "Leave without saving?" : "Discard this demo?")) e.preventDefault();
+            if (dirty && !confirm(leaveQuestion)) e.preventDefault();
             else setDirty(false);
           }}
         >

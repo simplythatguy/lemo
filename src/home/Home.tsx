@@ -5,6 +5,7 @@ import { forgetRoom, knownRooms, RoomError, roomApi, validCode } from "../studio
 import { clock, deckMs } from "../studio/timing";
 import type { Deck, RoomState, TakeInfo } from "../studio/types";
 import { Icon } from "../icons";
+import { navigate } from "../route";
 import { ProjectMark } from "../studio/parts";
 import "./home.css";
 
@@ -161,7 +162,7 @@ function Join() {
   const go = () => {
     const c = code.trim().toUpperCase();
     if (!validCode(c)) return setBad(true);
-    location.assign(`/r/${c}`);
+    navigate(`/r/${c}`);
   };
   return (
     <form
