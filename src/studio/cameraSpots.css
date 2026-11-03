@@ -26,7 +26,7 @@
 .st-spots-dim {
   position: absolute;
   inset: 0;
-  background: var(--shade);
+  background: var(--shade-hover);
 }
 
 /* Each place: the wide shape, the upright one inside it and on top. The one your camera is in is drawn solid. */
