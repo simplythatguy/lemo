@@ -3,7 +3,7 @@
 
 import type { Deck, Rect, Slide } from "../types";
 import { clipUrl, fontsReady as fontsLoaded, loadFonts } from "./assets";
-import { deckBox, glides, mixBox, sameBox, type CameraBox } from "./camera";
+import { cameraAt, deckBox, GLIDE_MS, moveCamera, publishCameraFrame, type CameraBox, type CameraMotion } from "./camera";
 import { C, coverSource, font, frame, text, type Ctx } from "./draw";
 import { clamp01, inOutSine, outCubic } from "./ease";
 import { hasTitle, paintCard, paintSlide, paintTitle } from "./slides";
@@ -26,7 +26,6 @@ const T = {
   rise: 10, // a changed title lifts this far into place in the second half of the dissolve
   camera: 650,
   cameraOut: 420,
-  cameraMove: 420, // the tile gliding to another spot
 };
 
 type Content =
@@ -134,9 +133,8 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
   let cur: Layer | null = null;
   let dissolve: Dissolve | null = null;
   let cams: Cam[] = [];
-  let camFrom = deckBox(deck);
-  let camTo = camFrom;
-  let camMoved = -Infinity;
+  const initialCamera = deckBox(deck);
+  let camera: CameraMotion = { from: initialCamera, to: initialCamera, at: -Infinity };
   let raf = 0;
   let dead = false;
 
@@ -181,7 +179,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
     ctx.globalAlpha = 1;
   }
 
-  function paintCamera(now: number) {
+  function paintCamera(now: number, r: CameraBox) {
     const live = cams.filter((c, i) => {
       const newer = cams[i + 1];
       if (newer && now - newer.at >= T.camera) return false;
@@ -196,8 +194,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
     });
     const tile = Math.max(...alphas);
     if (tile <= 0) return;
-    const moving = now - camMoved < T.cameraMove;
-    const r = moving ? mixBox(camFrom, camTo, outCubic(clamp01((now - camMoved) / T.cameraMove))) : camTo;
+    const moving = now - camera.at < GLIDE_MS;
     ctx.save();
     ctx.globalAlpha = tile;
     frame(ctx, r, (c) => {
@@ -244,7 +241,9 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
         if (!keep) paintTitles(dissolve, p);
       } else paintLayer(ctx, cur, now);
     }
-    paintCamera(now);
+    const box = cameraAt(camera, now);
+    paintCamera(now, box);
+    publishCameraFrame(canvas, box);
     raf = requestAnimationFrame(paint);
   }
   raf = requestAnimationFrame(paint);
@@ -269,11 +268,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
       if (el || initials) cams.push({ el, initials, at: cams.length || cur ? now : -Infinity });
     },
     placeCamera(box, opts) {
-      if (sameBox(box, camTo)) return;
-      const now = performance.now();
-      camFrom = opts?.instant || !glides(camTo, box) ? box : mixBox(camFrom, camTo, outCubic(clamp01((now - camMoved) / T.cameraMove)));
-      camTo = box;
-      camMoved = now;
+      camera = moveCamera(camera, box, performance.now(), opts?.instant || matchMedia("(prefers-reduced-motion: reduce)").matches);
     },
     destroy() {
       dead = true;

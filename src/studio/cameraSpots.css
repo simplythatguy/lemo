@@ -8,7 +8,6 @@
   transition: box-shadow var(--dur-control) var(--ease);
 }
 
-.st-spots-handle:hover,
 .st-spots-handle[aria-expanded="true"] {
   box-shadow: 0 0 0 2px var(--on-dark);
 }
@@ -34,7 +33,7 @@
   position: absolute;
   pointer-events: none;
   box-shadow: 0 0 0 200vmax var(--shade-deep);
-  transition: left var(--camera-glide), top var(--camera-glide), width var(--camera-glide), height var(--camera-glide);
+  transition-property: none;
 }
 
 /* Each place: the wide shape, the upright one inside it and on top, in hairlines. The one your camera is in is drawn
@@ -45,27 +44,20 @@
   padding: 0;
   background: none;
   cursor: pointer;
-  transition:
-    background-color var(--dur-control) var(--ease),
-    border-color var(--dur-control) var(--ease),
-    left var(--camera-glide), top var(--camera-glide), width var(--camera-glide), height var(--camera-glide);
-}
-
-.st-spot:hover {
-  border-color: var(--on-dark);
-  background: var(--on-dark-wash);
+  transition: background-color var(--dur-control) var(--ease), border-color var(--dur-control) var(--ease);
 }
 
 .st-spot[aria-pressed="true"] {
   border: 1.5px solid var(--on-dark);
 }
 
-/* S M L: each letter in a thin ring, a row per place just past where its large shape reaches. The size in use is
-   white and bold, on the place the camera is in only. A small stage keeps one row. */
+/* S M L: each letter in a thin ring, a row per place on its wide shape's inner edge. The size in use is white and
+   bold, on the place the camera is in only. A small stage keeps one row, closer to its shape. */
 .st-spot-size {
   position: absolute;
   display: flex;
   gap: var(--space-8);
+  transition-property: none;
 }
 
 .st-spot-size.is-below { margin-top: var(--space-8); }
@@ -90,9 +82,10 @@
   transition: color var(--dur-control) var(--ease), border-color var(--dur-control) var(--ease);
 }
 
-.st-spot-size button:hover {
-  border-color: var(--on-dark-2);
-  color: var(--on-dark);
+@media (hover: hover) {
+  .st-spots-handle:hover { box-shadow: 0 0 0 2px var(--on-dark); }
+  .st-spot:hover { border-color: var(--on-dark); background: var(--on-dark-wash); }
+  .st-spot-size button:hover { border-color: var(--on-dark-2); color: var(--on-dark); }
 }
 
 .st-spot-size.is-here button[aria-checked="true"] {
@@ -103,9 +96,9 @@
 
 @container stage (max-width: 640px) {
   .st-spot-size:not(.is-kept) { display: none; }
-  .st-spot-size { gap: 6px; }
-  .st-spot-size.is-below { margin-top: 6px; }
-  .st-spot-size.is-above { margin-top: -6px; }
+  .st-spot-size { gap: calc(var(--space-12) / 2); }
+  .st-spot-size.is-below { margin-top: var(--space-4); }
+  .st-spot-size.is-above { margin-top: calc(-1 * var(--space-4)); }
   .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
 }
 
@@ -116,7 +109,7 @@
     content: "";
     position: absolute;
     left: 50%;
-    width: calc(var(--control) + var(--space-8));
+    width: var(--control-lg);
     height: var(--control-lg);
     translate: -50% 0;
   }
@@ -125,6 +118,6 @@
   .st-spot-size.is-above button::after { bottom: -1.5px; }
 
   @container stage (max-width: 640px) {
-    .st-spot-size button::after { width: calc(var(--control-sm) + 6px); }
+    .st-spot-size button::after { width: calc(var(--control-sm) + var(--space-12) / 2); }
   }
 }

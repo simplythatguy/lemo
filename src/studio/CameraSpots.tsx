@@ -1,13 +1,7 @@
-// Where your camera sits: tap it (or press C) and the stage dims around it and shows the five places it can go, each a
-// wide rectangle with the upright one inside it. Tap the wide or the upright one to move there in that shape. Each
-// place's S M L, which scale both, sit just past where its large shape reaches; a small stage has room for one row,
-// the place you're on or the one you point at. Tap a size to move there at that size.
-// Works while recording.
-// Keys while open: arrows change place, 1 2 3 the size, Enter or Esc close.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./cameraSpots.css";
 import { STAGE_H, STAGE_W } from "./stage";
-import { PLACES, SIZES, spotBox, spotParts, type CameraBox } from "./stage/camera";
+import { GLIDE_MS, observeCameraFrame, PLACES, SHAPES, shapeBox, SIZES, spotBox, type CameraBox } from "./stage/camera";
 import { spotOf, toPlace, useSpotPref } from "./spot";
 import type { CameraShape, CameraSize, Place } from "./types";
 
@@ -41,23 +35,26 @@ function neighbour(from: Place, key: string): Place | null {
   return best;
 }
 
-/** Where a place's S M L row hangs: just past the edge of its large wide shape that faces the middle of the stage, so
- *  the row never moves as the camera changes size and never covers it. Mirrored corners share a line; the centre's
- *  row is above it. */
-function rowAt(p: Place): { x: number; y: number; side: string } {
-  const l = spotBox(`${p}-h-l`);
-  if (p === "c") return { x: l.x + l.w / 2, y: l.y, side: "is-above is-mid" };
+/** Where a place's S M L row hangs from its wide shape: on the edge that faces the middle of the stage. Mirrored
+ *  corners hang theirs alike; the centre's row is above it. */
+function rowAt(p: Place, wide: CameraBox): { x: number; y: number; side: string } {
+  if (p === "c") return { x: wide.x + wide.w / 2, y: wide.y, side: "is-above is-mid" };
   return {
-    x: p[1] === "l" ? l.x : l.x + l.w,
-    y: p[0] === "t" ? l.y + l.h : l.y,
+    x: p[1] === "l" ? wide.x : wide.x + wide.w,
+    y: p[0] === "t" ? wide.y + wide.h : wide.y,
     side: `${p[0] === "t" ? "is-below" : "is-above"}${p[1] === "r" ? " is-end" : ""}`,
   };
 }
 
-function Sizes({ p, size, current, kept }: { p: Place; size: CameraSize; current: boolean; kept: boolean }) {
-  const at = rowAt(p);
+interface SizeTarget { size: CameraSize; rect: DOMRect }
+interface SizeGesture { p: Place; until: number; origin: SizeTarget[]; latest: SizeTarget[] }
+
+function Sizes({ p, wide, size, current, kept, onPick }: { p: Place; wide: CameraBox; size: CameraSize; current: boolean; kept: boolean; onPick(row: HTMLElement): void }) {
+  const at = rowAt(p, wide);
+  const row = useRef<HTMLDivElement>(null);
   return (
     <div
+      ref={row}
       className={`st-spot-size ${at.side}${kept ? " is-kept" : ""}${current ? " is-here" : ""}`}
       style={{ left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) }}
       role="radiogroup"
@@ -71,7 +68,11 @@ function Sizes({ p, size, current, kept }: { p: Place; size: CameraSize; current
           aria-checked={size === s}
           aria-label={SIZE_NAME[s]}
           aria-keyshortcuts={current ? String(i + 1) : undefined}
-          onClick={() => toPlace(p, { size: s })}
+          onPointerDown={(e) => e.currentTarget.setPointerCapture(e.pointerId)}
+          onClick={(e) => {
+            if (e.detail && row.current) onPick(row.current);
+            toPlace(p, { size: s });
+          }}
         >
           {s.toUpperCase()}
         </button>
@@ -85,10 +86,62 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
   // The place pointed at or focused last; a small stage keeps its sizes instead of the current place's.
   const [aim, setAim] = useState<Place | null>(null);
   if (!open && aim) setAim(null);
+  useLayoutEffect(() => { setAim(null); }, [pref.place]);
   const here = spotBox(spotOf(pref));
+  const gesture = useRef<SizeGesture | null>(null);
+  if (!open) gesture.current = null;
+  const swallow = useRef(false);
+  const remember = (p: Place, row: HTMLElement) => {
+    const latest = [...row.querySelectorAll("button")].map((b, i) => ({ size: SIZES[i], rect: b.getBoundingClientRect() }));
+    const t = performance.now();
+    const prior = gesture.current;
+    gesture.current = { p, until: t + GLIDE_MS, origin: prior?.p === p && t < prior.until ? prior.origin : latest, latest };
+  };
+  // A quick press where a ring was still means that size, even after the row has moved away.
+  const press = (e: React.PointerEvent) => {
+    swallow.current = false;
+    if (e.button !== 0 || !(e.target instanceof Element) || e.target.closest(".st-spot-size")) return;
+    const t = performance.now();
+    const g = gesture.current;
+    if (!g || t >= g.until) return;
+    const hit = [...g.latest, ...g.origin].find(({ rect: r }) => e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+    e.preventDefault();
+    e.stopPropagation();
+    swallow.current = true;
+    if (hit) {
+      g.until = t + GLIDE_MS;
+      toPlace(g.p, { size: hit.size });
+      layer.current?.querySelector<HTMLElement>(`[aria-label="${PLACE_NAME[g.p]} size"] [aria-label="${SIZE_NAME[hit.size]}"]`)?.focus({ preventScroll: true });
+    }
+  };
   const handle = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const focusHere = () => layer.current?.querySelector<HTMLElement>(".st-spot[aria-pressed=true]")?.focus({ preventScroll: true });
+
+  useLayoutEffect(() => {
+    const canvas = handle.current?.parentElement?.querySelector("canvas");
+    if (!canvas) return;
+    const hole = layer.current?.querySelector<HTMLElement>(".st-spots-dim-hole");
+    const groups = layer.current?.querySelectorAll<HTMLElement>(".st-spot-place");
+    return observeCameraFrame(canvas, (box) => {
+      if (handle.current) Object.assign(handle.current.style, place(box));
+      if (hole) Object.assign(hole.style, place(box));
+      groups?.forEach((group, i) => {
+        const p = PLACES[i];
+        const h = box.place === p ? box.h : spotBox(`${p}-h-${pref.sizes[p]}`).h;
+        for (const k of SHAPES) {
+          const outline = group.querySelector<HTMLElement>(`.is-${k}`);
+          const b = box.place === p && pref.shapes[p] === k ? box : shapeBox(p, k, h);
+          if (outline) Object.assign(outline.style, place(b));
+        }
+        const row = group.querySelector<HTMLElement>(".st-spot-size");
+        const at = rowAt(p, shapeBox(p, "h", h));
+        if (row) Object.assign(row.style, { left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) });
+      });
+    });
+  }, [open, pref]);
+
+  useEffect(() => { if (open) focusHere(); }, [open]);
 
   // C opens it from anywhere in the room, like R records.
   useEffect(() => {
@@ -106,7 +159,6 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
 
   useEffect(() => {
     if (!open) return;
-    focusHere();
     const close = () => {
       onOpen(false);
       handle.current?.focus({ preventScroll: true });
@@ -114,7 +166,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
     const key = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
-      const now = spotParts(spotOf(pref)).place;
+      const now = pref.place;
       if (k === "escape" || k === "enter" || k === "c") close();
       else if (k === "1" || k === "2" || k === "3") toPlace(now, { size: SIZES[Number(k) - 1] });
       else if (k.startsWith("arrow")) {
@@ -144,10 +196,21 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
         data-tip="Move camera  C"
       />
       {open && (
-        <div ref={layer} className="st-spots" role="group" aria-label="Camera position">
+        <div
+          ref={layer}
+          className="st-spots"
+          role="group"
+          aria-label="Camera position"
+          onPointerDownCapture={press}
+          onPointerCancelCapture={() => { swallow.current = false; }}
+          onClickCapture={(e) => {
+            if (!e.detail || !swallow.current) return;
+            swallow.current = false;
+            e.stopPropagation();
+          }}
+        >
           <div className="st-spots-dim" onPointerDown={() => onOpen(false)} />
-          {/* A new place is a cut on the stage, so the opening around the camera cuts too. */}
-          <div key={pref.place} className="st-spots-dim-hole" style={place(here)} />
+          <div className="st-spots-dim-hole" style={place(here)} />
           {PLACES.map((p) => {
             const size = pref.sizes[p];
             return (
@@ -166,7 +229,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
                     }}
                   />
                 ))}
-                <Sizes p={p} size={size} current={pref.place === p} kept={p === (aim ?? pref.place)} />
+                <Sizes p={p} wide={spotBox(`${p}-h-${size}`)} size={size} current={pref.place === p} kept={p === (aim ?? pref.place)} onPick={(row) => remember(p, row)} />
               </div>
             );
           })}

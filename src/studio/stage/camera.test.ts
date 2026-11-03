@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { boxAt, deckBox, glides, isSpot, mixBox, PLACES, SHAPES, SPOTS, spotBox } from "./camera.ts";
+import { boxAt, cameraAt, deckBox, GLIDE_MS, glideBox, glides, isSpot, mixBox, moveCamera, PLACES, shapeBox, SHAPES, SPOTS, spotBox } from "./camera.ts";
 
 const inside = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
   a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
@@ -58,4 +58,49 @@ test("a new size or shape in the same place glides; a new place, or an old take'
   assert.ok(glides(spotBox("br-v-m"), spotBox("br-h-m")));
   assert.ok(!glides(spotBox("br-v-m"), spotBox("tl-v-m")));
   assert.ok(!glides(deckBox({}), spotBox("br-v-m")));
+});
+
+test("camera geometry has one clamped 420ms cubic glide", () => {
+  const from = spotBox("br-v-s"), to = spotBox("br-h-l");
+  assert.equal(GLIDE_MS, 420);
+  assert.deepEqual(glideBox(from, to, -20), from);
+  assert.deepEqual(glideBox(from, to, 210), mixBox(from, to, 0.875));
+  assert.deepEqual(glideBox(from, to, 420), to);
+  assert.deepEqual(glideBox(from, to, 10_000), to);
+});
+
+test("rapid reversals and shape changes start at the actual in-flight box", () => {
+  for (const p of PLACES) {
+    const start = spotBox(`${p}-v-l`);
+    let motion = { from: start, to: start, at: -Infinity };
+    let now = 1000;
+    for (const spot of [`${p}-v-s`, `${p}-h-m`, `${p}-v-l`, `${p}-h-s`] as const) {
+      const before = cameraAt(motion, now);
+      const next = spotBox(spot);
+      motion = moveCamera(motion, next, now);
+      assert.deepEqual(cameraAt(motion, now), before, `${spot} must not jump`);
+      assert.deepEqual(cameraAt(motion, now + GLIDE_MS), next, `${spot} must finish exactly`);
+      now += 55;
+    }
+  }
+});
+
+test("place changes cut mid-glide; instant placement also settles an unchanged destination", () => {
+  const start = spotBox("br-v-l"), small = spotBox("br-v-s"), other = spotBox("tl-h-m");
+  const moving = moveCamera({ from: start, to: start, at: -Infinity }, small, 500);
+  const cut = moveCamera(moving, other, 555);
+  assert.deepEqual(cameraAt(cut, 555), other);
+  assert.deepEqual(cameraAt(cut, 700), other);
+  assert.equal(moveCamera(moving, small, 555), moving, "duplicate targets must not restart the clock");
+  const instant = moveCamera(moving, small, 555, true);
+  assert.deepEqual(cameraAt(instant, 555), small, "reduced motion and seeking must settle immediately");
+});
+
+test("the alternate picker shape stays anchored to every sampled camera height", () => {
+  for (const p of PLACES) for (let ms = 0; ms <= GLIDE_MS; ms += 7) {
+    const box = glideBox(spotBox(`${p}-h-l`), spotBox(`${p}-h-s`), ms);
+    const wide = shapeBox(p, "h", box.h), upright = shapeBox(p, "v", box.h);
+    assert.equal(upright.h, wide.h);
+    assert.ok(inside(upright, wide), `${p} at ${ms}ms`);
+  }
 });

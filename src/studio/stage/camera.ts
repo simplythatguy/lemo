@@ -13,11 +13,7 @@ const RADIUS = 28;
 export interface CameraBox extends Rect { r: number; place?: Place }
 
 /** The wide tile's size; the upright one is as tall, 4:5. Three large wide tiles sit side by side between the insets. */
-const WIDE: Record<CameraSize, { w: number; h: number }> = {
-  s: { w: 320, h: 180 },
-  m: { w: 448, h: 252 },
-  l: { w: 576, h: 324 },
-};
+const HEIGHT: Record<CameraSize, number> = { s: 180, m: 252, l: 324 };
 
 export const PLACES: readonly Place[] = ["tl", "tr", "c", "bl", "br"];
 export const SHAPES: readonly CameraShape[] = ["h", "v"];
@@ -34,8 +30,11 @@ export function spotParts(spot: Spot): { place: Place; shape: CameraShape; size:
 
 export function spotBox(spot: Spot): CameraBox {
   const { place, shape, size } = spotParts(spot);
-  const { h } = WIDE[size];
-  const w = shape === "h" ? WIDE[size].w : Math.round((h * 4) / 5);
+  return shapeBox(place, shape, HEIGHT[size]);
+}
+
+export function shapeBox(place: Place, shape: CameraShape, h: number): CameraBox {
+  const w = shape === "h" ? (h * 16) / 9 : Math.round((h * 4) / 5);
   if (place === "c") return { x: (W - w) / 2, y: (H - h) / 2, w, h, r: RADIUS, place };
   return { x: place[1] === "l" ? INSET : W - INSET - w, y: place[0] === "t" ? INSET : H - INSET - h, w, h, r: RADIUS, place };
 }
@@ -73,4 +72,49 @@ export const glides = (from: CameraBox, to: CameraBox) => from.place !== undefin
 export function mixBox(a: CameraBox, b: CameraBox, t: number): CameraBox {
   const m = (p: number, q: number) => p + (q - p) * t;
   return { x: m(a.x, b.x), y: m(a.y, b.y), w: m(a.w, b.w), h: m(a.h, b.h), r: m(a.r, b.r), place: b.place };
+}
+
+/** How long a glide takes, on the stage and in the picker drawn over it. */
+export const GLIDE_MS = 420;
+
+/** Where a glide from `a` to `b` is `ms` after it began. */
+export function glideBox(a: CameraBox, b: CameraBox, ms: number): CameraBox {
+  const t = Math.min(1, Math.max(0, ms / GLIDE_MS));
+  return mixBox(a, b, 1 - (1 - t) ** 3);
+}
+
+export interface CameraMotion { from: CameraBox; to: CameraBox; at: number }
+
+export const cameraAt = (motion: CameraMotion, now: number) => glideBox(motion.from, motion.to, now - motion.at);
+
+export function moveCamera(motion: CameraMotion, to: CameraBox, now: number, instant = false): CameraMotion {
+  if (!instant && sameBox(motion.to, to)) return motion;
+  const from = instant || !glides(motion.to, to) ? to : cameraAt(motion, now);
+  return { from, to, at: now };
+}
+
+interface CameraFrame { box: CameraBox | null; listeners: Set<(box: CameraBox) => void> }
+const frames = new WeakMap<HTMLCanvasElement, CameraFrame>();
+function cameraFrame(canvas: HTMLCanvasElement): CameraFrame {
+  let frame = frames.get(canvas);
+  if (!frame) {
+    frame = { box: null, listeners: new Set() };
+    frames.set(canvas, frame);
+  }
+  return frame;
+}
+
+/** The overlay receives the box painted this frame, on the canvas's clock. */
+export function publishCameraFrame(canvas: HTMLCanvasElement, box: CameraBox) {
+  const frame = cameraFrame(canvas);
+  if (frame.box && sameBox(frame.box, box) && frame.box.place === box.place) return;
+  frame.box = box;
+  for (const draw of frame.listeners) draw(box);
+}
+
+export function observeCameraFrame(canvas: HTMLCanvasElement, draw: (box: CameraBox) => void) {
+  const frame = cameraFrame(canvas);
+  frame.listeners.add(draw);
+  if (frame.box) draw(frame.box);
+  return () => { frame.listeners.delete(draw); };
 }
