@@ -1401,3 +1401,114 @@
 .st-splash {
   background: var(--bg);
 }
+
+/* VARIATIONS (temporary) */
+@keyframes st-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes st-count-n {
+  from {
+    opacity: 0;
+    scale: 1.12;
+  }
+}
+:root[data-cd] .st-count {
+  animation: st-fade-in var(--dur-sheet) var(--ease);
+}
+:root:is([data-cd="b"], [data-cd="c"]) .st-dock-acts > * {
+  animation: st-fade-in var(--dur-sheet) var(--ease);
+}
+:root[data-cd="c"] .st-count > span {
+  animation: st-count-n var(--dur-sheet) var(--ease);
+}
+.st-cue-key {
+  margin-left: var(--space-8);
+  vertical-align: 2px;
+}
+.st-seg.is-cue-next .st-seg-hit,
+.st-seg.is-cue-stop .st-seg-hit {
+  box-shadow: inset 2px 0 0 var(--accent);
+  border-radius: 0;
+}
+.st-up-ring {
+  margin-right: var(--space-4);
+  vertical-align: -2px;
+  rotate: -90deg;
+  fill: none;
+  stroke-width: 2;
+}
+.st-up-ring circle:first-child {
+  stroke: var(--fill);
+}
+.st-up-ring circle:last-child {
+  stroke: var(--ink-3);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--dur-progress) linear;
+}
+.st-cams.is-many .st-tile {
+  width: 72px;
+}
+.st-tile-tag {
+  display: none;
+}
+@media (max-width: 719px), (max-width: 1099px) and (orientation: portrait) {
+  :root[data-ph="a"] .st-tile-tag {
+    position: absolute;
+    inset: auto 0 0;
+    display: block;
+    padding: 0 0 2px;
+    background: linear-gradient(transparent, rgb(0 0 0 / 0.55));
+    font: var(--weight-label) 10px/1.2 var(--font);
+    text-align: center;
+    color: var(--on-dark);
+    pointer-events: none;
+  }
+  :root[data-ph="b"] .st-cams {
+    padding-bottom: 14px;
+  }
+  :root[data-ph="b"] .st-tile {
+    overflow: visible;
+  }
+  :root[data-ph="b"] .st-tile video {
+    border-radius: inherit;
+  }
+  :root[data-ph="b"] .st-tile-tag {
+    position: absolute;
+    top: calc(100% + 1px);
+    left: 50%;
+    translate: -50% 0;
+    display: block;
+    max-width: 44px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: var(--weight-label) 10px/12px var(--font);
+    color: var(--ink-3);
+    pointer-events: none;
+  }
+}
+:root[data-sp] .st-menu-dot.is-me {
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--line-2);
+  color: var(--ink);
+}
+:root[data-sp="c"] .st-menu .st-menu-dot:not(.is-live) {
+  display: none;
+}
+.st-mark.is-a,
+.st-mark.is-b {
+  display: inline-grid;
+  place-items: center;
+  color: var(--on-dark);
+  font: var(--weight-title) 0.62em/1 var(--font);
+}
+.st-mark.is-b svg {
+  width: 80%;
+  height: 80%;
+}
+.st-mark.is-c {
+  background: none;
+  color: var(--accent);
+}

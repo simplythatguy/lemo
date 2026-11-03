@@ -4,7 +4,7 @@
 // only the presenter's mic goes into the video, and only their tile shows a mic. A red ring marks whoever is recording.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
-import { CameraToggle, firstName, initials, Menu, type Camera } from "./parts";
+import { CameraToggle, firstName, initials, Menu, vr, type Camera } from "./parts";
 import type { Person } from "./types";
 
 export function Cams({ people, me, camera, streams, failed, camOff, presenter, recording, mutedAll, locked, onMuteAll, onRemove, onVideo }: {
@@ -32,7 +32,8 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
   const team = people.length > 1;
   const mine = people.find((p) => p.id === me.id);
   const order = mine ? [mine, ...people.filter((p) => p !== mine)] : people;
-  const fit = Math.min(order.length, room);
+  const cap = vr("cap") === "a" ? 4 : vr("cap") === "b" ? 3 : Infinity;
+  const fit = Math.min(order.length, room, order.length > cap ? cap : Infinity);
   const shown = new Set(order.slice(0, fit).map((p) => p.id));
   // Whoever presents stays in view, so the red ring is never behind the "+N".
   if (presenter && !shown.has(presenter) && fit > 1) {
@@ -67,7 +68,9 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
     const sound = el.querySelector<HTMLElement>(".st-cams-sound")?.offsetWidth ?? 0;
     const plus = el.querySelector<HTMLElement>(".st-cams-more")?.offsetWidth || tile;
     const extra = sound ? sound + gap : 0;
-    const all = people.length * tile + (people.length - 1) * gap;
+    const cap = vr("cap") === "a" ? 4 : vr("cap") === "b" ? 3 : Infinity;
+    const want = people.length > cap ? cap : people.length;
+    const all = want * tile + (want - 1) * gap + (want < people.length ? gap + plus : 0);
     el.style.width = `${Math.ceil(pad + all + extra)}px`;
     const granted = el.clientWidth - pad - extra;
     const next = all <= granted + 0.5 ? Infinity : Math.max(1, Math.floor((granted - plus) / (tile + gap)));
@@ -121,7 +124,7 @@ export function Cams({ people, me, camera, streams, failed, camOff, presenter, r
 
   const open = (anchor: HTMLElement) => setList((a) => (a === anchor ? null : anchor));
   return (
-    <div ref={row} className="st-cams" aria-label="People">
+    <div ref={row} className={`st-cams${vr("cap") === "c" && people.length > 4 ? " is-many" : ""}`} aria-label="People">
       {order.map((p) => {
         const own = p.id === me.id;
         return (
@@ -293,6 +296,7 @@ function Tile({ person, mine, hidden, leaving, camera, stream, off, presenting, 
       <audio ref={sound} autoPlay />
       {/* No picture: the initials alone, with the full name in the tile's tooltip (and "No video" in the People list). */}
       {picture ? <figcaption>{firstName(person.name)}</figcaption> : <span className="st-tile-face" aria-hidden="true">{initials(person.name)}</span>}
+      {picture && vr("ph") && <span className="st-tile-tag" aria-hidden="true">{vr("ph") === "a" ? initials(person.name) : firstName(person.name)}</span>}
       <button
         type="button"
         className="st-tile-menu"

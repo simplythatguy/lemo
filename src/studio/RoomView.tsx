@@ -14,7 +14,7 @@ import { CameraSpots } from "./CameraSpots";
 import { Cams } from "./Cams";
 import { Filmstrip, useFolded } from "./Filmstrip";
 import { lostTakes, regroup, type Regroup } from "../setup/draft";
-import { CopyLink, editLink, firstName, initials, Menu, ProjectMark, roomLink, slug, StartButton, type Camera } from "./parts";
+import { CopyLink, editLink, firstName, initials, Menu, ProjectMark, roomLink, slug, StartButton, vr, type Camera } from "./parts";
 import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
 import { clock, targetMs } from "./timing";
@@ -212,6 +212,10 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   };
   /** The length of the group's take on stage, from this device's Keep until the room has it. */
   const recordedMs = kept[boothGroup]?.ms ?? room.takes[boothGroup]?.durationMs ?? null;
+  const boothTake = room.takes[boothGroup];
+  const boothUp = progress[boothGroup] ?? (boothTake && !complete(boothTake) ? boothTake.received / boothTake.chunks : undefined);
+  /** How much of the take on stage has reached the room, while it is still on its way; null once it is there. */
+  const uploaded = boothUp !== undefined ? boothUp : saving.has(boothGroup) ? 0 : null;
   const makeVideo = () => {
     if (allIn && !busy(phase)) setRendering(true);
   };
@@ -315,6 +319,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           onPick={pick}
           around={around}
           recordedMs={recordedMs}
+          uploaded={uploaded}
           onMake={makeVideo}
           dockSlot={stacked ? dockSlot : null}
           onKept={markKept}
@@ -456,7 +461,7 @@ function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children
   );
 }
 
-function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, uploaded, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -499,6 +504,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   around: { prev: number | null; next: number | null };
   /** This group's take, when it has one. */
   recordedMs: number | null;
+  /** How much of this group's take has reached the room, while it is on its way; null once it is there. */
+  uploaded: number | null;
   onMake(): void;
   /** Where the dock goes when it does not sit under the script (stacked: after the strip). */
   dockSlot: HTMLElement | null;
@@ -808,7 +815,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   const left = phase.k === "recording" ? Math.max(0, target - elapsed) : follow ? followLeft : target;
   const span = follow ? follow.targetMs || target : target;
   const live = phase.k === "recording" || !!follow;
-  const fill = phase.k === "review" ? elapsed / phase.media.durationMs : live ? 1 - left / span : 0;
+  const upFill = vr("up") === "b" && phase.k === "idle" && !follow && recordedMs !== null && uploaded !== null;
+  const fill = phase.k === "review" ? elapsed / phase.media.durationMs : live ? 1 - left / span : upFill ? uploaded : 0;
 
   // The transcript can be edited only while nothing is being recorded here or followed from a teammate.
   const canEdit = phase.k === "idle" && !follow;
@@ -865,10 +873,13 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   );
   // A recorded group shows its take's length; one still to record, its planned length.
   const done = phase.k === "idle" && !follow && recordedMs !== null;
+  const up = done && uploaded !== null && vr("up") !== "";
   const label = dock === "camera-error" ? camera.error
     : dock === "review" && keepFailed ? "Not saved"
     : dock === "review" ? null
     : live ? "left"
+    : up && vr("up") === "c" ? `saving ${Math.round(uploaded! * 100)}%`
+    : up ? "saving"
     : done ? "recorded"
     : "planned";
   const alert = dock === "camera-error" || (dock === "review" && keepFailed);
@@ -880,8 +891,10 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
           {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(done ? recordedMs : left)}
         </span>
         {label && (
-          <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : ""}`} role={alert ? "alert" : undefined}>
-            {done && <Icon name="check" size={14} />}{label}
+          <span className={alert ? "st-error" : `st-clock-label${done && !up ? " is-done" : ""}${up ? " is-up" : ""}`} role={alert ? "alert" : undefined}>
+            {done && !up && <Icon name="check" size={14} />}
+            {up && vr("up") === "a" && <UpRing at={uploaded!} />}
+            {label}
           </span>
         )}
       </div>
@@ -899,7 +912,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
           )}
         </div>
       ) : dock !== "countdown" && dock !== "watching" && nav}
-      <div className={`st-track${phase.k === "review" ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
+      <div className={`st-track${phase.k === "review" || upFill ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
         <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, fill))})` }} />
       </div>
       <div className="st-dock-acts">
@@ -978,7 +991,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
         <div className="st-stage-cell">
           <StageCanvas canvas={canvas}>
             {canMove && <CameraSpots open={spotsOpen} onOpen={setSpotsOpen} />}
-            {phase.k === "countdown" && <div className="st-count" aria-live="assertive">{phase.n}</div>}
+            {phase.k === "countdown" && <div className="st-count" aria-live="assertive"><span key={phase.n}>{phase.n}</span></div>}
             {refused && <StartButton onStart={again} />}
           </StageCanvas>
         </div>
@@ -1019,6 +1032,18 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   );
 }
 
+/** A small ring that fills as the take reaches the room. */
+function UpRing({ at }: { at: number }) {
+  const r = 5.5;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg className="st-up-ring" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <circle cx="7" cy="7" r={r} />
+      <circle cx="7" cy="7" r={r} strokeDasharray={c} strokeDashoffset={c * (1 - Math.max(0.04, at))} />
+    </svg>
+  );
+}
+
 /** `cued`: a take runs here, and the line being spoken ends in what comes after it, the next slide (→) or Stop (■). */
 function Transcript({ script, current, picked, onPick, cued }: { script: string[]; current: number | null; picked: number | null; onPick?: (slide: number) => void; cued: boolean }) {
   const list = useRef<HTMLOListElement>(null);
@@ -1037,15 +1062,16 @@ function Transcript({ script, current, picked, onPick, cued }: { script: string[
   return (
     <ol ref={list} className={`st-script${current !== null ? " is-following" : ""}`} aria-label="Transcript">
       {items.map(({ text, i }) => (
-        <li key={i} ref={(el) => { refs.current[i] = el; }} className={`st-seg${i === at ? " is-now" : i < at ? " is-past" : ""}`}>
+        <li key={i} ref={(el) => { refs.current[i] = el; }} className={`st-seg${i === at ? " is-now" : i < at ? " is-past" : ""}${cued && i === at && vr("cue") === "c" ? (i < last ? " is-cue-next" : " is-cue-stop") : ""}`}>
           <button type="button" className="st-seg-hit" onClick={onPick ? () => onPick(i) : undefined} disabled={!onPick} aria-current={i === at || undefined}>
             <span className="st-seg-text">
               {text}
-              {cued && i === at && (i < last ? (
+              {cued && i === at && vr("cue") === "" && (i < last ? (
                 <span className="st-next" role="img" aria-label="then the next slide"><Icon name="arrow" size={16} /></span>
               ) : (
                 <span className="st-stop" role="img" aria-label="then stop" />
               ))}
+              {cued && i === at && vr("cue") === "b" && <kbd className="kbd st-cue-key">{i < last ? "→" : "Enter"}</kbd>}
             </span>
           </button>
         </li>
