@@ -97,5 +97,5 @@
 
 @container stage (max-width: 640px) {
   .st-spot-size { --gap: var(--space-4); }
-  .st-spot-size button { width: 24px; height: 24px; font-size: var(--text-12); }
+  .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
 }
