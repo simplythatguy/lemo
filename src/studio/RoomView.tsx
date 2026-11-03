@@ -869,8 +869,9 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   );
   // A recorded group shows its take's length; one still to record, its planned length. The check waits until the
   // room has the take, as the strip's Saving… does.
-  const done = phase.k === "idle" && !follow && recordedMs !== null && !arriving;
-  const sending = phase.k === "idle" && !follow && recordedMs !== null && arriving;
+  const taken = phase.k === "idle" && !follow && recordedMs !== null;
+  const done = taken && !arriving;
+  const sending = taken && arriving;
   const label = dock === "camera-error" ? camera.error
     : dock === "review" && keepFailed ? "Not saved"
     : dock === "review" ? null
@@ -884,7 +885,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
       <div className="st-dock-time">
         <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
-          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(done || sending ? recordedMs : left)}
+          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(taken ? recordedMs : left)}
         </span>
         {label && (
           <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : sending ? " is-saving" : ""}`} role={alert ? "alert" : undefined}>

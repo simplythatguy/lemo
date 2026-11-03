@@ -188,7 +188,10 @@ function Join({ code, deck, taken, name: initialName, camera, onDevice, onJoin }
   const open = here || suggested.length > 0;
   async function go() {
     // Join stays the screen's primary while the name is empty: pressing it goes to the name.
-    if (!name.trim()) return field.current?.focus();
+    if (!name.trim()) {
+      field.current?.focus();
+      return;
+    }
     if (busy) return;
     setBusy(true);
     setError(null);
