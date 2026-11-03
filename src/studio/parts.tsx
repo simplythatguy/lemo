@@ -2,10 +2,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon, type IconSize } from "../icons";
 
-// VARIATIONS (temporary): ?cd= ?cue= ?up= ?cap= ?ph= ?sp= ?jn= ?mk= land on <html data-*> for CSS and vr() for TSX.
-for (const [k, v] of new URLSearchParams(location.search)) if (/^(cd|cue|up|cap|ph|sp|jn|mk)$/.test(k)) document.documentElement.dataset[k] = v;
-export const vr = (k: string) => document.documentElement.dataset[k] ?? "";
-
 export interface Camera {
   stream: MediaStream | null;
   /** The page-lifetime element playing `stream`; the stage paints it as the camera tile. */
@@ -85,14 +81,7 @@ export function CopyLink({ code }: { code: string }) {
 export function Brand({ named = false }: { named?: boolean }) {
   return (
     <a className="st-brand" href="/" aria-label="Lemo" data-tip="My demos">
-      <span className={`st-mark${vr("mk") ? ` is-${vr("mk")}` : ""}`} aria-hidden="true">
-        {vr("mk") === "a" ? "L" : vr("mk") ? (
-          <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none">
-            <rect x="4" y="6" width="16" height="12" rx="2.5" stroke="currentColor" strokeWidth="2" />
-            <rect x="12.5" y="11.5" width="5" height="4" rx="1" fill="currentColor" />
-          </svg>
-        ) : null}
-      </span>
+      <span className="st-mark" aria-hidden="true" />
       {named && <span aria-hidden="true">Lemo</span>}
     </a>
   );
