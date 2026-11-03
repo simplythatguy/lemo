@@ -23,6 +23,8 @@ Validated strings cannot contain NUL (`\u0000`). Person path IDs are 12 lower-ca
 
 Types are in `src/studio/types.ts` (`RoomState`, `Deck`, `TakeInfo`, `LiveState`).
 
+`RoomState.deckVersion` identifies the stored deck and take identities. App deck writes send it as a quoted `If-Match` header. The server checks it under the room's write lock. A new take, replacement take, or changed deck returns 412 without saving the edit. Chunk uploads, people, and assignment changes do not invalidate it. Requests without this header retain the existing unconditional API behavior.
+
 A deck has a string `title`, a list of strings `team`, and a list of `groups`. Each group has an `id` (1–40 of a-z, 0-9 and -), a string `name`, `slides` (objects with a string `kind`), and `script` (strings); `speaker` and `seconds` are optional finite numbers. Slide kinds and extra fields round-trip unchanged. Optional `logo` is a string; optional `camera` has finite numeric `x`, `y`, `w`, and `h` (where the camera sat in takes whose cues have no `spot`). The whole deck is still limited to 1 MiB.
 
 Limits: a take is at most 150 MiB, a room's takes and files at most 600 MiB together, signals expire after 10 minutes (at most 2000 per room, 200 per page), a live row older than 10 s reads as `null`, and a room is deleted 14 days after it was created.

@@ -10,7 +10,7 @@ import { CHUNK_BYTES, ROOM_MAX_SIGNALS, ROOM_MS, SIGNAL_MS, Store, type StoreOpt
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
-interface Call { json?: unknown; body?: Uint8Array | string; type?: string }
+interface Call { json?: unknown; body?: Uint8Array | string; type?: string; headers?: Record<string, string> }
 
 async function setup(t: TestContext, options: StoreOptions = {}) {
   let offset = 0;
@@ -32,7 +32,7 @@ async function setup(t: TestContext, options: StoreOptions = {}) {
   }
   const handle = createHandler(async () => store);
   const call = (method: string, path: string, init: Call = {}) => {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...init.headers };
     let body: RequestInit["body"];
     if (init.json !== undefined) {
       headers["Content-Type"] = "application/json";
@@ -109,6 +109,39 @@ test("assignments", async (t) => {
   assert.equal(await status(call("PUT", `/api/rooms/${code}/assignments/the-problem`, { json: { personId: "nobody" } })), 404);
   assert.equal(await status(call("PUT", `/api/rooms/${code}/assignments/Bad_Id`, { json: { personId: ana.id } })), 400);
   assert.equal(await status(call("PUT", `/api/rooms/${code}/assignments/the-problem`, { json: {} })), 400);
+});
+
+test("a deck edit cannot commit across a new or replaced take", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const deck = { title: "Demo", team: ["Ana"], groups: [{ id: "intro", name: "Intro", slides: [{ id: "s1", kind: "statement" }, { id: "s2", kind: "statement" }], script: ["One", "Two"] }] };
+  const before = await ok("PUT", `/api/rooms/${code}/deck`, { json: deck });
+  const shorter = { ...deck, groups: [{ ...deck.groups[0], slides: deck.groups[0].slides.slice(0, 1), script: ["One"] }] };
+  await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1) }, 201);
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: shorter, headers: { "If-Match": `"${before.deckVersion}"` } })), 412);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, deck);
+  const seen = await ok("GET", `/api/rooms/${code}`);
+  await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1) }, 201);
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: shorter, headers: { "If-Match": `"${seen.deckVersion}"` } })), 412);
+  assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, deck);
+});
+
+test("deck edit consent survives chunk uploads and people changes, but not another deck edit", async (t) => {
+  const { ok, call, room, person } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const take = await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1) }, 201);
+  const seen = await ok("GET", `/api/rooms/${code}`);
+  await person(code, "Ben");
+  await ok("PUT", `/api/rooms/${code}/takes/${take.id}/chunks/0`, { body: new Uint8Array([1]) });
+  const deck = { title: "Demo", team: ["Ana"], groups: [] };
+  const saved = await ok("PUT", `/api/rooms/${code}/deck`, { json: deck, headers: { "If-Match": `"${seen.deckVersion}"` } });
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, title: "Stale" }, headers: { "If-Match": `"${seen.deckVersion}"` } })), 412);
+  const current = await ok("GET", `/api/rooms/${code}`);
+  assert.equal(current.deckVersion, saved.deckVersion);
+  assert.deepEqual(current.deck, deck);
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: deck, headers: { "If-Match": "invalid" } })), 400);
 });
 
 test("a take uploads, downloads and is replaced", async (t) => {

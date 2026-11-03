@@ -16,13 +16,16 @@ export class RoomError extends Error {
 }
 
 
-async function send(method: string, path: string, init: { json?: unknown; body?: BodyInit; type?: string; signal?: AbortSignal } = {}): Promise<Response> {
+async function send(method: string, path: string, init: { json?: unknown; body?: BodyInit; type?: string; signal?: AbortSignal; version?: string } = {}): Promise<Response> {
   let res: Response;
   try {
     res = await fetch(`${API}${path}`, {
       method,
       signal: init.signal,
-      headers: init.json !== undefined ? { "Content-Type": "application/json" } : init.body ? { "Content-Type": init.type ?? "application/octet-stream" } : {},
+      headers: {
+        ...(init.json !== undefined ? { "Content-Type": "application/json" } : init.body ? { "Content-Type": init.type ?? "application/octet-stream" } : {}),
+        ...(init.version === undefined ? {} : { "If-Match": `"${init.version}"` }),
+      },
       body: init.json !== undefined ? JSON.stringify(init.json) : init.body,
     });
   } catch (e) {
@@ -58,7 +61,10 @@ export const roomApi = {
   /** Opens the room called `code`, making it the first time. */
   open: (code: string) => json<RoomState>(send("POST", "/rooms", { json: { code } })),
   /** Replaces the room's presentation. */
-  putDeck: (code: string, deck: Deck) => json<RoomState>(send("PUT", `${base(code)}/deck`, { json: deck })),
+  putDeck: (code: string, deck: Deck, version: string) => {
+    if (!/^[a-f0-9]{64}$/.test(version)) return Promise.reject(new RoomError(412, "Reload the room before saving. Your edit was not saved."));
+    return json<RoomState>(send("PUT", `${base(code)}/deck`, { json: deck, version }));
+  },
   /** Stores an image (image/png, image/jpeg or image/webp, at most FILE_MAX_BYTES) and returns its URL. */
   uploadFile: async (code: string, file: Blob) => {
     const { id } = await json<{ id: string }>(send("POST", `${base(code)}/files`, { body: file, type: file.type }));

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { roomApi, RoomError } from "../studio/room";
 import { clock, deckMs } from "../studio/timing";
 import { limitOf } from "../studio/types";
-import { emptyDraft, fromDeck, groupSlides, joinNext, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, splitBefore, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import { emptyDraft, fromDeck, groupSlides, joinNext, lostTakes, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, splitBefore, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import type { Deck } from "../studio/types";
 import { Icon } from "../icons";
 import { glide } from "./glide";
 import { importSlides, SlideFileError } from "./importSlides";
@@ -40,6 +41,8 @@ export function Setup({ code: editCode }: { code?: string }) {
   const taken = useRef<Set<string>>(new Set());
   /** The room's deck as this page opened it: takes were recorded on it. */
   const loaded = useRef<Draft>(emptyDraft());
+  const loadedDeck = useRef<Deck | null>(null);
+  const committing = useRef(false);
   const room = useRef<string | null>(editCode ?? null);
   const urls = useRef<string[]>([]);
   const job = useRef<AbortController | null>(null);
@@ -67,6 +70,7 @@ export function Setup({ code: editCode }: { code?: string }) {
       (r) => {
         taken.current = new Set(Object.keys(r.takes));
         if (r.deck) {
+          loadedDeck.current = r.deck;
           loaded.current = fromDeck(r.deck);
           setDraftState(loaded.current);
           setStep("script");
@@ -193,8 +197,10 @@ export function Setup({ code: editCode }: { code?: string }) {
   };
 
   const save = async () => {
+    if (committing.current) return;
     const stop = blocker(STEPS.length);
     if (stop) return go(stop);
+    committing.current = true;
     // A group whose slides changed under its take gets a new id, so the take no longer plays over the wrong slides.
     const settled = renewChangedGroups(draft, loaded.current);
     if (settled !== draft) setDraftState(settled);
@@ -206,10 +212,27 @@ export function Setup({ code: editCode }: { code?: string }) {
         onRoom: (c) => (room.current = c),
         onUploaded: (next) => setDraftState(next),
         onProgress: (done, total) => setSaving({ done, total }),
+        beforeSave: (current, uploaded) => {
+          const next = toDeck(uploaded);
+          if (!editing) return next;
+          if (JSON.stringify(current.deck) !== JSON.stringify(loadedDeck.current)) {
+            throw new Error("The room's slides changed. Your draft is kept. Reopen the editor before saving.");
+          }
+          const lost = current.deck ? lostTakes(current.deck, next, new Set(Object.keys(current.takes))) : [];
+          const name = lost.length === 1 ? current.people.find((p) => p.id === current.takes[lost[0].id].personId)?.name : null;
+          const question = lost.length === 1 ? `This removes ${name ? `${name}’s` : "a"} take.` : `This removes ${lost.length} takes.`;
+          return lost.length && !confirm(question) ? null : next;
+        },
       });
+      if (code === null) {
+        setSaving(null);
+        return;
+      }
       navigate(`/r/${code}`);
     } catch (e) {
       setSaving((s) => ({ done: s?.done ?? 0, total: s?.total ?? 0, error: (e as Error).message || "Couldn't save" }));
+    } finally {
+      committing.current = false;
     }
   };
 

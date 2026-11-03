@@ -185,7 +185,9 @@ const routes: Route[] = [
   route("GET", "/api/rooms/:code", async (store, _req, p) => json(await store.getRoom(p.code))),
   route("PUT", "/api/rooms/:code/deck", async (store, req, p) => {
     const value = deck(await readJson(req, DECK_MAX_BYTES, "A deck"));
-    return json(await store.putDeck(p.code, JSON.stringify(value)));
+    const match = req.headers.get("if-match");
+    if (match !== null && !/^"[a-f0-9]{64}"$/.test(match)) throw bad("If-Match must be a quoted deckVersion");
+    return json(await store.putDeck(p.code, JSON.stringify(value), match?.slice(1, -1)));
   }),
   route("POST", "/api/rooms/:code/files", async (store, req, p) => {
     const type = (req.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();

@@ -6,7 +6,7 @@
 // by cursor, and nothing outlives ten minutes. They do not touch `updated_at`, so the room poll stays quiet.
 // The live row is the take in progress (slide and timer), for people whose WebRTC link is down. The presenter
 // refreshes it about once a second; a row older than LIVE_MS reads as nothing.
-import { randomInt, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { openDb, type Db, type Target, type Tx, type Value } from "./db.ts";
 
 export const CHUNK_BYTES = 3 * 1024 * 1024;
@@ -35,7 +35,7 @@ export interface TakeInfo {
 }
 export interface RoomState {
   code: string; people: Person[]; assignments: Record<string, string>; takes: Record<string, TakeInfo>;
-  updatedAt: number; deck: unknown; live: LiveState | null;
+  updatedAt: number; deckVersion: string; deck: unknown; live: LiveState | null;
 }
 export interface NewTake { groupId: string; personId: string; durationMs: number; cues: Cue[]; mime: string; size: number; chunks: number }
 export interface Signal { seq: number; from: string; kind: SignalKind; data: unknown; at: number }
@@ -204,7 +204,8 @@ export class Store {
       takes[take.groupId] = take;
     }
     const deck = room.deck_json == null ? null : JSON.parse(String(room.deck_json));
-    return { code, people, assignments, takes, updatedAt: Number(room.updated_at), deck, live: await this.live(tx, code) };
+    const deckVersion = createHash("sha256").update(JSON.stringify([deck, Object.keys(takes).sort().map((g) => [g, takes[g].id])])).digest("hex");
+    return { code, people, assignments, takes, updatedAt: Number(room.updated_at), deckVersion, deck, live: await this.live(tx, code) };
   }
 
   /** The take in progress, its timer moved on to now, or null once the presenter stopped refreshing it. */
@@ -250,8 +251,11 @@ export class Store {
     return this.inRoom(code, (tx, code) => this.state(tx, code), false);
   }
 
-  putDeck(code: string, deckJson: string): Promise<RoomState> {
+  putDeck(code: string, deckJson: string, version?: string): Promise<RoomState> {
     return this.inRoom(code, async (tx, code) => {
+      if (version !== undefined && (await this.state(tx, code)).deckVersion !== version) {
+        throw new HttpError(412, "The room's slides or takes changed. Your edit was not saved. Try again.");
+      }
       await tx.run("UPDATE studio_rooms SET deck_json=? WHERE code=?", [deckJson, code]);
       await this.stamp(tx, code);
       return this.state(tx, code);

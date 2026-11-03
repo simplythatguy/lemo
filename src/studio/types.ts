@@ -102,6 +102,8 @@ export interface RoomState {
   /** groupId → latest take */
   takes: Record<string, TakeInfo>;
   updatedAt: number;
+  /** Changes only when the stored deck or take identities change; used to guard deck writes. */
+  deckVersion: string;
   /** The presentation, once someone has set it up. */
   deck: Deck | null;
   /** The take being recorded, as its presenter last published it; null when nobody is recording. */

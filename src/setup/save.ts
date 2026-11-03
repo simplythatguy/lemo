@@ -1,7 +1,8 @@
 // Done: make (or reuse) the room, upload every image this session made, store the deck, remember the room.
 // Each finished upload is written back into the draft, so a retry after a failure only sends what is left.
 import { rememberRoom, roomApi } from "../studio/room";
-import { toDeck, type Draft } from "./draft";
+import { carriedSpeakers, type Draft } from "./draft";
+import type { Deck, RoomState } from "../studio/types";
 
 const PARALLEL = 3;
 
@@ -13,7 +14,8 @@ export async function saveDraft(opts: {
   /** `draft` with one more image uploaded. */
   onUploaded(next: Draft): void;
   onProgress(done: number, total: number): void;
-}): Promise<string> {
+  beforeSave(current: RoomState, draft: Draft): Deck | null;
+}): Promise<string | null> {
   let draft = opts.draft;
   const code = opts.code ?? (await roomApi.create()).code;
   opts.onRoom(code);
@@ -55,7 +57,15 @@ export async function saveDraft(opts: {
   await Promise.all(Array.from({ length: Math.min(PARALLEL, pending.length) }, worker));
   if (failed) throw error;
 
-  await roomApi.putDeck(code, toDeck(draft));
+  const current = await roomApi.get(code);
+  const deck = opts.beforeSave(current, draft);
+  if (deck === null) return null;
+  let saved = await roomApi.putDeck(code, deck, current.deckVersion);
+  if (current.deck) {
+    for (const [group, person] of Object.entries(carriedSpeakers(current.deck, deck, saved.assignments))) {
+      saved = await roomApi.assign(code, group, person);
+    }
+  }
   rememberRoom(code);
   return code;
 }

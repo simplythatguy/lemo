@@ -105,14 +105,13 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
     const g = gesture.current;
     if (!g || t >= g.until) return;
     const hit = [...g.latest, ...g.origin].find(({ rect: r }) => e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+    if (!hit) return;
     e.preventDefault();
     e.stopPropagation();
     swallow.current = true;
-    if (hit) {
-      g.until = t + GLIDE_MS;
-      toPlace(g.p, { size: hit.size });
-      layer.current?.querySelector<HTMLElement>(`[aria-label="${PLACE_NAME[g.p]} size"] [aria-label="${SIZE_NAME[hit.size]}"]`)?.focus({ preventScroll: true });
-    }
+    g.until = t + GLIDE_MS;
+    toPlace(g.p, { size: hit.size });
+    layer.current?.querySelector<HTMLElement>(`[aria-label="${PLACE_NAME[g.p]} size"] [aria-label="${SIZE_NAME[hit.size]}"]`)?.focus({ preventScroll: true });
   };
   const handle = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);

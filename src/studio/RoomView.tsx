@@ -177,40 +177,38 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
     return null;
   };
   const around = { prev: unfolded(-1), next: unfolded(1) };
-  // A split or join shows at once, then goes to the room on its latest deck; the slide on stage stays on stage. The strip
-  // has already asked about the takes it saw go; one recorded since then asks again here.
+  const pendingGroups = useRef<ReadonlySet<string>>(new Set());
+  pendingGroups.current = new Set([...saving, ...Object.keys(progress)]);
+  const regrouping = useRef(false);
   const regroupDeck = async (op: Regroup) => {
-    const taken = new Set([...Object.keys(room.takes), ...saving, ...Object.keys(progress)]);
+    if (regrouping.current) return;
+    const taken = new Set([...Object.keys(room.takes), ...pendingGroups.current]);
     const mine = regroup(deck, op, taken);
     if (mine === deck) return;
+    const consented = new Set(lostTakes(deck, mine, taken).map((g) => `${g.id}:${room.takes[g.id]?.id ?? "pending"}`));
     const on = deck.groups[index]?.slides[shown]?.id;
-    const stay = (d: Deck) => {
-      const g = d.groups.find((x) => x.slides.some((s) => s.id === on));
-      if (!g) return;
-      setSelected(g.id);
-      setPreview(g.slides.findIndex((s) => s.id === on));
-    };
-    // Newer than the room as it was, so a poll already on its way cannot put the old groups back.
-    apply({ ...room, deck: mine, assignments: { ...room.assignments, ...carriedSpeakers(deck, mine, room.assignments) }, updatedAt: room.updatedAt + 1 });
-    stay(mine);
+    regrouping.current = true;
     try {
-      const fresh = await freshDeck(room.code);
-      let next = regroup(fresh, op, taken);
-      if (next === fresh) return;
-      // Nobody changed the groups meanwhile: keep the ids the strip already shows, so nothing redraws.
-      const shape = (d: Deck) => d.groups.map((g) => `${g.id}:${g.slides.map((s) => s.id).join(",")}`).join("|");
-      if (shape(fresh) === shape(deck)) next = { ...next, groups: next.groups.map((g, i) => ({ ...g, id: mine.groups[i].id })) };
-      const asked = new Set(lostTakes(deck, mine, taken).map((g) => g.id));
-      const lost = lostTakes(fresh, next, taken).filter((g) => !asked.has(g.id));
-      const whose = lost.map((g) => room.people.find((p) => p.id === room.takes[g.id]?.personId)?.name);
-      if (lost.length && !confirm(lost.length === 1 ? `This removes ${whose[0] ? `${firstName(whose[0])}’s` : "a"} take.` : `This removes ${lost.length} takes.`)) return;
-      let saved = await roomApi.putDeck(room.code, next);
-      // Speakers are kept by group id, so a part that took a new one gets the speaker it had.
-      for (const [g, person] of Object.entries(carriedSpeakers(fresh, next, saved.assignments))) saved = await roomApi.assign(room.code, g, person);
+      const fresh = await freshRoom(room.code);
+      const current = new Set([...Object.keys(fresh.takes), ...pendingGroups.current]);
+      const next = regroup(fresh.deck, op, current);
+      if (next === fresh.deck) return apply(fresh);
+      const lost = lostTakes(fresh.deck, next, current).filter((g) => !consented.has(`${g.id}:${fresh.takes[g.id]?.id ?? "pending"}`));
+      const whose = lost.map((g) => fresh.people.find((p) => p.id === fresh.takes[g.id]?.personId)?.name);
+      if (lost.length && !confirm(lost.length === 1 ? `This removes ${whose[0] ? `${firstName(whose[0])}’s` : "a"} take.` : `This removes ${lost.length} takes.`)) return apply(fresh);
+      let saved = await roomApi.putDeck(room.code, next, fresh.deckVersion);
+      for (const [g, person] of Object.entries(carriedSpeakers(fresh.deck, next, saved.assignments))) saved = await roomApi.assign(room.code, g, person);
       apply(saved);
-      stay(next);
+      const group = next.groups.find((g) => g.slides.some((s) => s.id === on));
+      if (group) {
+        setSelected(group.id);
+        setPreview(group.slides.findIndex((s) => s.id === on));
+      }
     } catch (e) {
-      console.error(e);
+      alert(e instanceof Error ? e.message : "Could not change the groups. Try again.");
+      try { apply(await roomApi.get(room.code)); } catch { /* the next poll can reconnect */ }
+    } finally {
+      regrouping.current = false;
     }
   };
   /** The length of the group's take on stage, from this device's Keep until the room has it. */
@@ -765,6 +763,24 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     void v.play();
   };
 
+  // With the camera off, Record and Retake turn it on and start as soon as it is back; a camera that fails to come
+  // back shows its error instead, and never starts a take later on its own.
+  const canRecord = !!camera.stream && !!stage && last >= 0;
+  const startWhenOn = useRef(false);
+  const record = useCallback(() => {
+    if (!mine || following || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
+    if (camera.on) return start();
+    startWhenOn.current = true;
+    camera.turn(true);
+  }, [camera, following, last, mine, stage, start]);
+  useEffect(() => {
+    if (camera.error) startWhenOn.current = false;
+    // `on` flips at once; the stream with a picture follows when the camera has opened.
+    if (!startWhenOn.current || !camera.on || !camera.stream?.getVideoTracks().length) return;
+    startWhenOn.current = false;
+    start();
+  }, [camera.error, camera.on, camera.stream, start]);
+
   // Keys: R record (and retake), Space/→ next slide, ← back, Enter stop (and keep), Esc cancel (and discard a take).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -772,6 +788,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       if (el.closest("input, select, textarea, [role=menu], [role=dialog]") || e.metaKey || e.ctrlKey || e.altKey) return;
       // A saved take playing over the room has the keys.
       if (document.querySelector("[aria-modal=true]")) return;
+      if (e.key === " " && el.closest("button, a[href], [role=button]")) return;
       const p = phaseRef.current;
       if (e.key === "Escape" && (p.k === "countdown" || p.k === "recording" || p.k === "review")) {
         e.preventDefault();
@@ -792,12 +809,12 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
         void keep();
       } else if ((e.key === "r" || e.key === "R") && (p.k === "idle" || p.k === "review") && !e.repeat) {
         e.preventDefault();
-        start();
+        record();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cancel, finish, keep, start, step]);
+  }, [cancel, finish, keep, record, step]);
 
   const current = phase.k === "recording" ? phase.slide : phase.k === "review" ? replaySlide : phase.k === "countdown" ? 0 : follow ? idleSlide : null;
   const onStage = current ?? preview;
@@ -830,22 +847,6 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     if (!writing) stopWriting();
   }, [writing, stopWriting]);
 
-  // With the camera off, Record and Retake turn it on and start as soon as it is back; a camera that fails to come
-  // back shows its error instead, and never starts a take later on its own.
-  const canRecord = !!camera.stream && !!stage && last >= 0;
-  const startWhenOn = useRef(false);
-  const record = () => {
-    if (camera.on) return start();
-    startWhenOn.current = true;
-    camera.turn(true);
-  };
-  useEffect(() => {
-    if (camera.error) startWhenOn.current = false;
-    // `on` flips at once; the stream with a picture follows when the camera has opened.
-    if (!startWhenOn.current || !camera.on || !camera.stream?.getVideoTracks().length) return;
-    startWhenOn.current = false;
-    start();
-  }, [camera.error, camera.on, camera.stream, start]);
   // A button that has just taken another's place (Keep → Next, Retake or Make the video) ignores the second tap of a
   // double tap meant for the one before.
   const lead = dock === "retake" ? (next ? `next ${next.id}` : allIn ? "make" : "saving") : dock;
@@ -971,7 +972,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
             <button type="button" className="btn is-primary is-lg" onClick={() => void keep()}>
               <Icon name="check" size={16} />Keep<kbd className="kbd">Enter</kbd>
             </button>
-            <button type="button" className="btn is-quiet is-lg" onClick={start}>
+            <button type="button" className="btn is-quiet is-lg" onClick={record}>
               <Icon name="restart" size={16} />Retake{recordKey}
             </button>
             <button type="button" className="icon-btn st-dock-discard" onClick={cancel} aria-label="Discard take" data-tip="Discard take (Esc)">
@@ -1056,10 +1057,10 @@ function Transcript({ script, current, picked, onPick }: { script: string[]; cur
 }
 
 /** The room's deck as it is now, so a write that changes one part of it never puts back an older copy of the rest. */
-async function freshDeck(code: string): Promise<Deck> {
-  const { deck } = await roomApi.get(code);
-  if (!deck) throw new Error("The room has no slides");
-  return deck;
+async function freshRoom(code: string): Promise<RoomState & { deck: Deck }> {
+  const room = await roomApi.get(code);
+  if (!room.deck) throw new Error("The room has no slides");
+  return { ...room, deck: room.deck };
 }
 
 /** "Omar", "Omar and Priya", "Omar, Priya and Sam". */
@@ -1106,8 +1107,9 @@ function useScriptDraft(code: string, group: Group, apply: (next: RoomState) => 
     const id = groupRef.current.id;
     let ok = false;
     try {
-      const d = await freshDeck(code);
-      if (d.groups.some((g) => g.id === id)) apply(await roomApi.putDeck(code, { ...d, groups: d.groups.map((g) => (g.id === id ? { ...g, script } : g)) }));
+      const current = await freshRoom(code);
+      const d = current.deck;
+      if (d.groups.some((g) => g.id === id)) apply(await roomApi.putDeck(code, { ...d, groups: d.groups.map((g) => (g.id === id ? { ...g, script } : g)) }, current.deckVersion));
       ok = true;
     } catch {
       pending.current ??= script;
