@@ -823,11 +823,22 @@
   gap: var(--space-12);
 }
 
+/* The length readout lives in the top bar on wide screens, beside the script's title on narrow ones. */
+.su-script .su-total {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .su-top {
     grid-template-columns: auto 1fr auto;
     padding: 0 var(--space-12);
     gap: var(--space-8);
+  }
+  .su-top .su-total {
+    display: none;
+  }
+  .su-script .su-total {
+    display: inline-flex;
   }
   .su-steps {
     justify-content: center;

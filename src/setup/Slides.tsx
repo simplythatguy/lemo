@@ -187,8 +187,10 @@ function Drop({ label, on }: { label: string; on: boolean }) {
 
 /** The file's whole grid from the moment its page count is known; each slide fades in over its own place. */
 function Progress({ importing, onPainted }: { importing: Importing; onPainted(): void }) {
+  const grid = useRef<HTMLOListElement>(null);
+  const { cols, cell } = useRow(grid);
   return (
-    <ol className="su-grid" aria-busy="true">
+    <ol className="su-grid" ref={grid} style={{ "--cols": cols, "--cell": `${cell}px` } as React.CSSProperties} aria-busy="true">
       {Array.from({ length: importing.total ?? 0 }, (_, i) => (
         <li key={i} className="su-group-slides" style={{ "--n": 1 } as React.CSSProperties}>
           <ol>
@@ -246,7 +248,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
   /** Where the last plain click was, for shift-click ranges. */
   const anchor = useRef<number | null>(null);
   const grid = useRef<HTMLOListElement>(null);
-  const { cols, cell: width, full } = useRow(grid);
+  const { cols, cell, full } = useRow(grid);
   const press = usePress((el) => setMenu({ id: el.dataset.vt!, anchor: el }));
   const end = () => {
     setDrag(null);
@@ -279,7 +281,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
   const home = new Map(groups.flatMap((x) => x.g.slides.map((s) => [s, x] as const)));
   const shown = menu && home.get(menu.id);
 
-  const cell = (id: string, i: number) => {
+  const slide = (id: string, i: number) => {
     const grouped = home.get(id)!.g.slides.length > 1;
     return (
       <li
@@ -343,7 +345,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
   };
   return (
     <>
-      <ol className="su-grid" ref={grid} style={{ "--cols": cols, "--cell": `${width}px` } as React.CSSProperties}>
+      <ol className="su-grid" ref={grid} style={{ "--cols": cols, "--cell": `${cell}px` } as React.CSSProperties}>
         {groups.map(({ g, gi, first, name, rowEnd }) => {
           const next = groups[gi + 1];
           return (
@@ -352,7 +354,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
               className={`su-group-slides${g.slides.length > 1 ? " is-grouped" : ""}${rowEnd ? " is-row-end" : ""}`}
               style={{ "--n": g.slides.length, ...(g.slides.length >= cols && { "--cell": `${full}px` }) } as React.CSSProperties}
             >
-              <ol aria-label={`Slides ${name}`}>{g.slides.map((id, k) => cell(id, first + k))}</ol>
+              <ol aria-label={`Slides ${name}`}>{g.slides.map((id, k) => slide(id, first + k))}</ol>
               <span className="su-n">{name}</span>
               {next && (
                 <button type="button" className="su-join" aria-label={`Join slides ${name} with ${next.name}`} data-tip="Join" onClick={() => pick(() => onJoin(g.id))}>

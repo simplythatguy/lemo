@@ -9,7 +9,7 @@ export function Script({ draft, deck, length, onSay }: {
   draft: Draft;
   /** `draft` as a deck, for names and timings. */
   deck: Deck;
-  /** The video length readout, beside the script's title. */
+  /** The video length readout; on narrow screens it sits here instead of in the top bar. */
   length: ReactNode;
   onSay(slideId: string, text: string): void;
 }) {

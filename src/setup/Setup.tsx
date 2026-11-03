@@ -292,6 +292,7 @@ export function Setup({ code: editCode }: { code?: string }) {
           ))}
         </nav>
         <div className="su-top-end">
+          {last && length}
           {waiting ? null : last || editing ? (
             <button type="button" className="btn is-primary" onClick={() => void save()} disabled={!!importing}>
               {editing ? "Save" : "Create"}
