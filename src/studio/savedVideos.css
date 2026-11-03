@@ -38,8 +38,9 @@
   color: var(--ink);
 }
 
+/* Open, the popover is the feedback: no wash under the pointer that just opened it. */
 @media (hover: hover) {
-  .st-saved-btn:hover {
+  .st-saved-btn:not(.is-open):hover {
     background: var(--wash);
     color: var(--ink);
   }
