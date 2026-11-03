@@ -17,7 +17,7 @@
   flex-direction: column;
   gap: var(--space-16);
   /* Under the picture every state takes the same height (the finished one's two rows), so the picture holds still. */
-  width: min(1100px, 100%, calc((100cqh - var(--space-16) - var(--control) + var(--space-8) + var(--control-lg)) * 16 / 9));
+  width: min(1100px, 100%, calc((100cqh - var(--space-16) - var(--control) - var(--space-8) - var(--control-lg)) * 16 / 9));
   min-width: 0;
 }
 
@@ -138,7 +138,6 @@
   align-items: center;
   justify-content: center;
   min-height: var(--control);
-  margin: 0;
 }
 
 .st-done-next {
@@ -162,7 +161,7 @@
   }
   /* Download fills the width with Back under it, in reach of a thumb. */
   .st-booth {
-    width: min(100%, calc((100cqh - var(--space-16) - var(--control) + var(--space-8) + var(--control-lg) + var(--space-4) + var(--control)) * 16 / 9));
+    width: min(100%, calc((100cqh - var(--space-16) - var(--control) - var(--space-8) - var(--control-lg) - var(--space-4) - var(--control)) * 16 / 9));
   }
   :is(.st-work, .st-done) {
     min-height: calc(var(--control) + var(--space-8) + var(--control-lg) + var(--space-4) + var(--control));
@@ -173,4 +172,3 @@
     gap: var(--space-4);
   }
 }
-
