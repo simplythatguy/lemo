@@ -65,6 +65,8 @@
 /* S M L: each letter in a thin ring, a row per place just past where its large shape reaches. The size in use is
    white and bold, on the place the camera is in only. A small stage keeps one row. */
 .st-spot-size {
+  --ring: var(--control);
+  --edge: 1.5px;
   --gap: var(--space-8);
   position: absolute;
   display: flex;
@@ -82,10 +84,10 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: var(--control);
-  height: var(--control);
+  width: var(--ring);
+  height: var(--ring);
   padding: 0;
-  border: 1.5px solid var(--on-dark-3);
+  border: var(--edge) solid var(--on-dark-3);
   border-radius: var(--radius-full);
   background: none;
   font: var(--weight-label) var(--text-15)/1 var(--font);
@@ -107,19 +109,22 @@
 
 @container stage (max-width: 640px) {
   .st-spot-size:not(.is-kept) { display: none; }
-  .st-spot-size { --gap: 6px; }
-  .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
+  .st-spot-size { --ring: var(--control-sm); --gap: 6px; }
+  .st-spot-size button { font-size: var(--text-13); }
 }
 
-/* On touch each ring takes its share of the row and 44px of height, so the gaps between rings tap too. */
+/* On touch each ring takes its share of the row and 44px of height, grown away from its place's shape, so the gaps
+   between rings tap too and the shape keeps all of its own. */
 @media (pointer: coarse) {
   .st-spot-size button::after {
     content: "";
     position: absolute;
     left: 50%;
-    top: 50%;
-    width: calc(100% + var(--gap));
-    height: max(100%, var(--control-lg));
-    translate: -50% -50%;
+    width: calc(var(--ring) + var(--gap));
+    height: max(var(--ring), var(--control-lg));
+    translate: -50% 0;
   }
+
+  .st-spot-size.is-below button::after { top: calc(-1 * var(--edge)); }
+  .st-spot-size.is-above button::after { bottom: calc(-1 * var(--edge)); }
 }
