@@ -212,6 +212,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   };
   /** The length of the group's take on stage, from this device's Keep until the room has it. */
   const recordedMs = kept[boothGroup]?.ms ?? room.takes[boothGroup]?.durationMs ?? null;
+  const arriving = saving.has(boothGroup) || progress[boothGroup] !== undefined || (!!room.takes[boothGroup] && !complete(room.takes[boothGroup]));
   const makeVideo = () => {
     if (allIn && !busy(phase)) setRendering(true);
   };
@@ -315,6 +316,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           onPick={pick}
           around={around}
           recordedMs={recordedMs}
+          arriving={arriving}
           onMake={makeVideo}
           dockSlot={stacked ? dockSlot : null}
           onKept={markKept}
@@ -456,7 +458,7 @@ function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children
   );
 }
 
-function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, arriving, onMake, dockSlot, onKept, apply }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -499,6 +501,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   around: { prev: number | null; next: number | null };
   /** This group's take, when it has one. */
   recordedMs: number | null;
+  /** That take is still on its way to the room. */
+  arriving: boolean;
   onMake(): void;
   /** Where the dock goes when it does not sit under the script (stacked: after the strip). */
   dockSlot: HTMLElement | null;
@@ -863,12 +867,15 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       </button>
     </div>
   );
-  // A recorded group shows its take's length; one still to record, its planned length.
-  const done = phase.k === "idle" && !follow && recordedMs !== null;
+  // A recorded group shows its take's length; one still to record, its planned length. The check waits until the
+  // room has the take, as the strip's Saving… does.
+  const done = phase.k === "idle" && !follow && recordedMs !== null && !arriving;
+  const sending = phase.k === "idle" && !follow && recordedMs !== null && arriving;
   const label = dock === "camera-error" ? camera.error
     : dock === "review" && keepFailed ? "Not saved"
     : dock === "review" ? null
     : live ? "left"
+    : sending ? "saving…"
     : done ? "recorded"
     : "planned";
   const alert = dock === "camera-error" || (dock === "review" && keepFailed);
@@ -877,7 +884,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
       <div className="st-dock-time">
         <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
-          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(done ? recordedMs : left)}
+          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(done || sending ? recordedMs : left)}
         </span>
         {label && (
           <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : ""}`} role={alert ? "alert" : undefined}>
