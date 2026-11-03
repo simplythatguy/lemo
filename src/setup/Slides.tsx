@@ -330,7 +330,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
         <span className="su-band" aria-hidden="true" />
         <span className="su-n" aria-hidden="true">{k === 0 ? label : ""}</span>
         {next && k === g.slides.length - 1 && (
-          <button type="button" className="su-join" aria-label={`Join ${name} with ${next.name}`} data-tip="Join" onClick={(e) => { e.stopPropagation(); pick(() => onJoin(g.id)); }} onKeyDown={(e) => e.stopPropagation()}>
+          <button type="button" className="su-join" aria-label={`Join ${name} with ${next.name}`} data-tip="Join" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); pick(() => onJoin(g.id)); }}>
             <Icon name="fold" size={14} />
           </button>
         )}

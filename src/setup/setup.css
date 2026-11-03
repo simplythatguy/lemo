@@ -262,9 +262,6 @@
   list-style: none;
 }
 
-.su-cell { margin-right: var(--gap); }
-.su-grid[data-v="c"] > .su-cell:is([data-at="first"], [data-at="mid"]) { margin-right: var(--space-8); }
-
 .su-cell {
   position: relative;
   display: flex;
