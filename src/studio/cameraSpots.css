@@ -53,30 +53,21 @@
   border-color: var(--on-dark);
 }
 
-/* S M L: each letter in a thin ring, above the centre and beside each corner, facing the middle. The size in use is
-   white; the others are dimmer. */
+/* S M L: each letter in a thin ring, in a row on the inner edge of the place's wide shape, riding it as it grows. The
+   size in use is white; the others are dimmer. */
 .st-spot-size {
+  --gap: var(--space-8);
   position: absolute;
   display: flex;
-  gap: var(--space-8);
+  gap: var(--gap);
+  transition: left var(--dur-sheet) var(--ease), top var(--dur-sheet) var(--ease);
 }
 
-.st-spot-size.is-above {
-  left: var(--cx);
-  bottom: calc(100% - var(--top));
-  translate: -50% 0;
-  margin-bottom: var(--space-12);
-}
-
-.st-spot-size.is-right,
-.st-spot-size.is-left {
-  top: var(--cy);
-  translate: 0 -50%;
-  flex-direction: column;
-}
-
-.st-spot-size.is-right { left: var(--right); margin-left: var(--space-12); }
-.st-spot-size.is-left { right: calc(100% - var(--left)); margin-right: var(--space-12); }
+.st-spot-size.is-at-tl { margin-top: var(--gap); }
+.st-spot-size.is-at-tr { margin-top: var(--gap); translate: -100% 0; }
+.st-spot-size.is-at-bl { margin-top: calc(-1 * var(--gap)); translate: 0 -100%; }
+.st-spot-size.is-at-br { margin-top: calc(-1 * var(--gap)); translate: -100% -100%; }
+.st-spot-size.is-at-c { margin-top: calc(-1 * var(--gap)); translate: -50% -100%; }
 
 .st-spot-size button {
   display: grid;
@@ -104,20 +95,7 @@
   font-weight: var(--weight-title);
 }
 
-/* A small stage has no room beside the places: each corner's sizes sit inside its large footprint, in the corner
-   farthest from where the tile hugs, so part of every shape stays free to tap; the centre's stay above it. */
 @container stage (max-width: 640px) {
-  .st-spot-size { gap: var(--space-4); }
-  .st-spot-size.is-above { margin-bottom: var(--space-4); }
-  .st-spot-size.is-right,
-  .st-spot-size.is-left {
-    translate: none;
-    flex-direction: row;
-    margin: var(--space-4);
-  }
-  .st-spot-size.is-right { left: auto; right: calc(100% - var(--right)); }
-  .st-spot-size.is-left { right: auto; left: var(--left); }
-  .st-spot-size.is-row-top:not(.is-above) { top: auto; bottom: calc(100% - var(--bottom)); }
-  .st-spot-size.is-row-bottom:not(.is-above) { top: var(--top); }
+  .st-spot-size { --gap: var(--space-4); }
   .st-spot-size button { width: 24px; height: 24px; font-size: var(--text-12); }
 }

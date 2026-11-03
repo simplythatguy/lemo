@@ -1,8 +1,9 @@
 // Where your camera sits: tap it (or press C) and the stage shows the five places it can go, each a wide rectangle
-// with the upright one inside it, and S M L beside each, which scale both. Tap the wide or the upright one to move
-// there in that shape; tap a size to move there at that size. Works while recording.
+// with the upright one inside it. Tap the wide or the upright one to move there in that shape. S M L, which scale
+// both, sit on the edge of the place you're on, or the one you point at; tap a size to move there at that size.
+// Works while recording.
 // Keys while open: arrows change place, 1 2 3 the size, Enter or Esc close.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./cameraSpots.css";
 import { STAGE_H, STAGE_W } from "./stage";
 import { PLACES, SIZES, spotBox, spotParts, type CameraBox } from "./stage/camera";
@@ -39,8 +40,51 @@ function neighbour(from: Place, key: string): Place | null {
   return best;
 }
 
+/** Where a place's S M L row hangs at `size`: on its wide shape's inner edge, at the outer side (the centre's above it). */
+function rowAt(p: Place, size: CameraSize) {
+  const b = spotBox(`${p}-h-${size}`);
+  if (p === "c") return { x: b.x + b.w / 2, y: b.y };
+  return { x: p[1] === "l" ? b.x : b.x + b.w, y: p[0] === "t" ? b.y + b.h : b.y };
+}
+
+function Sizes({ p, size, current }: { p: Place; size: CameraSize; current: boolean }) {
+  // Under a mouse the row stays where it was clicked until the pointer leaves it, so S M L can be clicked through
+  // without chasing the edge; then it rides the edge again.
+  const [held, setHeld] = useState<CameraSize | null>(null);
+  const at = rowAt(p, held ?? size);
+  return (
+    <div
+      className={`st-spot-size is-at-${p}`}
+      style={{ left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) }}
+      role="radiogroup"
+      aria-label={`${PLACE_NAME[p]} size`}
+      onPointerLeave={() => setHeld(null)}
+    >
+      {SIZES.map((s, i) => (
+        <button
+          key={s}
+          type="button"
+          role="radio"
+          aria-checked={size === s}
+          aria-label={SIZE_NAME[s]}
+          aria-keyshortcuts={current ? String(i + 1) : undefined}
+          onClick={(e) => {
+            if ((e.nativeEvent as PointerEvent).pointerType === "mouse") setHeld((h) => h ?? size);
+            toPlace(p, { size: s });
+          }}
+        >
+          {s.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: boolean): void }) {
   const pref = useSpotPref();
+  // The place pointed at or focused last; its sizes show instead of the current place's.
+  const [aim, setAim] = useState<Place | null>(null);
+  if (!open && aim) setAim(null);
   const here = spotBox(spotOf(pref));
   const handle = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);
@@ -104,11 +148,8 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
           <div className="st-spots-dim" onPointerDown={() => onOpen(false)} />
           {PLACES.map((p) => {
             const size = pref.sizes[p];
-            // The sizes stay where the large size puts them, so they never move out from under the pointer.
-            const large = spotBox(`${p}-h-l`);
-            const side = p === "c" ? "above" : p[1] === "l" ? "right" : "left";
             return (
-              <div key={p} className="st-spot-place">
+              <div key={p} className="st-spot-place" onPointerMove={() => setAim(p)} onFocus={() => setAim(p)}>
                 {(["h", "v"] as const).map((k) => (
                   <button
                     key={k}
@@ -123,33 +164,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
                     }}
                   />
                 ))}
-                <div
-                  className={`st-spot-size is-${side} is-row-${p[0] === "t" ? "top" : "bottom"}`}
-                  style={{
-                    "--left": pct(large.x, STAGE_W),
-                    "--right": pct(large.x + large.w, STAGE_W),
-                    "--top": pct(large.y, STAGE_H),
-                    "--bottom": pct(large.y + large.h, STAGE_H),
-                    "--cx": pct(large.x + large.w / 2, STAGE_W),
-                    "--cy": pct(large.y + large.h / 2, STAGE_H),
-                  } as React.CSSProperties}
-                  role="radiogroup"
-                  aria-label={`${PLACE_NAME[p]} size`}
-                >
-                  {SIZES.map((s, i) => (
-                    <button
-                      key={s}
-                      type="button"
-                      role="radio"
-                      aria-checked={size === s}
-                      aria-label={SIZE_NAME[s]}
-                      aria-keyshortcuts={pref.place === p ? String(i + 1) : undefined}
-                      onClick={() => toPlace(p, { size: s })}
-                    >
-                      {s.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
+                {p === (aim ?? pref.place) && <Sizes p={p} size={size} current={pref.place === p} />}
               </div>
             );
           })}
