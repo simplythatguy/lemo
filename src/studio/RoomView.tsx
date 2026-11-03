@@ -175,20 +175,35 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
     return null;
   };
   const around = { prev: unfolded(-1), next: unfolded(1) };
-  // A split or join on the room's latest deck; the slide on stage stays on stage. Losing a take asks first.
+  // A split or join shows at once, then goes to the room on its latest deck; the slide on stage stays on stage. The strip
+  // has already asked about the takes it saw go; one recorded since then asks again here.
   const regroupDeck = async (op: Regroup) => {
+    const taken = new Set([...Object.keys(room.takes), ...saving, ...Object.keys(progress)]);
+    const mine = regroup(deck, op, taken);
+    if (mine === deck) return;
+    const on = deck.groups[index]?.slides[shown]?.id;
+    const stay = (d: Deck) => {
+      const g = d.groups.find((x) => x.slides.some((s) => s.id === on));
+      if (!g) return;
+      setSelected(g.id);
+      setPreview(g.slides.findIndex((s) => s.id === on));
+    };
+    // Newer than the room as it was, so a poll already on its way cannot put the old groups back.
+    apply({ ...room, deck: mine, updatedAt: room.updatedAt + 1 });
+    stay(mine);
     try {
       const fresh = await freshDeck(room.code);
-      const taken = new Set([...Object.keys(room.takes), ...saving, ...Object.keys(progress)]);
-      const next = regroup(fresh, op, taken);
+      let next = regroup(fresh, op, taken);
       if (next === fresh) return;
-      const lost = lostTakes(fresh, next, taken);
+      // Nobody changed the groups meanwhile: keep the ids the strip already shows, so nothing redraws.
+      const shape = (d: Deck) => d.groups.map((g) => `${g.id}:${g.slides.map((s) => s.id).join(",")}`).join("|");
+      if (shape(fresh) === shape(deck)) next = { ...next, groups: next.groups.map((g, i) => ({ ...g, id: mine.groups[i].id })) };
+      const asked = new Set(lostTakes(deck, mine, taken).map((g) => g.id));
+      const lost = lostTakes(fresh, next, taken).filter((g) => !asked.has(g.id));
       const whose = lost.map((g) => room.people.find((p) => p.id === room.takes[g.id]?.personId)?.name);
       if (lost.length && !confirm(lost.length === 1 ? `This removes ${whose[0] ? `${firstName(whose[0])}’s` : "a"} take.` : `This removes ${lost.length} takes.`)) return;
-      const on = deck.groups[index]?.slides[shown]?.id;
       apply(await roomApi.putDeck(room.code, next));
-      const gi = next.groups.findIndex((g) => g.slides.some((s) => s.id === on));
-      if (gi >= 0) pick(gi, next.groups[gi].slides.findIndex((s) => s.id === on));
+      stay(next);
     } catch (e) {
       console.error(e);
     }
