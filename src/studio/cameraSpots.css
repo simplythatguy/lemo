@@ -56,18 +56,17 @@
 /* S M L: each letter in a thin ring, in a row on the inner edge of the place's wide shape, riding it as it grows. The
    size in use is white and bold; the others have a dimmer ring. */
 .st-spot-size {
-  --gap: var(--space-8);
   position: absolute;
   display: flex;
-  gap: var(--gap);
+  gap: var(--space-8);
+  padding-block: var(--space-8);
   transition: left var(--dur-sheet) var(--ease), top var(--dur-sheet) var(--ease);
 }
 
-.st-spot-size.is-at-tl { margin-top: var(--gap); }
-.st-spot-size.is-at-tr { margin-top: var(--gap); translate: -100% 0; }
-.st-spot-size.is-at-bl { margin-top: calc(-1 * var(--gap)); translate: 0 -100%; }
-.st-spot-size.is-at-br { margin-top: calc(-1 * var(--gap)); translate: -100% -100%; }
-.st-spot-size.is-at-c { margin-top: calc(-1 * var(--gap)); translate: -50% -100%; }
+.st-spot-size.is-at-tr { translate: -100% 0; }
+.st-spot-size.is-at-bl { translate: 0 -100%; }
+.st-spot-size.is-at-br { translate: -100% -100%; }
+.st-spot-size.is-at-c { translate: -50% -100%; }
 
 .st-spot-size button {
   display: grid;
@@ -96,6 +95,6 @@
 }
 
 @container stage (max-width: 640px) {
-  .st-spot-size { --gap: var(--space-4); }
+  .st-spot-size { gap: var(--space-4); padding-block: var(--space-4); }
   .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
 }
