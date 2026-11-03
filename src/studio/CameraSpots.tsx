@@ -1,6 +1,7 @@
 // Where your camera sits: tap it (or press C) and the stage shows the five places it can go, each a wide rectangle
-// with the upright one inside it. Tap the wide or the upright one to move there in that shape. S M L, which scale
-// both, sit on the edge of the place you're on, or the one you point at; tap a size to move there at that size.
+// with the upright one inside it. Tap the wide or the upright one to move there in that shape. Each place's S M L,
+// which scale both, ride its edge; a small stage has room for one row, the place you're on or the one you point at.
+// Tap a size to move there at that size.
 // Works while recording.
 // Keys while open: arrows change place, 1 2 3 the size, Enter or Esc close.
 import { useEffect, useRef, useState } from "react";
@@ -47,14 +48,14 @@ function rowAt(p: Place, size: CameraSize) {
   return { x: p[1] === "l" ? b.x : b.x + b.w, y: p[0] === "t" ? b.y + b.h : b.y };
 }
 
-function Sizes({ p, size, current }: { p: Place; size: CameraSize; current: boolean }) {
+function Sizes({ p, size, current, shown }: { p: Place; size: CameraSize; current: boolean; shown: boolean }) {
   // Under a mouse the row stays where it was clicked until the pointer leaves it, so S M L can be clicked through
   // without chasing the edge; then it rides the edge again.
   const [held, setHeld] = useState<CameraSize | null>(null);
   const at = rowAt(p, held ?? size);
   return (
     <div
-      className={`st-spot-size is-at-${p}`}
+      className={`st-spot-size is-at-${p}${shown ? " is-shown" : ""}`}
       style={{ left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) }}
       role="radiogroup"
       aria-label={`${PLACE_NAME[p]} size`}
@@ -82,7 +83,7 @@ function Sizes({ p, size, current }: { p: Place; size: CameraSize; current: bool
 
 export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: boolean): void }) {
   const pref = useSpotPref();
-  // The place pointed at or focused last; its sizes show instead of the current place's.
+  // The place pointed at or focused last; on a small stage its sizes show instead of the current place's.
   const [aim, setAim] = useState<Place | null>(null);
   if (!open && aim) setAim(null);
   const here = spotBox(spotOf(pref));
@@ -164,7 +165,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
                     }}
                   />
                 ))}
-                {p === (aim ?? pref.place) && <Sizes p={p} size={size} current={pref.place === p} />}
+                <Sizes p={p} size={size} current={pref.place === p} shown={p === (aim ?? pref.place)} />
               </div>
             );
           })}
