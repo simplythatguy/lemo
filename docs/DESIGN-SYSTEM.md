@@ -50,7 +50,7 @@
 
 ## Motion
 
-- Use one curve, `--ease`. Use linear only for meters that follow live data.
+- Use one curve, `--ease`. Use linear only for meters that follow live data. The exception is `--camera-glide`, the stage canvas's own camera glide, for anything that outlines the camera.
 - Use `--dur-control` (150ms) for controls and `--dur-sheet` (220ms) for sheets and dialogs. Larger movements get longer durations. [17]
 - Use `--dur-meter` and `--dur-progress` only for meters and progress bars that follow a ticking value. Use `--dur-pulse` only for the recording and loading pulse.
 - Respond to every action within 400ms. If work takes longer, show progress. [3]

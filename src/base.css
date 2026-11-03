@@ -79,6 +79,8 @@
   --dur-meter: 80ms;
   --dur-progress: 250ms;
   --dur-pulse: 1.4s;
+  /* The stage canvas's camera glide (stage.ts cameraMove, ease-out cubic); what outlines the camera moves with it. */
+  --camera-glide: 420ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

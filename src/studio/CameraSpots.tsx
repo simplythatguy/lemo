@@ -41,8 +41,9 @@ function neighbour(from: Place, key: string): Place | null {
   return best;
 }
 
-/** Where a place's S M L row hangs: on the edge its large wide shape faces the stage's middle with, so a row never
- *  moves as the camera grows or shrinks and never sits on it. The corners' rows share two lines, the centre's is above. */
+/** Where a place's S M L row hangs: just past the edge of its large wide shape that faces the middle of the stage, so
+ *  the row never moves as the camera changes size and never covers it. Mirrored corners share a line; the centre's
+ *  row is above it. */
 function rowAt(p: Place): { x: number; y: number; side: string } {
   const l = spotBox(`${p}-h-l`);
   if (p === "c") return { x: l.x + l.w / 2, y: l.y, side: "is-above is-mid" };
