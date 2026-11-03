@@ -1,0 +1,66 @@
+{
+  "sourceHead": "3a5fb62ad29071294c3ffba1c7399416bf1df607",
+  "local": true,
+  "browser": "Chromium with synthetic media",
+  "database": "SQLite",
+  "tests": 69,
+  "typecheck": "pass",
+  "build": "pass",
+  "smoke": "pass",
+  "fullFlows": {
+    "desktop": "SBLB4Y",
+    "phone": "PLSKET"
+  },
+  "browserRegressions": 6,
+  "assets": [
+    {
+      "file": "setup-desktop.png",
+      "sha256": "944ac5b6e8ec50ef01e1e9f87aba17c1271f7480164a20df6bbd6824ad2cb170"
+    },
+    {
+      "file": "setup-phone.png",
+      "sha256": "da2f0ada3395e0116ab8a096482bf7cea6236fb839201fc03f1b82d560edf859"
+    },
+    {
+      "file": "camera-desktop.png",
+      "sha256": "eec646f901e76f0d78c815b445bd3d4ed170f346c9077f44d239a912bf5c68f9"
+    },
+    {
+      "file": "camera-phone.png",
+      "sha256": "f38af7b1647cfc85911b6e24a8e1e5103da71a91d4cc6877f1fe5cb4c56a4404"
+    },
+    {
+      "file": "room-desktop.png",
+      "sha256": "9f6cd851139361e8bae5d7af786cfb5a549f166fe4665ccd5f7edb37a39c1361"
+    },
+    {
+      "file": "room-phone.png",
+      "sha256": "1f229e1ef55b0c472d50208cac4cd433b1cb0518cbf7a09f57821823484d64c8"
+    },
+    {
+      "file": "export-desktop.png",
+      "sha256": "7af7d801a54e44cb831e5a17aeda4b357e6669a23065b103d9d03dca861fb776"
+    },
+    {
+      "file": "recovery-desktop.png",
+      "sha256": "e3e23078e840d3d5089201e6a3637a5de4b1ba7fcdd3cba0682e7450cc3f0d85"
+    },
+    {
+      "file": "recovery-phone.png",
+      "sha256": "62a641d0061b57ae283c61ffa8127f08cbd52ddfc37fb28328d7cf2a45ba1ea3"
+    },
+    {
+      "file": "enter-recording.png",
+      "sha256": "7e5cbffd62882577c24b689a4d6866235030f75157ef8cfceef249393384ccb7"
+    }
+  ],
+  "independentReview": "pending",
+  "limits": [
+    "physical devices",
+    "other browsers",
+    "audible playback",
+    "cross-device WebRTC",
+    "production",
+    "new Postgres runtime"
+  ]
+}
