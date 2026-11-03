@@ -59,6 +59,7 @@ function useGlide(strip: React.RefObject<HTMLDivElement | null>) {
     if (!box) return;
     const base = box.getBoundingClientRect().left - box.scrollLeft;
     const still = !animate || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ease = getComputedStyle(box).getPropertyValue("--ease").trim();
     const next = new Map<string, number>();
     box.querySelectorAll<HTMLElement>("[data-glide]").forEach((el) => {
       const key = el.dataset.glide!;
@@ -67,12 +68,11 @@ function useGlide(strip: React.RefObject<HTMLDivElement | null>) {
       next.set(key, x);
       const was = places.current.get(key);
       if (still || places.current.size === 0) return;
-      const ease = getComputedStyle(el).getPropertyValue("--ease").trim() || "ease-out";
       if (was === undefined) {
         el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: ease });
       } else if (Math.abs(was - x) > 0.5) {
         el.getAnimations().forEach((a) => a.cancel());
-        // A longer way takes a little longer, so nothing ever seems to jump.
+        // A longer way takes a little longer, so a long move never reads as a jump.
         el.animate([{ translate: `${was - x}px 0` }, { translate: "0 0" }], { duration: Math.min(480, 220 + Math.abs(was - x) * 0.6), easing: ease });
       }
     });
@@ -179,7 +179,6 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
           const done = !!take && !pending;
           const note = pending ? (up ? `Saving ${Math.round(up * 100)}%` : "Saving…") : done ? clock(take.durationMs) : null;
           const status = done ? `recorded ${clock(take.durationMs)}` : note?.toLowerCase() ?? "not recorded";
-          const hidden = folded.has(g.id);
           return (
             <div key={g.id} className="st-strip-g" role="group" aria-label={g.name}>
               <button
@@ -200,7 +199,7 @@ export function Filmstrip({ deck, room, me, group, slide, locked, assignLocked, 
                 {note && <span className="st-strip-n">{note}</span>}
                 <span className="st-strip-caret" aria-hidden="true" />
               </button>
-              {hidden ? (
+              {folded.has(g.id) ? (
                 <button type="button" data-glide={`fold-${g.id}`} className="st-strip-folded" aria-label={`Show ${g.name}`} data-tip="Show slides" onClick={() => onFold(g.id)}>
                   {g.slides.length}
                 </button>
