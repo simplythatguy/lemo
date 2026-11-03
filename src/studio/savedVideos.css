@@ -17,24 +17,12 @@
   transition: background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
 }
 
-/* Nothing saved yet: the icon alone, no zero count. */
-.st-saved-btn.is-bare {
-  justify-content: center;
-  width: var(--control);
-  padding: 0;
-}
-
-.st-saved-btn svg {
-  color: var(--ink-3);
-}
-
 .st-saved-n span {
   color: var(--ink-4);
 }
 
 /* Open: ink, not a fill. */
-.st-saved-btn.is-open,
-.st-saved-btn.is-open svg {
+.st-saved-btn.is-open {
   color: var(--ink);
 }
 
