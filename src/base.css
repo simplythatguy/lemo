@@ -119,7 +119,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 @media (hover: hover) {
   .btn:not(:disabled, [aria-disabled="true"]):hover, .icon-btn:not(:disabled):hover { background: var(--wash); color: var(--ink); }
-  .btn.is-primary:not(:disabled, [aria-disabled="true"]):hover { background: var(--primary-hover); color: var(--on-dark); }
+  .btn.is-primary:not(:disabled, [aria-disabled="true"]):hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--on-dark); }
 }
 
 /* On touch, every control's hit area is at least 44px even where the visible control is smaller. */

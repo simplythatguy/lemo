@@ -101,10 +101,6 @@
   .st-room .is-narrow {
     display: none;
   }
-  /* The phone's Make the video steps aside, so the quiet action after it is the first one the eye meets. */
-  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet {
-    margin-left: calc(var(--space-12) * -1);
-  }
 }
 
 /* Top bar: where you are on the left, the cameras centred, the room's controls on the right. The two sides never
@@ -171,6 +167,16 @@
   gap: var(--space-4);
 }
 
+/* While a take runs here, the room's controls step back: the take is the one thing on screen. */
+.st-corner > :is(.is-wide, .st-saved-btn) {
+  transition: opacity var(--dur-sheet) var(--ease), visibility var(--dur-sheet), background-color var(--dur-control) var(--ease), color var(--dur-control) var(--ease);
+}
+
+.st-room.is-busy .st-corner > :is(.is-wide, .st-saved-btn) {
+  opacity: 0;
+  visibility: hidden;
+}
+
 /* The room code: quiet text at control height that copies the room link. */
 .st-corner .st-copy {
   height: var(--control);
@@ -184,30 +190,6 @@
   .st-corner .st-copy:hover {
     background: var(--wash);
   }
-}
-
-/* Turning primary once every group is in: a quiet fade, not a jump. */
-.st-make {
-  transition-property: scale, background-color, border-color, color, opacity;
-  transition-duration: var(--dur-sheet);
-}
-
-/* Blocked, the name and icon fade as any unavailable control does, and what blocks it stays readable beside them. */
-.st-make[aria-disabled="true"],
-.st-menu-item[aria-disabled="true"] {
-  opacity: 1;
-  cursor: not-allowed;
-}
-
-.st-make[aria-disabled="true"] > :not(.st-make-n),
-.st-menu-item[aria-disabled="true"] > :not(.st-menu-value) {
-  opacity: 0.4;
-}
-
-.st-make-n {
-  font-weight: var(--weight-body);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
 }
 
 /* Cameras */
@@ -799,7 +781,6 @@
 /* Controls pulled into line with the column's edge show hover in ink: a fill would reach past that edge. */
 @media (hover: hover) {
   .st-dock-acts > .btn.is-quiet:first-child:not(:disabled):hover,
-  .st-dock-acts > .is-narrow:first-child + .btn.is-quiet:not(:disabled):hover,
   .st-dock-side .icon-btn:not(:disabled):hover,
   .st-script-head .st-script-edit:not(:disabled):hover {
     background: none;
@@ -827,12 +808,24 @@
   color: var(--ink-3);
 }
 
-/* Beside Make the video on a phone it keeps to one line. */
+/* A note keeps to one line, beside Retake on a phone too. */
 .st-dock-note:not(.is-live) {
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Who the video waits for, once my part is kept: at the row's far end, out of the way of Retake. */
+.st-dock-wait {
+  margin-left: auto;
+  font-size: var(--text-14);
+  color: var(--ink-4);
+}
+
+.st-dock-discard {
+  margin-left: auto;
+  margin-right: calc(var(--space-8) * -1);
 }
 
 .st-dock-note.is-live {
@@ -1285,8 +1278,9 @@
   }
 }
 
-/* Stacked: phones and portrait tablets. One column (top bar, stage, script, strip), the dock pinned to the bottom.
-   The booth's wrappers step aside so each part takes its own row. */
+/* Stacked: phones and portrait tablets. One column (top bar, stage, its slides, script), the dock pinned to the bottom:
+   the slides sit with the stage they change, and the words run straight into their clock and button. The booth's
+   wrappers step aside so each part takes its own row. */
 @media (max-width: 719px), (max-width: 1099px) and (orientation: portrait) {
   .st-room .is-wide {
     display: none;
@@ -1294,8 +1288,8 @@
   /* One column, at most a phone-and-a-bit wide and centred; the bars that span the page keep their contents on it. */
   .st-room {
     grid-template-columns: minmax(0, 1fr) minmax(0, var(--column)) minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
-    grid-template-areas: "top top top" ". stage ." ". head ." ". script ." "strip strip strip" "dock dock dock";
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "top top top" ". stage ." "strip strip strip" ". head ." ". script ." "dock dock dock";
     padding: 0;
   }
   .st-room.is-rendering {
@@ -1350,9 +1344,9 @@
   .st-script-head {
     grid-area: head;
     margin: 0;
-    padding: var(--space-16) var(--space-16) var(--space-4);
+    padding: var(--space-12) var(--space-16) var(--space-4);
   }
-  /* Its last line fades out above the strip, never cut by the strip's edge. */
+  /* Its last line fades out above the dock, never cut by the dock's edge. */
   .st-script {
     grid-area: script;
     margin: 0;
@@ -1362,7 +1356,8 @@
   .st-strip {
     gap: var(--space-24);
     margin: 0;
-    padding: var(--space-8) max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) var(--space-16);
+    padding: var(--space-12) max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) var(--space-4);
+    border-top: 0;
   }
   .st-room.is-busy .st-strip {
     display: none;
@@ -1398,8 +1393,7 @@
 /* A short phone (320x640) gives the words its spare height: a smaller strip and a tighter dock. */
 @media (max-width: 719px) and (max-height: 700px) {
   .st-strip {
-    padding-top: var(--space-4);
-    padding-bottom: var(--space-12);
+    padding-top: var(--space-8);
   }
   .st-thumb {
     width: 64px;
