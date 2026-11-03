@@ -54,7 +54,7 @@
 }
 
 /* S M L: each letter in a thin ring, in a row on the inner edge of the place's wide shape, riding it as it grows. The
-   size in use is white; the others are dimmer. */
+   size in use is white and bold; the others have a dimmer ring. */
 .st-spot-size {
   --gap: var(--space-8);
   position: absolute;
@@ -79,14 +79,14 @@
   border-radius: var(--radius-full);
   background: none;
   font: var(--weight-label) var(--text-15)/1 var(--font);
-  color: var(--on-dark-3);
+  color: var(--on-dark-2);
   cursor: pointer;
   transition: color var(--dur-control) var(--ease), border-color var(--dur-control) var(--ease);
 }
 
 .st-spot-size button:hover {
   border-color: var(--on-dark-2);
-  color: var(--on-dark-2);
+  color: var(--on-dark);
 }
 
 .st-spot-size button[aria-checked="true"] {
