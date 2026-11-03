@@ -1,0 +1,73 @@
+{
+  "sourceHead": "d29deee02c475183a9befefd655bdccc8745a5e9",
+  "capturedLocally": true,
+  "browser": "Chromium with synthetic camera and microphone",
+  "database": "local SQLite",
+  "viewports": [
+    [
+      1440,
+      900
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "assets": [
+    {
+      "file": "setup-desktop.png",
+      "sha256": "944ac5b6e8ec50ef01e1e9f87aba17c1271f7480164a20df6bbd6824ad2cb170"
+    },
+    {
+      "file": "setup-phone.png",
+      "sha256": "da2f0ada3395e0116ab8a096482bf7cea6236fb839201fc03f1b82d560edf859"
+    },
+    {
+      "file": "camera-desktop.png",
+      "sha256": "d66aa74ecd2026f73f6396f58da329e90aa40699b300fe25df3fba8108b816a0"
+    },
+    {
+      "file": "camera-phone.png",
+      "sha256": "73704b088fca206325d6c5062bcf123dde73fe70f07789a50e06d95bfd03813f"
+    },
+    {
+      "file": "room-desktop.png",
+      "sha256": "11c460a0e9c61dc177eaed12df956b08b30dad58d527ba5e753a975d08b0f9a9"
+    },
+    {
+      "file": "room-phone.png",
+      "sha256": "b3c4bc70f302cbfc50dc346a29d7ab8b2717adbb70721bc19faff35010b6d540"
+    },
+    {
+      "file": "export-desktop.png",
+      "sha256": "932d60806e99539091fbbe9d60ab64cb6eee3df582b3729b9b6b2995fb00c203"
+    },
+    {
+      "file": "space-recording.png",
+      "sha256": "41840e620700c89ad258ae9e58943ee996eaff8b1037a965538658970f21d827"
+    },
+    {
+      "file": "setup-cancel-keeps-draft.png",
+      "sha256": "8f4afe52fdd66e0513f6a2b3393c539242c3559c26680c1ef005f1dc6710f19c"
+    }
+  ],
+  "checks": {
+    "tests": 67,
+    "typecheck": "pass",
+    "build": "pass",
+    "smoke": "pass",
+    "fullDesktop": "pass",
+    "fullPhone": "pass",
+    "targetedRegroupCases": 6,
+    "rapidCameraSequences": 80
+  },
+  "review": "Independent re-review pending",
+  "limits": [
+    "physical devices",
+    "other browsers",
+    "audible playback",
+    "cross-device WebRTC",
+    "production",
+    "Postgres runtime for the new version guard"
+  ]
+}
