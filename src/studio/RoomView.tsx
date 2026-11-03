@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../icons";
-import { startRecording, type Recording } from "./recorder";
+import { recordingReady, startRecording, type Recording } from "./recorder";
 import { Render } from "./Render";
 import { roomApi } from "./room";
 import { SavedVideos } from "./SavedVideos";
@@ -607,7 +607,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   }, [setPhase]);
 
   const start = useCallback(() => {
-    if (!mine || following || !camera.stream || !camera.on || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
+    if (!mine || following || !camera.on || !recordingReady(camera.stream) || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     const token = ++attempt.current;
     recordedSlides.current = group.slides.map((s) => s.id);
     const length = planned;
@@ -763,18 +763,18 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
 
   // With the camera off, Record and Retake turn it on and start as soon as it is back; a camera that fails to come
   // back shows its error instead, and never starts a take later on its own.
-  const canRecord = !!camera.stream && !!stage && last >= 0;
+  const canRecord = !!stage && last >= 0 && !camera.error && (!camera.on || recordingReady(camera.stream));
   const startWhenOn = useRef(false);
   const record = useCallback(() => {
-    if (!mine || following || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
+    if (!mine || following || !canRecord || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     if (camera.on) return start();
     startWhenOn.current = true;
     camera.turn(true);
-  }, [camera, following, last, mine, stage, start]);
+  }, [camera, canRecord, following, mine, start]);
   useEffect(() => {
-    if (camera.error) startWhenOn.current = false;
+    if (camera.error || !camera.on) startWhenOn.current = false;
     // `on` flips at once; the stream with a picture follows when the camera has opened.
-    if (!startWhenOn.current || !camera.on || !camera.stream?.getVideoTracks().length) return;
+    if (!startWhenOn.current || !camera.on || !recordingReady(camera.stream)) return;
     startWhenOn.current = false;
     start();
   }, [camera.error, camera.on, camera.stream, start]);
