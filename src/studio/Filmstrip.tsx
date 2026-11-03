@@ -11,7 +11,7 @@ import { lostTakes, regroup, type Regroup } from "../setup/draft";
 import type { Deck, Person, RoomState } from "./types";
 
 /** Right-click, the menu key, or a held touch on a thumb (iOS sends no contextmenu for one) opens its menu. */
-function usePress(open: (anchor: HTMLElement) => void) {
+export function usePress(open: (anchor: HTMLElement) => void) {
   const t = useRef<{ timer: number; x: number; y: number; fired: boolean } | null>(null);
   const stop = () => t.current && window.clearTimeout(t.current.timer);
   return {

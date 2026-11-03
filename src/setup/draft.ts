@@ -123,6 +123,13 @@ export function splitBefore(d: Draft, id: string): Draft {
   return groups.length === d.groups.length ? d : { ...d, groups };
 }
 
+/** Joins group `group` with the group after it, keeping the id `groupSlides` would. */
+export function joinNext(d: Draft, group: string, taken: ReadonlySet<string> = new Set()): Draft {
+  const i = d.groups.findIndex((g) => g.id === group);
+  const [a, b] = [d.groups[i], d.groups[i + 1]];
+  return i >= 0 && b ? groupSlides(d, [...a.slides, ...b.slides], taken) : d;
+}
+
 export function removeSlide(d: Draft, id: string): Draft {
   const groups = d.groups
     .map((g) => (g.slides.includes(id) ? { id: g.id, slides: g.slides.filter((s) => s !== id) } : g))
@@ -196,13 +203,7 @@ export type Regroup =
 /** `deck` after `op`; the same deck when there is nothing to do. `taken`: groups with a take, whose ids a join keeps first. */
 export function regroup(deck: Deck, op: Regroup, taken: ReadonlySet<string>): Deck {
   const before = fromDeck(deck);
-  let after = before;
-  if (op.kind === "split") after = splitBefore(before, op.slide);
-  else {
-    const i = before.groups.findIndex((g) => g.id === op.group);
-    const [a, b] = [before.groups[i], before.groups[i + 1]];
-    if (i >= 0 && b) after = groupSlides(before, [...a.slides, ...b.slides], taken);
-  }
+  const after = op.kind === "split" ? splitBefore(before, op.slide) : joinNext(before, op.group, taken);
   if (after === before) return deck;
   // Only a take can stop fitting its group: groups nobody recorded keep their ids, and so their speakers.
   const renewed = renewChangedGroups(after, before);
