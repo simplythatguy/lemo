@@ -887,7 +887,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
           {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(done || sending ? recordedMs : left)}
         </span>
         {label && (
-          <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : ""}`} role={alert ? "alert" : undefined}>
+          <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : sending ? " is-saving" : ""}`} role={alert ? "alert" : undefined}>
             {done && <Icon name="check" size={14} />}{label}
           </span>
         )}

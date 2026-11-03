@@ -702,6 +702,11 @@
   color: var(--ink-4);
 }
 
+/* A kept take on its way to the room breathes, so a slow upload never reads as stuck. */
+.st-clock-label.is-saving {
+  animation: st-pulse var(--dur-pulse) var(--ease) infinite;
+}
+
 /* A kept take: its length, then a green check and "recorded". */
 .st-clock-label.is-done {
   color: var(--ink-3);
