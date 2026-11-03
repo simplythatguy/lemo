@@ -3,6 +3,7 @@
 // there in that shape; tap a size to move there at that size. Works while recording.
 // Keys while open: arrows change place, 1 2 3 the size, Enter or Esc close.
 import { useEffect, useRef } from "react";
+import "./cameraSpots.css";
 import { STAGE_H, STAGE_W } from "./stage";
 import { PLACES, SIZES, spotBox, spotParts, type CameraBox } from "./stage/camera";
 import { spotOf, toPlace, useSpotPref } from "./spot";
