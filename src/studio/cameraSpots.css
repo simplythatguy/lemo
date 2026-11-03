@@ -14,6 +14,8 @@
 }
 
 .st-spots {
+  /* The stage glides the camera to a new size over 420ms, ease-out cubic (stage.ts); what outlines it rides along. */
+  --glide: 420ms cubic-bezier(0.33, 1, 0.68, 1);
   position: absolute;
   inset: 0;
   animation: st-spots-in var(--dur-control) var(--ease);
@@ -23,24 +25,32 @@
   from { opacity: 0; }
 }
 
+/* Taps outside the places close the picker; the dim itself is the shadow around the camera, so the slide recedes and
+   the camera stays bright. */
 .st-spots-dim {
   position: absolute;
   inset: 0;
-  background: var(--shade-hover);
 }
 
-/* Each place: the wide shape, the upright one inside it and on top. The one your camera is in is drawn solid. */
+.st-spots-dim-hole {
+  position: absolute;
+  pointer-events: none;
+  box-shadow: 0 0 0 200vmax var(--shade-deep);
+  transition: left var(--glide), top var(--glide), width var(--glide), height var(--glide);
+}
+
+/* Each place: the wide shape, the upright one inside it and on top, in hairlines. The one your camera is in is drawn
+   in white. */
 .st-spot {
   position: absolute;
-  border: 1.5px dashed var(--on-dark-2);
+  border: 1px solid var(--on-dark-3);
   padding: 0;
   background: none;
   cursor: pointer;
   transition:
     background-color var(--dur-control) var(--ease),
     border-color var(--dur-control) var(--ease),
-    left var(--dur-sheet) var(--ease), top var(--dur-sheet) var(--ease),
-    width var(--dur-sheet) var(--ease), height var(--dur-sheet) var(--ease);
+    left var(--glide), top var(--glide), width var(--glide), height var(--glide);
 }
 
 .st-spot:hover {
@@ -49,27 +59,27 @@
 }
 
 .st-spot[aria-pressed="true"] {
-  border-style: solid;
-  border-color: var(--on-dark);
+  border: 1.5px solid var(--on-dark);
 }
 
-/* S M L: each letter in a thin ring, in a row on the inner edge of each place's wide shape, riding it as it grows. The
-   size in use is white and bold; the others have a dimmer ring. A small stage keeps one row. */
+/* S M L: each letter in a thin ring, a row per place just past where its large shape reaches. The size in use is
+   white and bold, on the place the camera is in only. A small stage keeps one row. */
 .st-spot-size {
+  --gap: var(--space-8);
   position: absolute;
   display: flex;
-  gap: var(--space-8);
-  transition: left var(--dur-sheet) var(--ease), top var(--dur-sheet) var(--ease);
+  gap: var(--gap);
+  translate: var(--tx, 0) var(--ty, 0);
+  margin-top: var(--my);
 }
 
-.st-spot-size:is(.is-at-tl, .is-at-tr) { margin-top: var(--space-8); }
-.st-spot-size:is(.is-at-bl, .is-at-br, .is-at-c) { margin-top: calc(-1 * var(--space-8)); }
-.st-spot-size.is-at-tr { translate: -100% 0; }
-.st-spot-size.is-at-bl { translate: 0 -100%; }
-.st-spot-size.is-at-br { translate: -100% -100%; }
-.st-spot-size.is-at-c { translate: -50% -100%; }
+.st-spot-size.is-below { --my: var(--gap); }
+.st-spot-size.is-above { --my: calc(-1 * var(--gap)); --ty: -100%; }
+.st-spot-size.is-end { --tx: -100%; }
+.st-spot-size.is-mid { --tx: -50%; }
 
 .st-spot-size button {
+  position: relative;
   display: grid;
   place-items: center;
   width: var(--control);
@@ -89,7 +99,7 @@
   color: var(--on-dark);
 }
 
-.st-spot-size button[aria-checked="true"] {
+.st-spot-size.is-here button[aria-checked="true"] {
   border-color: var(--on-dark);
   color: var(--on-dark);
   font-weight: var(--weight-title);
@@ -97,8 +107,19 @@
 
 @container stage (max-width: 640px) {
   .st-spot-size:not(.is-kept) { display: none; }
-  .st-spot-size { gap: var(--space-4); }
-  .st-spot-size:is(.is-at-tl, .is-at-tr) { margin-top: var(--space-4); }
-  .st-spot-size:is(.is-at-bl, .is-at-br, .is-at-c) { margin-top: calc(-1 * var(--space-4)); }
+  .st-spot-size { --gap: 6px; }
   .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
+}
+
+/* On touch each ring takes its share of the row and 44px of height, so the gaps between rings tap too. */
+@media (pointer: coarse) {
+  .st-spot-size button::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(100% + var(--gap));
+    height: max(100%, var(--control-lg));
+    translate: -50% -50%;
+  }
 }

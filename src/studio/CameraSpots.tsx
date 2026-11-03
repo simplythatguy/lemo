@@ -1,7 +1,7 @@
-// Where your camera sits: tap it (or press C) and the stage shows the five places it can go, each a wide rectangle
-// with the upright one inside it. Tap the wide or the upright one to move there in that shape. Each place's S M L,
-// which scale both, ride its edge; a small stage has room for one row, the place you're on or the one you point at.
-// Tap a size to move there at that size.
+// Where your camera sits: tap it (or press C) and the stage dims around it and shows the five places it can go, each a
+// wide rectangle with the upright one inside it. Tap the wide or the upright one to move there in that shape. Each
+// place's S M L, which scale both, sit just past where its large shape reaches; a small stage has room for one row,
+// the place you're on or the one you point at. Tap a size to move there at that size.
 // Works while recording.
 // Keys while open: arrows change place, 1 2 3 the size, Enter or Esc close.
 import { useEffect, useRef, useState } from "react";
@@ -41,25 +41,26 @@ function neighbour(from: Place, key: string): Place | null {
   return best;
 }
 
-/** Where a place's S M L row hangs at `size`: on its wide shape's inner edge, at the outer side (the centre's above it). */
-function rowAt(p: Place, size: CameraSize) {
-  const b = spotBox(`${p}-h-${size}`);
-  if (p === "c") return { x: b.x + b.w / 2, y: b.y };
-  return { x: p[1] === "l" ? b.x : b.x + b.w, y: p[0] === "t" ? b.y + b.h : b.y };
+/** Where a place's S M L row hangs: on the edge its large wide shape faces the stage's middle with, so a row never
+ *  moves as the camera grows or shrinks and never sits on it. The corners' rows share two lines, the centre's is above. */
+function rowAt(p: Place): { x: number; y: number; side: string } {
+  const l = spotBox(`${p}-h-l`);
+  if (p === "c") return { x: l.x + l.w / 2, y: l.y, side: "is-above is-mid" };
+  return {
+    x: p[1] === "l" ? l.x : l.x + l.w,
+    y: p[0] === "t" ? l.y + l.h : l.y,
+    side: `${p[0] === "t" ? "is-below" : "is-above"}${p[1] === "r" ? " is-end" : ""}`,
+  };
 }
 
 function Sizes({ p, size, current, kept }: { p: Place; size: CameraSize; current: boolean; kept: boolean }) {
-  // Under a mouse the row stays where it was clicked until the pointer leaves it, so S M L can be clicked through
-  // without chasing the edge; then it rides the edge again.
-  const [held, setHeld] = useState<CameraSize | null>(null);
-  const at = rowAt(p, held ?? size);
+  const at = rowAt(p);
   return (
     <div
-      className={`st-spot-size is-at-${p}${kept ? " is-kept" : ""}`}
+      className={`st-spot-size ${at.side}${kept ? " is-kept" : ""}${current ? " is-here" : ""}`}
       style={{ left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) }}
       role="radiogroup"
       aria-label={`${PLACE_NAME[p]} size`}
-      onPointerLeave={() => setHeld(null)}
     >
       {SIZES.map((s, i) => (
         <button
@@ -69,10 +70,7 @@ function Sizes({ p, size, current, kept }: { p: Place; size: CameraSize; current
           aria-checked={size === s}
           aria-label={SIZE_NAME[s]}
           aria-keyshortcuts={current ? String(i + 1) : undefined}
-          onClick={(e) => {
-            if ((e.nativeEvent as PointerEvent).pointerType === "mouse") setHeld((h) => h ?? size);
-            toPlace(p, { size: s });
-          }}
+          onClick={() => toPlace(p, { size: s })}
         >
           {s.toUpperCase()}
         </button>
@@ -147,6 +145,8 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
       {open && (
         <div ref={layer} className="st-spots" role="group" aria-label="Camera position">
           <div className="st-spots-dim" onPointerDown={() => onOpen(false)} />
+          {/* A new place is a cut on the stage, so the opening around the camera cuts too. */}
+          <div key={pref.place} className="st-spots-dim-hole" style={place(here)} />
           {PLACES.map((p) => {
             const size = pref.sizes[p];
             return (
