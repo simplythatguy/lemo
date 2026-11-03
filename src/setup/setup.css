@@ -249,17 +249,32 @@
   text-align: center;
 }
 
-/* Slides in a grid of even columns. A group is a line under its slides, across its own gaps and on past a row's end,
-   so it reads the same where it wraps; its range sits under its first slide. The grid sets --cols and --cell for its
-   width, and --gap, its column gap (Slides.tsx). */
+/* Slides in rows. A group's slides sit --tight apart and groups a column gap apart, with a line under the group's
+   slides on each row and its range under the first of them, so a group that carries on to the next row is named there
+   too. Slides.tsx places each slide on its row (src/setup/pack.ts) and sets its --cell width and the --before and
+   --after space around it. */
 .su-grid {
+  --tight: var(--space-12);
   display: grid;
-  grid-template-columns: repeat(var(--cols), var(--cell));
+  grid-template-columns: 100%;
   align-items: start;
   gap: var(--space-24) var(--space-32);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.su-grid > .su-cell {
+  grid-column: 1;
+}
+
+/* A file being read: each slide on its own, in the columns the grid will have. */
+.su-grid.is-even {
+  grid-template-columns: repeat(var(--cols), var(--cell));
+}
+
+.su-grid.is-even > .su-cell {
+  grid-column: auto;
 }
 
 .su-cell {
@@ -306,11 +321,11 @@
 
 /* In the middle of the gap before the slide. */
 .su-cell.is-before::before {
-  left: calc(var(--gap) / -2 - 1.5px);
+  left: calc(var(--before) / -2 - 1.5px);
 }
 
 .su-cell.is-after::after {
-  right: calc(var(--gap) / -2 - 1.5px);
+  right: calc(var(--after) / -2 - 1.5px);
 }
 
 .su-thumb {
@@ -391,13 +406,13 @@
 }
 
 .su-cell:is([data-at="first"], [data-at="mid"]):not([data-row-end]) > .su-band {
-  margin-right: calc(var(--gap) * -1);
+  margin-right: calc(var(--after) * -1);
 }
 
 /* Joins a group with the next one: a quiet glyph in the gap between them, as in the room's strip. */
 .su-join {
   position: absolute;
-  right: calc(var(--gap) / -2);
+  right: calc(var(--after) / -2);
   top: calc(var(--cell) * 9 / 32);
   translate: 50% -50%;
   z-index: 1;
@@ -842,6 +857,7 @@
     padding: var(--space-16) var(--space-16) var(--space-64);
   }
   .su-grid {
+    --tight: var(--space-8);
     gap: var(--space-16) var(--space-24);
   }
   /* No room past a row's end for the join: it sits under the row's last slide, on the label's line. */
@@ -896,4 +912,5 @@
     right: var(--space-4);
   }
 }
+
 

@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { groupName, order, type Draft } from "./draft";
 import { glide } from "./glide";
+import { pack, type Metrics } from "./pack";
 import { Thumb } from "./Thumb";
 import { usePress } from "../studio/Filmstrip";
 import { Menu } from "../studio/parts";
@@ -189,7 +190,7 @@ function Drop({ label, on }: { label: string; on: boolean }) {
 function Progress({ importing, onPainted }: { importing: Importing; onPainted(): void }) {
   const grid = useRef<HTMLOListElement>(null);
   return (
-    <ol className="su-grid" ref={grid} style={useRow(grid).style} aria-busy="true">
+    <ol className="su-grid is-even" ref={grid} style={useRow(grid).style} aria-busy="true">
       {Array.from({ length: importing.total ?? 0 }, (_, i) => (
         <li key={i} className="su-cell" data-at="solo">
           <div className="su-thumb is-wait">{importing.done[i] && <img className="su-thumb-img is-new" src={importing.done[i]} alt="" onLoad={onPainted} />}</div>
@@ -203,24 +204,25 @@ function Progress({ importing, onPainted }: { importing: Importing; onPainted():
 /** "4" or "3–5", from a 0-based start. */
 const range = (first: number, n: number) => (n > 1 ? `${first + 1}–${first + n}` : String(first + 1));
 
-/** How many slides a row holds at the grid's width, how wide each is so that a row of them fills it, and the gap. */
-function useRow(grid: React.RefObject<HTMLOListElement | null>): { cols: number; style: React.CSSProperties } {
-  const [row, setRow] = useState({ cols: 4, cell: 0, gap: 0 });
+/** The grid's width, how many slides a full row holds, and the space between slides of a group and between groups; and
+ *  for the grid of a file being read, every slide on its own, the same columns as CSS. */
+function useRow(grid: React.RefObject<HTMLOListElement | null>): { metrics: Metrics; style: React.CSSProperties } {
+  const [metrics, setMetrics] = useState<Metrics>({ width: 0, cols: 5, tight: 0, apart: 0 });
   useLayoutEffect(() => {
     const el = grid.current;
     if (!el) return;
     const measure = () => {
       const width = el.clientWidth;
-      const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
-      const cols = width > 900 ? 4 : width > 560 ? 3 : 2;
-      setRow({ cols, cell: Math.floor((width - (cols - 1) * gap) / cols), gap });
+      const css = getComputedStyle(el);
+      setMetrics({ width, cols: width > 900 ? 5 : width > 560 ? 3 : 2, tight: parseFloat(css.getPropertyValue("--tight")) || 0, apart: parseFloat(css.columnGap) || 0 });
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, [grid]);
-  return { cols: row.cols, style: { "--cols": row.cols, "--cell": `${row.cell}px`, "--gap": `${row.gap}px` } as React.CSSProperties };
+  const { width, cols, apart } = metrics;
+  return { metrics, style: { "--cols": cols, "--cell": `${Math.floor((width - (cols - 1) * apart) / cols)}px` } as React.CSSProperties };
 }
 
 function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove }: {
@@ -240,7 +242,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
   /** Where the last plain click was, for shift-click ranges. */
   const anchor = useRef<number | null>(null);
   const grid = useRef<HTMLOListElement>(null);
-  const { cols, style } = useRow(grid);
+  const { metrics } = useRow(grid);
   const press = usePress((el) => setMenu({ id: el.dataset.vt!, anchor: el }));
   const end = () => {
     setDrag(null);
@@ -266,6 +268,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
     return out;
   });
   const home = new Map(groups.flatMap((x) => x.g.slides.map((s) => [s, x] as const)));
+  const places = pack(draft.groups.map((x) => x.slides.length), metrics);
   const shown = menu && home.get(menu.id);
 
   const slide = (id: string, i: number) => {
@@ -273,11 +276,14 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
     const grouped = g.slides.length > 1;
     const k = i - first;
     const next = groups[gi + 1];
+    const p = places[i];
     return (
       <li
         key={id}
+        style={{ gridRow: p.row + 1, marginLeft: p.x, "--cell": `${p.w}px`, "--before": `${p.before}px`, "--after": `${p.after}px` } as React.CSSProperties}
         data-at={!grouped ? "solo" : k === 0 ? "first" : k === g.slides.length - 1 ? "last" : "mid"}
-        data-row-end={i % cols === cols - 1 || undefined}
+        data-head={p.head || undefined}
+        data-row-end={p.end || undefined}
         className={`su-cell${drag === i ? " is-dragging" : ""}${at === i && drag !== null ? " is-before" : ""}${at === i + 1 && drag !== null && i === ids.length - 1 ? " is-after" : ""}${picked.has(id) ? " is-picked" : ""}`}
         draggable
         {...press}
@@ -328,7 +334,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
           <Thumb slide={draft.slides[id]} />
         </div>
         <span className="su-band" aria-hidden="true" />
-        <span className="su-n" aria-hidden="true">{k === 0 ? label : ""}</span>
+        <span className="su-n" aria-hidden="true">{p.head ? label : ""}</span>
         {next && k === g.slides.length - 1 && (
           <button type="button" className="su-join" aria-label={`Join ${name} with ${next.name}`} data-tip="Join" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); pick(() => onJoin(g.id)); }}>
             <Icon name="fold" size={14} />
@@ -344,7 +350,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
   };
   return (
     <>
-      <ol className={`su-grid${picked.size ? " is-picking" : ""}`} ref={grid} style={style}>
+      <ol className={`su-grid${picked.size ? " is-picking" : ""}`} ref={grid}>
         {ids.map(slide)}
       </ol>
       <Menu label={shown ? `Slide ${ids.indexOf(menu.id) + 1}` : "Slide"} anchor={menu?.anchor ?? null} onClose={() => setMenu(null)}>
