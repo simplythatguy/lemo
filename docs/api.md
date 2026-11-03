@@ -14,7 +14,7 @@ Validated strings cannot contain NUL (`\u0000`). Person path IDs are 12 lower-ca
 | `POST /api/rooms/:code/people` | `{ "name": "..." }` (1–60 chars) | `Person`. Joining with a name already in the room (case-insensitive) returns that person. 409 when 12 people are in. |
 | `DELETE /api/rooms/:code/people/:personId` | | `RoomState` (their assignments go too) |
 | `PUT /api/rooms/:code/assignments/:groupId` | `{ "personId": "..." \| null }` | `RoomState` |
-| `POST /api/rooms/:code/takes` | `{ groupId, personId, durationMs, cues: [{slide, atMs, spot?}], mime, size, chunks }` | `TakeInfo`, 201. Replaces the group's previous take. At most 1000 cues. A cue's optional `spot` is where the presenter's camera sits from then on: a place (`tl`, `tr`, `c`, `bl`, `br`), a dash, and a size (`s`, `m`, `l`), such as `br-m`. `chunks` must equal `ceil(size / 3 MiB)`. |
+| `POST /api/rooms/:code/takes` | `{ groupId, personId, durationMs, cues: [{slide, atMs, spot?}], mime, size, chunks }` | `TakeInfo`, 201. Replaces the group's previous take. At most 1000 cues. A cue's optional `spot` is where the presenter's camera sits from then on: a place (`tl`, `tr`, `c`, `bl`, `br`), a shape (`h` wide, `v` upright) and a size (`s`, `m`, `l`), joined by dashes, such as `br-v-m`. `chunks` must equal `ceil(size / 3 MiB)`. |
 | `PUT /api/rooms/:code/takes/:takeId/chunks/:index` | raw bytes, exactly 3 MiB except the last | `{ "received": n }` |
 | `GET /api/rooms/:code/takes/:takeId/chunks/:index` | | the bytes |
 | `PUT /api/rooms/:code/live?person=:id` | `LiveState` or `null` | the stored `LiveState` or `null` |

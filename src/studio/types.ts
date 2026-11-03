@@ -63,10 +63,11 @@ export interface Bar { label: string; value: number; highlight?: boolean; note?:
 
 /** The four corners and the centre. */
 export type Place = "tl" | "tr" | "c" | "bl" | "br";
-/** Small and medium are upright; large is wide, with medium fitting inside it. */
+/** Wide (landscape) or upright (portrait); the upright one is as tall as the wide one. */
+export type CameraShape = "h" | "v";
 export type CameraSize = "s" | "m" | "l";
-/** Where the presenter's camera sits, and how big it is there. */
-export type Spot = `${Place}-${CameraSize}`;
+/** Where the presenter's camera sits, its shape, and its size; e.g. "br-v-m". */
+export type Spot = `${Place}-${CameraShape}-${CameraSize}`;
 
 /** A change inside a take, ms from its first frame: the slide on screen and where the camera sits from then on.
  *  Takes from before spots existed have none: their camera sits where the deck's `camera` says. */

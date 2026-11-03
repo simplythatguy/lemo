@@ -182,16 +182,16 @@ test("a take's cues and the live state carry where the presenter's camera sits",
   const { ok, call, room, person } = await setup(t);
   const { code } = await room();
   const ana = await person(code, "Ana");
-  const cues = [{ slide: 0, atMs: 0, spot: "br-m" }, { slide: 0, atMs: 800, spot: "c-l" }, { slide: 1, atMs: 1500, spot: "c-l" }];
+  const cues = [{ slide: 0, atMs: 0, spot: "br-v-m" }, { slide: 0, atMs: 800, spot: "c-h-l" }, { slide: 1, atMs: 1500, spot: "c-h-l" }];
   const take = await ok("POST", `/api/rooms/${code}/takes`, { json: takeBody(ana.id, 1, "intro", { cues }) }, 201);
   assert.deepEqual(take.cues, cues);
   assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).takes.intro.cues, cues);
-  for (const spot of ["full", "c-xl", "", 3]) {
+  for (const spot of ["full", "c-l", "c-x-l", "", 3]) {
     const bad = takeBody(ana.id, 1, "intro", { cues: [{ slide: 0, atMs: 0, spot }] });
     assert.equal(await status(call("POST", `/api/rooms/${code}/takes`, { json: bad })), 400, String(spot));
   }
-  await ok("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "tl-s" }) });
-  assert.equal((await ok("GET", `/api/rooms/${code}`)).live.spot, "tl-s");
+  await ok("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "tl-v-s" }) });
+  assert.equal((await ok("GET", `/api/rooms/${code}`)).live.spot, "tl-v-s");
   assert.equal(await status(call("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "full" }) })), 400);
 });
 

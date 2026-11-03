@@ -1,7 +1,7 @@
 // Where the presenter's camera tile sits on the 1920×1080 stage: one of five places (four corners and the centre),
-// at one of three sizes. A corner's tile hugs its corner; the centre's is centred.
+// wide or upright, at one of three sizes. A corner's tile hugs its corner; the centre's is centred.
 
-import type { CameraSize, Cue, Deck, Place, Rect, Spot } from "../types";
+import type { CameraShape, CameraSize, Cue, Deck, Place, Rect, Spot } from "../types";
 
 const W = 1920, H = 1080;
 const INSET = 48;
@@ -12,28 +12,30 @@ const RADIUS = 28;
  *  an old take's placement). */
 export interface CameraBox extends Rect { r: number; place?: Place }
 
-/** Large is a wide rectangle three of which sit side by side between the insets; medium fits inside it upright. */
-const SIZE: Record<CameraSize, { w: number; h: number }> = {
-  s: { w: 176, h: 220 },
-  m: { w: 256, h: 320 },
+/** The wide tile's size; the upright one is as tall, 4:5. Three large wide tiles sit side by side between the insets. */
+const WIDE: Record<CameraSize, { w: number; h: number }> = {
+  s: { w: 320, h: 180 },
+  m: { w: 448, h: 252 },
   l: { w: 576, h: 324 },
 };
 
 export const PLACES: readonly Place[] = ["tl", "tr", "c", "bl", "br"];
+export const SHAPES: readonly CameraShape[] = ["h", "v"];
 export const SIZES: readonly CameraSize[] = ["s", "m", "l"];
-export const SPOTS: readonly Spot[] = PLACES.flatMap((p) => SIZES.map((s) => `${p}-${s}` as const));
-export const DEFAULT_SPOT: Spot = "br-m";
+export const SPOTS: readonly Spot[] = PLACES.flatMap((p) => SHAPES.flatMap((k) => SIZES.map((s) => `${p}-${k}-${s}` as const)));
+export const DEFAULT_SPOT: Spot = "br-v-l";
 
 export const isSpot = (v: unknown): v is Spot => SPOTS.includes(v as Spot);
 
-export function spotParts(spot: Spot): { place: Place; size: CameraSize } {
-  const [place, size] = spot.split("-") as [Place, CameraSize];
-  return { place, size };
+export function spotParts(spot: Spot): { place: Place; shape: CameraShape; size: CameraSize } {
+  const [place, shape, size] = spot.split("-") as [Place, CameraShape, CameraSize];
+  return { place, shape, size };
 }
 
 export function spotBox(spot: Spot): CameraBox {
-  const { place, size } = spotParts(spot);
-  const { w, h } = SIZE[size];
+  const { place, shape, size } = spotParts(spot);
+  const { h } = WIDE[size];
+  const w = shape === "h" ? WIDE[size].w : Math.round((h * 4) / 5);
   if (place === "c") return { x: (W - w) / 2, y: (H - h) / 2, w, h, r: RADIUS, place };
   return { x: place[1] === "l" ? INSET : W - INSET - w, y: place[0] === "t" ? INSET : H - INSET - h, w, h, r: RADIUS, place };
 }

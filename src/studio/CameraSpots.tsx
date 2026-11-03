@@ -1,14 +1,16 @@
 // Where your camera sits: tap it (or press C) and the stage shows the five places it can go, each a wide rectangle
-// with the upright one inside it, and S M L on each. Tap a place to move there at the size it had last; tap a size to
-// move there at that size. Works while recording. Keys while open: arrows change place, 1 2 3 the size, Enter or Esc close.
+// with the upright one inside it, and S M L beside each, which scale both. Tap the wide or the upright one to move
+// there in that shape; tap a size to move there at that size. Works while recording.
+// Keys while open: arrows change place, 1 2 3 the size, Enter or Esc close.
 import { useEffect, useRef } from "react";
 import { STAGE_H, STAGE_W } from "./stage";
 import { PLACES, SIZES, spotBox, spotParts, type CameraBox } from "./stage/camera";
 import { spotOf, toPlace, useSpotPref } from "./spot";
-import type { CameraSize, Place } from "./types";
+import type { CameraShape, CameraSize, Place } from "./types";
 
 const PLACE_NAME: Record<Place, string> = { tl: "Top left", tr: "Top right", c: "Centre", bl: "Bottom left", br: "Bottom right" };
 const SIZE_NAME: Record<CameraSize, string> = { s: "Small", m: "Medium", l: "Large" };
+const SHAPE_NAME: Record<CameraShape, string> = { h: "wide", v: "upright" };
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 const place = (b: CameraBox): React.CSSProperties => ({
@@ -21,7 +23,7 @@ const place = (b: CameraBox): React.CSSProperties => ({
 
 /** The place an arrow key leads to from `from`: the nearest one that way, if any. */
 function neighbour(from: Place, key: string): Place | null {
-  const at = (p: Place) => spotBox(`${p}-l`);
+  const at = (p: Place) => spotBox(`${p}-h-l`);
   const a = at(from);
   const [dx, dy] = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[key] ?? [0, 0];
   let best: Place | null = null;
@@ -69,7 +71,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
       const k = e.key.toLowerCase();
       const now = spotParts(spotOf(pref)).place;
       if (k === "escape" || k === "enter" || k === "c") close();
-      else if (k === "1" || k === "2" || k === "3") toPlace(now, SIZES[Number(k) - 1]);
+      else if (k === "1" || k === "2" || k === "3") toPlace(now, { size: SIZES[Number(k) - 1] });
       else if (k.startsWith("arrow")) {
         const next = neighbour(now, k);
         if (next) toPlace(next);
@@ -100,32 +102,35 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
         <div ref={layer} className="st-spots" role="group" aria-label="Camera position">
           <div className="st-spots-dim" onPointerDown={() => onOpen(false)} />
           {PLACES.map((p) => {
-            const wide = spotBox(`${p}-l`);
-            const on = pref.place === p;
-            // Sizes sit above the centre, beside each corner on the side facing the middle; inside the place on a small stage.
+            const size = pref.sizes[p];
+            // The sizes stay where the large size puts them, so they never move out from under the pointer.
+            const large = spotBox(`${p}-h-l`);
             const side = p === "c" ? "above" : p[1] === "l" ? "right" : "left";
             return (
               <div key={p} className="st-spot-place">
-                <button
-                  type="button"
-                  className="st-spot"
-                  style={place(wide)}
-                  aria-pressed={on}
-                  aria-label={PLACE_NAME[p]}
-                  onClick={() => {
-                    toPlace(p);
-                    onOpen(false);
-                  }}
-                />
-                <span className="st-spot-upright" style={place(spotBox(`${p}-m`))} aria-hidden="true" />
+                {(["h", "v"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={`st-spot is-${k}`}
+                    style={place(spotBox(`${p}-${k}-${size}`))}
+                    aria-pressed={pref.place === p && pref.shapes[p] === k}
+                    aria-label={`${PLACE_NAME[p]}, ${SHAPE_NAME[k]}`}
+                    onClick={() => {
+                      toPlace(p, { shape: k });
+                      onOpen(false);
+                    }}
+                  />
+                ))}
                 <div
-                  className={`st-spot-size is-${side}`}
+                  className={`st-spot-size is-${side} is-row-${p[0] === "t" ? "top" : "bottom"}`}
                   style={{
-                    "--left": pct(wide.x, STAGE_W),
-                    "--right": pct(wide.x + wide.w, STAGE_W),
-                    "--top": pct(wide.y, STAGE_H),
-                    "--cx": pct(wide.x + wide.w / 2, STAGE_W),
-                    "--cy": pct(wide.y + wide.h / 2, STAGE_H),
+                    "--left": pct(large.x, STAGE_W),
+                    "--right": pct(large.x + large.w, STAGE_W),
+                    "--top": pct(large.y, STAGE_H),
+                    "--bottom": pct(large.y + large.h, STAGE_H),
+                    "--cx": pct(large.x + large.w / 2, STAGE_W),
+                    "--cy": pct(large.y + large.h / 2, STAGE_H),
                   } as React.CSSProperties}
                   role="radiogroup"
                   aria-label={`${PLACE_NAME[p]} size`}
@@ -135,10 +140,10 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
                       key={s}
                       type="button"
                       role="radio"
-                      aria-checked={pref.sizes[p] === s}
+                      aria-checked={size === s}
                       aria-label={SIZE_NAME[s]}
-                      aria-keyshortcuts={on ? String(i + 1) : undefined}
-                      onClick={() => toPlace(p, s)}
+                      aria-keyshortcuts={pref.place === p ? String(i + 1) : undefined}
+                      onClick={() => toPlace(p, { size: s })}
                     >
                       {s.toUpperCase()}
                     </button>
