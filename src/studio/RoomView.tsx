@@ -21,6 +21,7 @@ import { clock } from "./timing";
 import { limitOf, liveElapsed, liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RecordedTake, type RoomState, type TakeInfo } from "./types";
 import { uploads, useRetainedTakes, useUploads } from "./uploads";
 import { frameRatio } from "./format";
+import { useSlideView } from "./useSlideView";
 
 type Phase =
   | { k: "idle" }
@@ -82,6 +83,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const [rendering, setRendering] = useState(false);
   const [mutedAll, setMutedAll] = useState(false);
   const [editing, setEditing] = useState(false);
+  const slideView = useSlideView();
   // Groups whose take this device just kept, by the room's take id before it: the group reads Saving… until the
   // room shows the new take (the upload can finish before the next poll brings it).
   const [kept, setKept] = useState<Record<string, { before: string | null; at: number; ms: number }>>({});
@@ -266,6 +268,9 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           onVideo={(id, el) => (peerVideos.current[id] = el)}
         />
         <div className="st-corner">
+          {!rendering && <button type="button" className="icon-btn" onClick={() => { setEditing(false); slideView.enter(); }} aria-label="Full screen" data-tip="Full screen">
+            <Icon name="expand" size={16} />
+          </button>}
           <span className="is-wide"><CopyLink code={room.code} /></span>
           <SavedVideos deck={deck} room={room} upload={progress} />
           <More
@@ -319,6 +324,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
           dockSlot={stacked ? dockSlot : null}
           onKept={markKept}
           apply={apply}
+          slideView={slideView}
         />
       )}
 
@@ -456,7 +462,7 @@ function StageCanvas({ canvas, children }: { canvas: HTMLCanvasElement; children
   );
 }
 
-function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, arriving, onMake, dockSlot, onKept, apply }: {
+function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setPhase, preview, setPreview, follow, followVideo, broadcast, onShown, onAssign, editing, setEditing, allIn, makeLeads, makeInDock, blocked, next, waitingFor, onNext, onPick, around, recordedMs, arriving, onMake, dockSlot, onKept, apply, slideView }: {
   deck: Deck;
   index: number;
   room: RoomState;
@@ -507,6 +513,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   /** My take of this group is safe on this device and on its way to the room. */
   onKept(groupId: string, ms: number): void;
   apply(next: RoomState): void;
+  slideView: ReturnType<typeof useSlideView>;
 }) {
   const group = deck.groups[index];
   const script = useScriptDraft(room.code, group, apply);
@@ -647,6 +654,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     if (p.k === "idle" && !following) {
       const to = preview + d;
       if (to >= 0 && to <= last) return setPreview(to);
+      if (slideView.full) return;
       const gi = d > 0 ? around.next : around.prev;
       if (gi !== null) onPick(gi, d > 0 ? 0 : Math.max(0, deck.groups[gi].slides.length - 1));
       return;
@@ -657,7 +665,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     cues.current = [...cues.current, { slide, atMs: Math.round(performance.now() - p.startedAt), spot: spotRef.current }];
     stage.show(index, slide);
     setPhase({ ...p, slide });
-  }, [around.next, around.prev, deck.groups, following, last, onPick, preview, setPhase, setPreview, stage]);
+  }, [around.next, around.prev, deck.groups, following, last, onPick, preview, setPhase, setPreview, slideView.full, stage]);
 
   // Leaving the group mid-take (or unmounting) never leaves a recorder running, or the team following a take that ended.
   useEffect(() => () => {
@@ -792,12 +800,12 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       if (e.key === "Escape" && (p.k === "countdown" || p.k === "recording" || p.k === "review")) {
         e.preventDefault();
         cancel();
-      } else if ((p.k === "recording" || p.k === "idle") && (e.key === " " || e.key === "ArrowRight")) {
+      } else if ((p.k === "recording" || p.k === "idle") && (e.key === " " || e.key === "ArrowRight" || e.key === "ArrowDown")) {
         // Idle, Space belongs to the focused button; the arrows always change slides.
         if (p.k === "idle" && e.key === " ") return;
         e.preventDefault();
         step(1);
-      } else if ((p.k === "recording" || p.k === "idle") && e.key === "ArrowLeft") {
+      } else if ((p.k === "recording" || p.k === "idle") && (e.key === "ArrowLeft" || e.key === "ArrowUp")) {
         e.preventDefault();
         step(-1);
       } else if (p.k === "recording" && e.key === "Enter") {
@@ -857,16 +865,16 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   const settled = () => leadAt.current.at === null || performance.now() - leadAt.current.at > SETTLE_MS;
   const recordKey = <kbd className="kbd">R</kbd>;
   /** Idle and not following: the arrows walk on into the next or previous group. */
-  const walk = phase.k === "idle" && !follow;
+  const walk = phase.k === "idle" && !follow && !slideView.full;
   const firstSlide = onStage === 0 && !(walk && around.prev !== null);
   const lastSlide = onStage === last && !(walk && around.next !== null);
   const nav = (
     <div className="st-dock-side">
-      <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={firstSlide} aria-label="Previous slide" data-tip="Previous slide (←)">
+      <button type="button" className="icon-btn" onClick={() => step(-1)} disabled={firstSlide} aria-label="Previous slide" aria-keyshortcuts="ArrowLeft ArrowUp" data-tip="Previous slide (← ↑)">
         <Icon name="prev" size={20} />
       </button>
       <span className="st-step-n">{onStage + 1} / {last + 1}</span>
-      <button type="button" className="icon-btn" onClick={() => step(1)} disabled={lastSlide} aria-label="Next slide" data-tip="Next slide (→)">
+      <button type="button" className="icon-btn" onClick={() => step(1)} disabled={lastSlide} aria-label="Next slide" aria-keyshortcuts="ArrowRight ArrowDown" data-tip="Next slide (→ ↓)">
         <Icon name="next" size={20} />
       </button>
     </div>
@@ -989,12 +997,32 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   return (
     <main className="st-body">
       <div className="st-desk">
-        <div className="st-stage-cell">
+        <div
+          ref={slideView.host}
+          className={`st-stage-cell${slideView.full ? ` is-full${slideView.awake || alert ? " is-awake" : ""}` : ""}`}
+          role={slideView.full ? "region" : undefined}
+          aria-label={slideView.full ? "Full screen slides" : undefined}
+          tabIndex={slideView.full ? -1 : undefined}
+          onPointerMove={slideView.full ? slideView.wake : undefined}
+          onPointerDown={slideView.full ? slideView.wake : undefined}
+          onClick={(e) => { if (slideView.full && e.detail && e.target instanceof Element && e.target.closest(".st-focus-controls")) slideView.host.current?.focus({ preventScroll: true }); }}
+        >
           <StageCanvas canvas={canvas}>
             {canMove && <CameraSpots format={deck.format} open={spotsOpen} onOpen={setSpotsOpen} />}
             {phase.k === "countdown" && <div className="st-count" aria-live="assertive"><span key={phase.n}>{phase.n}</span></div>}
             {refused && <StartButton onStart={again} />}
           </StageCanvas>
+          {slideView.full && <div className="st-focus-controls" role="group" aria-label="Slide controls" onFocus={slideView.wake}>
+            <button type="button" className="icon-btn" onClick={slideView.leave} aria-label="Exit full screen" data-tip="Exit full screen (Esc)"><Icon name="x" size={16} /></button>
+            {(phase.k === "idle" || phase.k === "recording") && !follow && nav}
+            {(dock === "record" || dock === "retake") && <button type="button" className="btn is-primary" onClick={() => settled() && record()} disabled={!canRecord}><span className="st-dot" />{dock === "retake" ? "Retake" : "Record"}</button>}
+            {dock === "recording" && <button type="button" className="btn is-primary" onClick={() => void finish(false)}><span className="st-square" />Stop</button>}
+            {dock === "countdown" && <button type="button" className="btn is-quiet" onClick={cancel}>Cancel</button>}
+            {dock === "review" && <button type="button" className="btn is-primary" onClick={() => void keep()}><Icon name="check" size={16} />Keep</button>}
+            {dock === "camera-error" && <button type="button" className="btn is-quiet" onClick={camera.retry}>Try again</button>}
+            {dock === "nobody" && <button type="button" className="btn is-primary" onClick={() => onAssign(me.id)}>Assign to me</button>}
+            {alert && <span className="st-error" role="alert">{label}</span>}
+          </div>}
         </div>
 
         <section className="st-script-col" aria-label={group.name}>

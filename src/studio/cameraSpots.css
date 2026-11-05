@@ -15,7 +15,19 @@
 .st-spots {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   animation: st-spots-in var(--dur-control) var(--ease);
+}
+
+.st-stage:has(> .st-spots) { overflow: visible; }
+.st-stage:has(> .st-spots) > canvas { border-radius: inherit; }
+
+.st-spots-shade {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 @keyframes st-spots-in {
@@ -51,10 +63,15 @@
   border: 1.5px solid var(--on-dark);
 }
 
+.st-spot-target, .st-spot-shapes { display: none; }
+.st-spot-size-options { display: contents; }
+
 /* S M L: each letter in a thin ring, a row per place on its wide shape's inner edge. The size in use is white and
    bold, on the place the camera is in only. A small stage keeps one row, closer to its shape. */
 .st-spot-size {
   position: absolute;
+  left: var(--camera-left);
+  top: var(--camera-top);
   display: flex;
   gap: var(--space-8);
   transition-property: none;
@@ -102,10 +119,32 @@
   .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
 }
 
-/* A tall page on a short phone has room for the three sizes vertically. */
+/* A narrow page keeps its sizes beside the picture, clear of every shape's tap target. */
 @container stage (max-width: 128px) {
-  .st-spot-size { flex-direction: column; gap: var(--space-4); }
-  .st-spot-size.is-mid { translate: -50% -50%; }
+  .st-spot.is-h, .st-spot.is-v { display: none; }
+  .st-spot-target { display: block; }
+  .st-spot-size {
+    left: auto;
+    right: calc(100% + var(--space-8));
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .st-spot-size.is-end, .st-spot-size.is-mid { left: calc(100% + var(--space-8)); right: auto; }
+  .st-spot-size.is-below, .st-spot-size.is-below.is-end { translate: 0 0; }
+  .st-spot-size.is-above, .st-spot-size.is-above.is-end { translate: 0 -100%; }
+  .st-spot-size.is-mid { margin-top: calc(var(--camera-height) / 2); translate: 0 -50%; }
+  .st-spot-shapes {
+    position: absolute;
+    right: calc(100% + var(--space-4));
+    top: 50%;
+    translate: 0 -50%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .st-spot-size.is-end .st-spot-shapes, .st-spot-size.is-mid .st-spot-shapes { right: auto; left: calc(100% + var(--space-4)); }
+  .st-spot-shapes button::after { display: none; }
+  .st-spot-shapes button[aria-pressed="true"] { border-color: var(--on-dark); color: var(--on-dark); }
 }
 
 /* On touch each ring takes its share of the row and 44px of height, grown away from its place's shape (from the

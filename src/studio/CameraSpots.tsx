@@ -49,17 +49,21 @@ function rowAt(p: Place, wide: CameraBox): { x: number; y: number; side: string 
 interface SizeTarget { size: CameraSize; rect: DOMRect }
 interface SizeGesture { p: Place; until: number; origin: SizeTarget[]; latest: SizeTarget[] }
 
-function Sizes({ p, wide, size, current, kept, onPick, frame }: { p: Place; wide: CameraBox; size: CameraSize; current: boolean; kept: boolean; onPick(row: HTMLElement): void; frame: FrameSize }) {
+function Sizes({ p, wide, size, shape, current, kept, onPick, onClose, frame }: { p: Place; wide: CameraBox; size: CameraSize; shape: CameraShape; current: boolean; kept: boolean; onPick(row: HTMLElement): void; onClose(): void; frame: FrameSize }) {
   const at = rowAt(p, wide);
   const row = useRef<HTMLDivElement>(null);
+  const style: React.CSSProperties & { "--camera-left": string; "--camera-top": string; "--camera-height": string } = {
+    "--camera-left": pct(at.x, frame.width), "--camera-top": pct(at.y, frame.height), "--camera-height": `${100 * wide.h / frame.width}cqw`,
+  };
   return (
     <div
       ref={row}
       className={`st-spot-size ${at.side}${kept ? " is-kept" : ""}${current ? " is-here" : ""}`}
-      style={{ left: pct(at.x, frame.width), top: pct(at.y, frame.height) }}
-      role="radiogroup"
-      aria-label={`${PLACE_NAME[p]} size`}
+      style={style}
+      role="group"
+      aria-label={`${PLACE_NAME[p]} camera`}
     >
+      <div className="st-spot-size-options" role="radiogroup" aria-label={`${PLACE_NAME[p]} size`}>
       {SIZES.map((s, i) => (
         <button
           key={s}
@@ -77,6 +81,16 @@ function Sizes({ p, wide, size, current, kept, onPick, frame }: { p: Place; wide
           {s.toUpperCase()}
         </button>
       ))}
+      </div>
+      <div className="st-spot-shapes" role="group" aria-label={`${PLACE_NAME[p]} shape`}>
+        {SHAPES.map((k) => (
+          <button key={k} type="button" aria-label={SHAPE_NAME[k]} aria-pressed={shape === k} data-tip={SHAPE_NAME[k]} onClick={() => { toPlace(p, { shape: k }); onClose(); }}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              {k === "h" ? <rect x="3" y="7" width="18" height="10" rx="2" /> : <rect x="7" y="3" width="10" height="18" rx="2" />}
+            </svg>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -93,7 +107,7 @@ export function CameraSpots({ open, onOpen, format }: { open: boolean; onOpen(op
   if (!open) gesture.current = null;
   const swallow = useRef(false);
   const remember = (p: Place, row: HTMLElement) => {
-    const latest = [...row.querySelectorAll("button")].map((b, i) => ({ size: SIZES[i], rect: b.getBoundingClientRect() }));
+    const latest = [...row.querySelectorAll("[role=radio]")].map((b, i) => ({ size: SIZES[i], rect: b.getBoundingClientRect() }));
     const t = performance.now();
     const prior = gesture.current;
     gesture.current = { p, until: t + GLIDE_MS, origin: prior?.p === p && t < prior.until ? prior.origin : latest, latest };
@@ -116,7 +130,7 @@ export function CameraSpots({ open, onOpen, format }: { open: boolean; onOpen(op
   };
   const handle = useRef<HTMLButtonElement>(null);
   const layer = useRef<HTMLDivElement>(null);
-  const focusHere = () => layer.current?.querySelector<HTMLElement>(".st-spot[aria-pressed=true]")?.focus({ preventScroll: true });
+  const focusHere = () => [...(layer.current?.querySelectorAll<HTMLElement>(".st-spot[aria-pressed=true]") ?? [])].find((b) => b.getClientRects().length)?.focus({ preventScroll: true });
 
   useLayoutEffect(() => {
     const canvas = handle.current?.parentElement?.querySelector("canvas");
@@ -134,9 +148,15 @@ export function CameraSpots({ open, onOpen, format }: { open: boolean; onOpen(op
           const b = box.place === p && pref.shapes[p] === k ? box : shapeBox(p, k, h, { format });
           if (outline) Object.assign(outline.style, place(b, frame));
         }
+        const target = group.querySelector<HTMLElement>(".st-spot-target");
+        if (target) Object.assign(target.style, place(box.place === p ? box : shapeBox(p, pref.shapes[p], h, { format }), frame));
         const row = group.querySelector<HTMLElement>(".st-spot-size");
         const at = rowAt(p, shapeBox(p, "h", h, { format }));
-        if (row) Object.assign(row.style, { left: pct(at.x, frame.width), top: pct(at.y, frame.height) });
+        if (row) {
+          row.style.setProperty("--camera-left", pct(at.x, frame.width));
+          row.style.setProperty("--camera-top", pct(at.y, frame.height));
+          row.style.setProperty("--camera-height", `${100 * h / frame.width}cqw`);
+        }
       });
     });
   }, [open, pref, format, frame.width, frame.height]);
@@ -211,11 +231,19 @@ export function CameraSpots({ open, onOpen, format }: { open: boolean; onOpen(op
           }}
         >
           <div className="st-spots-dim" onPointerDown={() => onOpen(false)} />
-          <div className="st-spots-dim-hole" style={place(here, frame)} />
+          <div className="st-spots-shade"><div className="st-spots-dim-hole" style={place(here, frame)} /></div>
           {PLACES.map((p) => {
             const size = pref.sizes[p];
             return (
               <div key={p} className="st-spot-place" onPointerMove={() => setAim(p)} onFocus={() => setAim(p)}>
+                <button
+                  type="button"
+                  className="st-spot st-spot-target"
+                  style={place(spotBox(`${p}-${pref.shapes[p]}-${size}`, { format }), frame)}
+                  aria-pressed={pref.place === p}
+                  aria-label={PLACE_NAME[p]}
+                  onClick={() => { toPlace(p); onOpen(false); }}
+                />
                 {(["h", "v"] as const).map((k) => (
                   <button
                     key={k}
@@ -230,7 +258,7 @@ export function CameraSpots({ open, onOpen, format }: { open: boolean; onOpen(op
                     }}
                   />
                 ))}
-                <Sizes p={p} wide={spotBox(`${p}-h-${size}`, { format })} size={size} current={pref.place === p} kept={p === (aim ?? pref.place)} onPick={(row) => remember(p, row)} frame={frame} />
+                <Sizes p={p} wide={spotBox(`${p}-h-${size}`, { format })} size={size} shape={pref.shapes[p]} current={pref.place === p} kept={p === (aim ?? pref.place)} onPick={(row) => remember(p, row)} onClose={() => onOpen(false)} frame={frame} />
               </div>
             );
           })}
