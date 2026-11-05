@@ -4,6 +4,7 @@ import "./slideView.css";
 export function useSlideView() {
   const host = useRef<HTMLDivElement>(null);
   const native = useRef(false);
+  const wanted = useRef(false);
   const timer = useRef<number | null>(null);
   const [full, setFull] = useState(false);
   const [awake, setAwake] = useState(true);
@@ -17,20 +18,27 @@ export function useSlideView() {
   const enter = () => {
     const el = host.current;
     if (!el) return;
+    wanted.current = true;
     setFull(true);
     // The viewport view remains usable when the browser cannot grant native fullscreen.
     void el.requestFullscreen?.().catch(() => undefined);
   };
   const leave = useCallback(() => {
+    wanted.current = false;
+    native.current = false;
     setFull(false);
     if (document.fullscreenElement === host.current) void document.exitFullscreen().catch(() => undefined);
   }, []);
 
   useEffect(() => {
     const changed = () => {
-      if (document.fullscreenElement === host.current) native.current = true;
+      if (host.current && document.fullscreenElement === host.current) {
+        if (wanted.current) native.current = true;
+        else void document.exitFullscreen().catch(() => undefined);
+      }
       else if (native.current) {
         native.current = false;
+        wanted.current = false;
         setFull(false);
       }
     };
@@ -71,6 +79,8 @@ export function useSlideView() {
     };
     window.addEventListener("keydown", keys, true);
     return () => {
+      wanted.current = false;
+      native.current = false;
       window.removeEventListener("keydown", keys, true);
       if (timer.current !== null) window.clearTimeout(timer.current);
       for (const item of outside) item.el.inert = item.inert;
