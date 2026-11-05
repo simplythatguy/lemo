@@ -2,9 +2,10 @@
 // makes the room, uploads the images and stores the deck, then opens the room.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { roomApi, RoomError } from "../studio/room";
-import { clock, deckMs } from "../studio/timing";
+import { clock } from "../studio/timing";
 import { limitOf } from "../studio/types";
-import { emptyDraft, fromDeck, groupSlides, joinNext, lostTakes, moveSlide, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, splitBefore, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import { emptyDraft, fromDeck, groupSlides, joinNext, limitInvalid, lostTakes, moveSlide, recordingMode, removeSlide, renewChangedGroups, replaceSlides, slidesMissing, splitBefore, teamMissing, titleMissing, toDeck, ungroupSlides, type Draft } from "./draft";
+import { frameRatio, type FrameSize } from "../studio/format";
 import type { Deck } from "../studio/types";
 import { Icon } from "../icons";
 import { glide } from "./glide";
@@ -34,7 +35,7 @@ export function Setup({ code: editCode }: { code?: string }) {
   const [step, setStep] = useState<Step>("slides");
   const [importing, setImporting] = useState<Importing | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [show, setShow] = useState({ title: false, team: false });
+  const [show, setShow] = useState({ title: false, team: false, limit: false });
   const [saving, setSaving] = useState<Saving>(null);
   const [fileOver, setFileOver] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -105,10 +106,15 @@ export function Setup({ code: editCode }: { code?: string }) {
       job.current = ctl;
       setFileError(null);
       const pics: { src: string; blob: Blob }[] = [];
+      let format: FrameSize | undefined;
       setImporting({ name: file.name, total: null, done: [] });
       try {
         await importSlides(file, {
           signal: ctl.signal,
+          onFormat: (next) => {
+            format = next;
+            setImporting((s) => s ? { ...s, format: next } : s);
+          },
           onCount: (n) => setImporting((s) => (s ? { ...s, total: n } : s)),
           onSlide: (i, blob) => {
             pics[i] = { src: makeUrl(blob), blob };
@@ -119,7 +125,7 @@ export function Setup({ code: editCode }: { code?: string }) {
         await new Promise(requestAnimationFrame);
         await Promise.all(Array.from(document.querySelectorAll(".su-thumb-img.is-new"), (el) => Promise.all(el.getAnimations().map((a) => a.finished)))).catch(() => undefined);
         if (ctl.signal.aborted) return;
-        setDraft((d) => replaceSlides(d, pics, file.name));
+        setDraft((d) => ({ ...replaceSlides(d, pics, file.name), format }));
       } catch (e) {
         if (ctl.signal.aborted) return;
         if (!(e instanceof SlideFileError)) console.error(e);
@@ -174,20 +180,18 @@ export function Setup({ code: editCode }: { code?: string }) {
   }, [step, saving, onFile]);
 
   const deck = useMemo(() => toDeck(draft), [draft]);
-  const total = deck.groups.length ? deckMs(deck) : 0;
   const limit = limitOf(deck);
-  const over = limit !== null && total > limit;
 
   /** The first step that still needs something, before `upTo`. */
   const blocker = (upTo: number): Step | null => {
     if (upTo > 0 && (slidesMissing(draft) || importing)) return "slides";
-    if (upTo > 1 && (titleMissing(draft) || teamMissing(draft))) return "project";
+    if (upTo > 1 && (titleMissing(draft) || teamMissing(draft) || limitInvalid(draft))) return "project";
     return null;
   };
   const go = (to: Step) => {
     const i = STEPS.findIndex((s) => s.key === to);
     const stop = blocker(i);
-    if (stop === "project") setShow({ title: titleMissing(draft), team: teamMissing(draft) });
+    if (stop === "project") setShow({ title: titleMissing(draft), team: teamMissing(draft), limit: limitInvalid(draft) });
     if (stop === "slides" && !importing && slidesMissing(draft)) setFileError(null);
     if ((stop ?? to) === step) return window.scrollTo({ top: 0 });
     void glide(() => {
@@ -199,7 +203,10 @@ export function Setup({ code: editCode }: { code?: string }) {
   const save = async () => {
     if (committing.current) return;
     const stop = blocker(STEPS.length);
-    if (stop) return go(stop);
+    if (stop) {
+      if (stop === "project") setShow({ title: titleMissing(draft), team: teamMissing(draft), limit: limitInvalid(draft) });
+      return go(stop);
+    }
     committing.current = true;
     // A group whose slides changed under its take gets a new id, so the take no longer plays over the wrong slides.
     const settled = renewChangedGroups(draft, loaded.current);
@@ -237,11 +244,10 @@ export function Setup({ code: editCode }: { code?: string }) {
     }
   };
 
-  const length = total > 0 && (
-    <span className={`su-total${over ? " is-over" : ""}`} aria-label={`Video length ${clock(total)}${over ? `, longer than ${clock(limit)}` : ""}`}>
+  const length = limit !== null && !limitInvalid(draft) && (
+    <span className="su-total" aria-label={`Time limit ${clock(limit)}`}>
       <Icon name="clock" size={14} />
-      {clock(total)}
-      {over && <span className="su-total-of">/ {clock(limit)}</span>}
+      {clock(limit)} limit
     </span>
   );
   /** Nothing to go on with yet: the slides step's own Choose a file is the one action. */
@@ -294,7 +300,7 @@ export function Setup({ code: editCode }: { code?: string }) {
   }
 
   return (
-    <div className="su-page">
+    <div className="su-page" style={{ "--stage-ratio": frameRatio(importing ?? draft) } as React.CSSProperties}>
       <header className="su-top">
         <a
           className="icon-btn"
@@ -343,6 +349,7 @@ export function Setup({ code: editCode }: { code?: string }) {
             onUngroup={(ids) => setDraft((d) => ungroupSlides(d, ids))}
             onJoin={(g) => setDraft((d) => joinNext(d, g, taken.current))}
             onSplit={(id) => setDraft((d) => splitBefore(d, id))}
+            onMode={(mode) => setDraft((d) => recordingMode(d, mode))}
           />
         )}
         {step === "project" && <Project draft={draft} setDraft={setDraft} show={show} makeUrl={makeUrl} />}

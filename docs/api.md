@@ -27,6 +27,12 @@ Types are in `src/studio/types.ts` (`RoomState`, `Deck`, `TakeInfo`, `LiveState`
 
 A deck has a string `title`, a list of strings `team`, and a list of `groups`. Each group has an `id` (1–40 of a-z, 0-9 and -), a string `name`, `slides` (objects with a string `kind`), and `script` (strings); `speaker` and `seconds` are optional finite numbers. Slide kinds and extra fields round-trip unchanged. Optional `logo` is a string; optional `camera` has finite numeric `x`, `y`, `w`, and `h` (where the camera sat in takes whose cues have no `spot`). The whole deck is still limited to 1 MiB.
 
+Optional `format: { width, height }` stores the source document's dimensions. Both numbers must be finite and positive, with an aspect ratio between 1:960 and 960:1. Rendering uses even pixel dimensions with a longest edge of at most 1920 pixels, retaining simple integer ratios exactly. Missing `format` means 1920×1080. Optional `recording` is `continuous` (at most one group, containing every page in the take) or `groups`. Missing `recording` preserves older decks' group recording and title cards. Changing modes creates new group IDs when the grouping changes; the editor confirms before removing recorded takes.
+
+Optional `limitMs` is an explicit user-entered limit for each take: a safe integer of at least 1000 milliseconds. Missing or `null` means no time limit. Neither scripts nor a group's legacy `seconds` metadata create a recording timer. Take durations and live timing values are nonnegative safe integers, without a one-hour cap. Byte and cue limits still apply to long takes.
+
+An untimed recording publishes `LiveState.targetMs: 0`, `remainingMs: 0`, and optional `elapsedMs` for the actual elapsed recording time. The server advances elapsed time as a stored live sample ages. Older samples without `elapsedMs` remain supported.
+
 Limits: a take is at most 150 MiB, a room's takes and files at most 600 MiB together, signals expire after 10 minutes (at most 2000 per room, 200 per page), a live row older than 10 s reads as `null`, and a room is deleted 14 days after it was created.
 
 Storage: Postgres when `DATABASE_URL` is set (production), otherwise a SQLite file at `.data/lemo.sqlite` (local).

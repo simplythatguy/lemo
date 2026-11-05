@@ -1,0 +1,50 @@
+/* One live canvas, enlarged in place. Recording and camera geometry keep their existing owners. */
+.st-room:has(.st-stage-cell.is-full) .st-body { container-type: normal; }
+.st-room:has(.st-stage-cell.is-full) :is(.st-top, .st-strip, .st-script-col, .st-dock-slot) { visibility: hidden; }
+
+.st-stage-cell.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100dvh;
+  padding: var(--space-8) var(--space-8) calc(var(--control-lg) + var(--space-32) + max(var(--space-16), env(safe-area-inset-bottom)));
+  container-type: size;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.st-stage-cell.is-full .st-stage {
+  width: min(100cqw, calc(100cqh * var(--stage-ratio, 1.777777778)));
+  margin: 0;
+}
+
+.st-focus-controls {
+  position: absolute;
+  left: 50%;
+  bottom: max(var(--space-16), env(safe-area-inset-bottom));
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  max-width: calc(100% - var(--space-16));
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  transition: opacity var(--dur-control) var(--ease);
+}
+
+.st-focus-controls .btn { white-space: nowrap; }
+.st-focus-controls .st-dock-side { gap: 0; }
+.st-focus-controls .st-error {
+  position: absolute;
+  bottom: calc(100% + var(--space-8));
+  left: 0;
+  right: 0;
+  text-align: center;
+  background: var(--bg);
+}
+.st-stage-cell.is-full:not(.is-awake) .st-focus-controls:not(:focus-within) { opacity: 0; pointer-events: none; }

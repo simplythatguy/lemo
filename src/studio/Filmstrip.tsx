@@ -9,6 +9,7 @@ import { renderThumb } from "./stage";
 import { clock } from "./timing";
 import { lostTakes, regroup, type Regroup } from "../setup/draft";
 import type { Deck, Person, RoomState } from "./types";
+import { frameRatio, thumbSize } from "./format";
 
 /** Right-click, the menu key, or a held touch on a thumb (iOS sends no contextmenu for one) opens its menu. */
 export function usePress(open: (anchor: HTMLElement) => void) {
@@ -314,18 +315,20 @@ const painted = new Map<string, HTMLCanvasElement>();
 function Thumb({ deck, group, slide }: { deck: Deck; group: number; slide: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const id = deck.groups[group].slides[slide].id;
-  const [shown, setShown] = useState(() => painted.has(id));
+  const key = `${id}:${frameRatio(deck)}`;
+  const [shown, setShown] = useState(() => painted.has(key));
   useLayoutEffect(() => {
     const c = canvas.current!;
-    c.width = 256;
-    c.height = 144;
-    const last = painted.get(id);
+    const size = thumbSize(deck);
+    c.width = size.width;
+    c.height = size.height;
+    const last = painted.get(key);
     if (last && last !== c) c.getContext("2d")?.drawImage(last, 0, 0);
     void renderThumb(c, deck, group, slide).then(() => {
-      painted.set(id, c);
+      painted.set(key, c);
       setShown(true);
     }, () => undefined);
-  }, [deck, group, slide, id]);
+  }, [deck, group, slide, key]);
   // The first paint fades in rather than popping into an empty frame.
   return <canvas ref={canvas} className={shown ? "is-painted" : undefined} aria-hidden="true" />;
 }

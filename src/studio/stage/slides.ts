@@ -22,8 +22,22 @@ export const hasTitle = (s: Slide): s is Titled & { title: string } => "title" i
 const CAP = 0.727;
 
 export function paintSlide(ctx: Ctx, s: Slide, env: Env) {
+  if (s.kind === "page") return paintPage(ctx, s.src);
+  referenceFrame(ctx, () => paintReferenceSlide(ctx, s, env));
+}
+
+/** Authored slides retain their landscape layout, uniformly fitted inside a document-shaped video. */
+function referenceFrame(ctx: Ctx, paint: () => void) {
+  const scale = Math.min(ctx.canvas.width / 1920, ctx.canvas.height / 1080);
+  ctx.save();
+  ctx.translate((ctx.canvas.width - 1920 * scale) / 2, (ctx.canvas.height - 1080 * scale) / 2);
+  ctx.scale(scale, scale);
+  paint();
+  ctx.restore();
+}
+
+function paintReferenceSlide(ctx: Ctx, s: Exclude<Slide, { kind: "page" }>, env: Env) {
   switch (s.kind) {
-    case "page": return paintPage(ctx, s.src);
     case "statement": return paintStatement(ctx, s);
     case "logo": return paintLogo(ctx, env.brand, s.line);
     case "clip": return paintClip(ctx, env.video);
@@ -38,8 +52,10 @@ export function paintSlide(ctx: Ctx, s: Slide, env: Env) {
 
 /** The title: Inter 600 60px at the top left. `rise` lifts it into place during a transition. */
 export function paintTitle(ctx: Ctx, title: string, rise = 0) {
-  font(ctx, 600, 60, -0.025);
-  text(ctx, title, L.margin, L.titleBaseline + rise, C.ink);
+  referenceFrame(ctx, () => {
+    font(ctx, 600, 60, -0.025);
+    text(ctx, title, L.margin, L.titleBaseline + rise, C.ink);
+  });
 }
 
 /** Lines of `size` type stacked from `top` (the first line's cap top); returns each baseline. */
@@ -50,8 +66,8 @@ const baselines = (n: number, top: number, size: number, lh: number) => Array.fr
 function paintPage(ctx: Ctx, src: string) {
   const img = image(src);
   if (!img || !img.naturalWidth) return;
-  // Uploaded pages are 1920×1080 already; any other shape is fitted whole on white rather than cropped.
-  const r = containRect(img.naturalWidth, img.naturalHeight, { x: 0, y: 0, w: 1920, h: 1080 });
+  // Imported pages already use the document frame; older or mixed shapes still fit whole without cropping.
+  const r = containRect(img.naturalWidth, img.naturalHeight, { x: 0, y: 0, w: ctx.canvas.width, h: ctx.canvas.height });
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
@@ -213,6 +229,10 @@ function nameRows(ctx: Ctx, names: string[]): { size: number; rows: string[][] }
 
 /** Intro: the mark settles in place, the name follows it in, then the team fades in. Outro: mark and name only. */
 export function paintCard(ctx: Ctx, which: "intro" | "outro", t: number, deck: Brand & Pick<Deck, "team">) {
+  referenceFrame(ctx, () => paintReferenceCard(ctx, which, t, deck));
+}
+
+function paintReferenceCard(ctx: Ctx, which: "intro" | "outro", t: number, deck: Brand & Pick<Deck, "team">) {
   const names = which === "intro" ? deck.team.map((n) => n.trim()).filter(Boolean) : [];
   const f = fitLockup(ctx, deck.title);
   const { size, rows } = names.length ? nameRows(ctx, names) : { size: NAMES.size, rows: [] };

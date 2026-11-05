@@ -7,8 +7,7 @@ import { cameraAt, deckBox, GLIDE_MS, moveCamera, publishCameraFrame, type Camer
 import { C, coverSource, font, frame, text, type Ctx } from "./draw";
 import { clamp01, inOutSine, outCubic } from "./ease";
 import { hasTitle, paintCard, paintSlide, paintTitle } from "./slides";
-
-export const STAGE_W = 1920, STAGE_H = 1080;
+import { frameSize } from "../format";
 
 export interface Stage {
   show(group: number, slide: number, opts?: { instant?: boolean }): void;
@@ -110,14 +109,15 @@ function paintInitials(c: Ctx, r: Rect, initials: string) {
 }
 
 export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { beforePaint?: (now: number) => void } = {}): Stage {
-  canvas.width = STAGE_W;
-  canvas.height = STAGE_H;
+  const { width, height } = frameSize(deck);
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d", { alpha: false })!;
   // The incoming slide is painted here and laid over the outgoing one, so a dissolve is a true cross-dissolve
   // and anything the two slides share (the frame, an unchanged title) holds perfectly still.
   const buffer = document.createElement("canvas");
-  buffer.width = STAGE_W;
-  buffer.height = STAGE_H;
+  buffer.width = width;
+  buffer.height = height;
   const bctx = buffer.getContext("2d", { alpha: false })!;
   let fontsReady = fontsLoaded();
   if (!fontsReady) void loadFonts().then(() => (fontsReady = true));
@@ -221,7 +221,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
     hooks.beforePaint?.(now);
     ctx.globalAlpha = 1;
     ctx.fillStyle = C.white;
-    ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+    ctx.fillRect(0, 0, width, height);
     if (dissolve && now - dissolve.start >= dissolve.dur) {
       dissolve.from.clip?.park();
       dissolve = null;
@@ -233,7 +233,7 @@ export function makeStage(canvas: HTMLCanvasElement, deck: Deck, hooks: { before
         paintLayer(ctx, dissolve.from, now, keep);
         bctx.globalAlpha = 1;
         bctx.fillStyle = C.white;
-        bctx.fillRect(0, 0, STAGE_W, STAGE_H);
+        bctx.fillRect(0, 0, width, height);
         paintLayer(bctx, cur, now, keep);
         ctx.globalAlpha = inOutSine(p);
         ctx.drawImage(buffer, 0, 0);
