@@ -2,20 +2,50 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Deck } from "../studio/types.ts";
 import { carriedSpeakers } from "../studio/groups.ts";
-import { emptyDraft, fromDeck, groupSlides, lostTakes, moveSlide, order, regroup, removeSlide, renewChangedGroups, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
+import { emptyDraft, fromDeck, groupSlides, lostTakes, moveSlide, order, recordingMode, regroup, removeSlide, renewChangedGroups, replaceSlides, toDeck, ungroupSlides } from "./draft.ts";
 
 const pics = (n: number) => Array.from({ length: n }, (_, i) => ({ src: `blob:${i}` }));
+const partsDraft = () => ({ ...emptyDraft(), recording: "groups" as const });
 const sizes = (d: ReturnType<typeof emptyDraft>) => d.groups.map((g) => g.slides.length);
 
+test("new uploads are one continuous take with all pages in order", () => {
+  const draft = replaceSlides(emptyDraft(), pics(109));
+  assert.deepEqual(sizes(draft), [109]);
+  assert.equal(toDeck(draft).recording, "continuous");
+  assert.equal(toDeck(draft).limitMs, undefined);
+});
+
+test("switching to one take never reuses a partial recording; script, format and camera survive", () => {
+  const before = { ...roomDeck, format: { width: 612, height: 792 } };
+  const after = toDeck(recordingMode(fromDeck(before), "continuous"));
+  assert.deepEqual(after.groups.flatMap((g) => g.slides), before.groups.flatMap((g) => g.slides));
+  assert.deepEqual(after.groups[0].script, before.groups.flatMap((g) => g.script));
+  assert.deepEqual(after.format, before.format);
+  assert.deepEqual(after.camera, before.camera);
+  assert.equal(before.groups.some((g) => g.id === after.groups[0].id), false);
+  assert.deepEqual(lostTakes(before, after, new Set(["intro", "demo"])).map((g) => g.id), ["intro", "demo"]);
+  const parts = toDeck(recordingMode(fromDeck(after), "groups"));
+  assert.deepEqual(parts.groups.map((g) => g.slides.length), [1, 1, 1, 1]);
+  assert.equal(parts.groups.some((g) => g.id === after.groups[0].id), false);
+});
+
+test("splitting a continuous take explicitly returns to recording in parts", () => {
+  const draft = replaceSlides(emptyDraft(), pics(4));
+  const deck = toDeck(draft);
+  const next = regroup(deck, { kind: "split", slide: order(draft)[2] }, new Set());
+  assert.equal(next.recording, "groups");
+  assert.deepEqual(next.groups.map((g) => g.slides.length), [2, 2]);
+});
+
 test("every new slide is its own group", () => {
-  const d = replaceSlides(emptyDraft(), pics(4));
+  const d = replaceSlides(partsDraft(), pics(4));
   assert.deepEqual(sizes(d), [1, 1, 1, 1]);
   assert.equal(new Set(d.groups.map((g) => g.id)).size, 4);
   for (const g of d.groups) assert.match(g.id, /^[a-z0-9-]{1,40}$/);
 });
 
 test("grouping puts the chosen slides together where the first one is", () => {
-  let d = replaceSlides(emptyDraft(), pics(5));
+  let d = replaceSlides(partsDraft(), pics(5));
   const [a, b, c, e, f] = order(d);
   const ids = d.groups.map((g) => g.id);
   d = groupSlides(d, [e, b], new Set([ids[3]]));
@@ -26,7 +56,7 @@ test("grouping puts the chosen slides together where the first one is", () => {
 });
 
 test("grouping part of a group leaves the rest with its id", () => {
-  let d = replaceSlides(emptyDraft(), pics(4));
+  let d = replaceSlides(partsDraft(), pics(4));
   const [a, b, c, e] = order(d);
   d = groupSlides(d, [a, b, c]);
   const g = d.groups[0].id;
@@ -37,7 +67,7 @@ test("grouping part of a group leaves the rest with its id", () => {
 });
 
 test("ungrouping splits the whole group back into single slides", () => {
-  let d = replaceSlides(emptyDraft(), pics(4));
+  let d = replaceSlides(partsDraft(), pics(4));
   const [a, b, c] = order(d);
   d = groupSlides(d, [a, b, c]);
   const g = d.groups[0].id;
@@ -48,7 +78,7 @@ test("ungrouping splits the whole group back into single slides", () => {
 });
 
 test("a moved slide stays in its group, joins the group it lands in, or stands alone", () => {
-  let d = replaceSlides(emptyDraft(), pics(5));
+  let d = replaceSlides(partsDraft(), pics(5));
   const [a, b, c, e, f] = order(d);
   d = groupSlides(d, [b, c, e]);
   const lone = d.groups[2].id;
@@ -64,7 +94,7 @@ test("a moved slide stays in its group, joins the group it lands in, or stands a
 });
 
 test("removing slides keeps scripts and drops empty groups", () => {
-  let d = replaceSlides(emptyDraft(), pics(4));
+  let d = replaceSlides(partsDraft(), pics(4));
   const ids = order(d);
   d = groupSlides({ ...d, script: { [ids[1]]: "hello" } }, ids.slice(0, 3));
   d = removeSlide(d, ids[3]);
@@ -75,7 +105,7 @@ test("removing slides keeps scripts and drops empty groups", () => {
 });
 
 test("a replaced file keeps scripts and group ids by position", () => {
-  let d = replaceSlides(emptyDraft(), pics(3));
+  let d = replaceSlides(partsDraft(), pics(3));
   const first = order(d)[0];
   const id = d.groups[0].id;
   d = { ...d, script: { [first]: "intro" } };
@@ -86,13 +116,13 @@ test("a replaced file keeps scripts and group ids by position", () => {
 });
 
 test("a replaced file with the same count keeps the groups", () => {
-  let d = replaceSlides(emptyDraft(), pics(3));
+  let d = replaceSlides(partsDraft(), pics(3));
   d = groupSlides(d, order(d).slice(0, 2));
   assert.deepEqual(sizes(replaceSlides(d, pics(3))), [2, 1]);
 });
 
 test("a stored deck round-trips with its ids", () => {
-  const d0 = replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana", " ", "Bo"] }, pics(4));
+  const d0 = replaceSlides({ ...partsDraft(), title: "T", team: ["Ana", " ", "Bo"] }, pics(4));
   const deck = toDeck(groupSlides(d0, order(d0).slice(1, 3)));
   assert.deepEqual(deck.team, ["Ana", "Bo"]);
   assert.ok(deck.groups.every((g) => g.speaker === 0 && g.script.length === g.slides.length));
@@ -102,18 +132,18 @@ test("a stored deck round-trips with its ids", () => {
 });
 
 test("a deck keeps its length limit, a number or none, and has none set until one is picked", () => {
-  const base = toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(1)));
+  const base = toDeck(replaceSlides({ ...partsDraft(), title: "T", team: ["Ana"] }, pics(1)));
   assert.equal("limitMs" in base, false);
   for (const limitMs of [90_000, null]) assert.equal(toDeck(fromDeck({ ...base, limitMs })).limitMs, limitMs);
 });
 
 test("editing a deck keeps where the room put the camera", () => {
-  const deck = { ...toDeck(replaceSlides({ ...emptyDraft(), title: "T", team: ["Ana"] }, pics(2))), camera: { x: 48, y: 48, w: 300, h: 300 } };
+  const deck = { ...toDeck(replaceSlides({ ...partsDraft(), title: "T", team: ["Ana"] }, pics(2))), camera: { x: 48, y: 48, w: 300, h: 300 } };
   assert.deepEqual(toDeck(fromDeck(deck)).camera, deck.camera);
 });
 
 test("a group keeps its id, and so its take, only while its recorded slides still open it", () => {
-  let before = replaceSlides(emptyDraft(), pics(4));
+  let before = replaceSlides(partsDraft(), pics(4));
   const [a, b, c, e] = order(before);
   before = groupSlides(before, [a, b]);
   const ids = before.groups.map((g) => g.id);

@@ -1,5 +1,6 @@
 // Lemo contract shared by setup (upload, groups, transcript), the room (recording) and the stage (painting,
-// export). The deck lives on the server with its room (RoomState.deck), so everyone in the room sees the same one. Slides are painted on a 1920×1080 canvas as stills: the only motion is the
+// export). The deck lives on the server with its room (RoomState.deck), so everyone sees the same one. Slides use
+// the source document's frame: the only motion is the
 // transition between slides, the app clips, the presenter's camera and the logo cards.
 
 /** Script markup: one script segment per slide. The transcript shows a blue arrow between
@@ -14,11 +15,14 @@ export interface Group {
   slides: Slide[];
   /** script[i] is what the presenter says while slides[i] is on screen. Same length as slides; "" when unscripted. */
   script: string[];
-  /** Recording length in seconds, when set; otherwise timing.ts derives it from the script. */
+  /** Explicit duration metadata on older decks; never estimated from the script. */
   seconds?: number;
 }
 
 export interface Deck {
+  /** Missing on older decks, which keep their landscape frame and group-by-group recording. */
+  format?: { width: number; height: number };
+  recording?: "continuous" | "groups";
   /** The project's name: the intro and outro cards show it. */
   title: string;
   team: string[];
@@ -27,7 +31,7 @@ export interface Deck {
   groups: Group[];
   /** Where the camera tile sat for takes recorded before each take carried its own spot. */
   camera?: Rect;
-  /** The longest the video should be, in ms: unset is VIDEO_LIMIT_MS, null is no limit. Setup warns past it. */
+  /** Optional user-entered take limit in ms. Missing or null means record until Stop. */
   limitMs?: number | null;
 }
 
@@ -39,7 +43,7 @@ export interface Rect { x: number; y: number; w: number; h: number }
 export interface Mark { rect: Rect; tone?: Tone; label?: string; strike?: boolean }
 
 export type Slide =
-  /** An uploaded slide (a PDF or PowerPoint page rendered to a 1920×1080 image), painted full-frame. */
+  /** An uploaded PDF or PowerPoint page, rendered inside the document's frame without cropping. */
   | { kind: "page"; id: string; src: string }
   /** One idea, huge, centred. `text` may use \n. `sub` is a small grey line under it. */
   | { kind: "statement"; id: string; text: string; sub?: string; accent?: string }
@@ -115,7 +119,7 @@ export interface RoomState {
 
 /** A take in progress. `at` is the presenter's clock when they sampled it, so it only orders samples.
  *  The server moves `remainingMs` on to the moment it replies. */
-export interface LiveState { presenterId: string; groupId: string; slide: number; spot?: Spot; recording: boolean; remainingMs: number; targetMs: number; at: number }
+export interface LiveState { presenterId: string; groupId: string; slide: number; spot?: Spot; recording: boolean; remainingMs: number; targetMs: number; elapsedMs?: number; at: number }
 
 /** A LiveState as this device heard it: `remainingMs` held at `seen`, this device's clock. */
 export interface HeardLive extends LiveState { seen: number }
@@ -129,7 +133,5 @@ export function newerLive(a: HeardLive | null, b: HeardLive | null): HeardLive |
 /** Ms left on a heard take, now. */
 export const liveLeft = (live: HeardLive, now = Date.now()) => Math.max(0, live.remainingMs - (now - live.seen));
 
-/** Spoken pace for every timing in the studio. */
-export const WORDS_PER_MINUTE = 120;
-export const VIDEO_LIMIT_MS = 5 * 60_000;
-export const limitOf = (deck: Pick<Deck, "limitMs">) => (deck.limitMs === undefined ? VIDEO_LIMIT_MS : deck.limitMs);
+export const liveElapsed = (live: HeardLive, now = Date.now()) => (live.elapsedMs ?? Math.max(0, live.targetMs - live.remainingMs)) + Math.max(0, now - live.seen);
+export const limitOf = (deck: Pick<Deck, "limitMs">) => deck.limitMs ?? null;

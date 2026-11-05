@@ -1,8 +1,9 @@
 // PowerPoint slides to images in the browser: @aiden0z/pptx-renderer lays each slide out as HTML/SVG at its own size,
-// modern-screenshot rasterises that DOM, and the result is drawn onto a 1920×1080 canvas. Hidden slides are left out.
+// modern-screenshot rasterises that DOM at its native ratio. Hidden slides are left out.
 import { buildPresentation, parseZip, RECOMMENDED_ZIP_LIMITS, renderSlide } from "@aiden0z/pptx-renderer";
 import { domToCanvas } from "modern-screenshot";
-import { isWide, ratioError, SlideFileError, slideCanvas, SLIDE_H, SLIDE_W, toJpeg, type Rendering } from "./importSlides";
+import { documentFormat, SlideFileError, slideCanvas, toJpeg, type Rendering } from "./importSlides";
+import { frameSize } from "../studio/format";
 
 /** Charts draw with a short entrance animation; capture after it ends. */
 const CHART_SETTLE_MS = 1200;
@@ -26,14 +27,16 @@ export async function renderPptx(data: ArrayBuffer, r: Rendering): Promise<void>
   }
   const size = slideSize(files.presentation);
   if (!size) throw new SlideFileError("This PowerPoint can't be read");
-  if (!isWide(size.cx, size.cy)) throw ratioError(size.cx, size.cy);
+  const format = documentFormat(size.cx, size.cy);
+  const output = frameSize({ format });
+  r.onFormat(format);
 
   const pres = buildPresentation(files);
   const slides = pres.slides.filter((s) => !s.hidden);
   if (!slides.length) throw new SlideFileError("This PowerPoint has no slides");
   r.onCount(slides.length);
 
-  // Laid out off screen at the deck's own size; the screenshot scales it to 1920 wide.
+  // Laid out off screen at the deck's own size; the screenshot scales to the bounded video frame.
   const stage = document.createElement("div");
   stage.setAttribute("aria-hidden", "true");
   stage.style.cssText = `position:fixed;left:-100000px;top:0;width:${pres.width}px;height:${pres.height}px;overflow:hidden;pointer-events:none`;
@@ -54,11 +57,11 @@ export async function renderPptx(data: ArrayBuffer, r: Rendering): Promise<void>
           width: pres.width,
           height: pres.height,
           // No backgroundColor: it would paint over the slide's own background on the root element.
-          scale: SLIDE_W / pres.width,
+          scale: Math.min(output.width / pres.width, output.height / pres.height),
         });
-        const [canvas, ctx] = slideCanvas();
+        const [canvas, ctx] = slideCanvas(format);
         ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(shot, 0, 0, SLIDE_W, SLIDE_H);
+        ctx.drawImage(shot, (output.width - shot.width) / 2, (output.height - shot.height) / 2);
         r.onSlide(i, await toJpeg(canvas));
       } finally {
         handle.dispose();

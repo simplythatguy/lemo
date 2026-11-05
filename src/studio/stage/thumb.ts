@@ -4,11 +4,10 @@ import type { Deck, Slide } from "../types";
 import { clipUrl, loadFonts, loadImage } from "./assets";
 import { C } from "./draw";
 import { hasTitle, paintSlide, paintTitle } from "./slides";
-import { STAGE_H, STAGE_W } from "./stage";
+import { frameSize, thumbSize } from "../format";
 
 /** Cached thumbnails are this wide: 2× a 128 px filmstrip tile. */
 const THUMB_W = 256;
-const THUMB_H = (THUMB_W * STAGE_H) / STAGE_W;
 /** A clip that has not shown a frame by then is painted as its empty frame. */
 const CLIP_WAIT_MS = 4000;
 
@@ -41,12 +40,13 @@ function firstFrame(slide: Extract<Slide, { kind: "clip" }>): Promise<HTMLVideoE
 }
 
 async function paintThumb(deck: Deck, slide: Slide | undefined): Promise<HTMLCanvasElement> {
+  const { width, height } = frameSize(deck);
   const full = document.createElement("canvas");
-  full.width = STAGE_W;
-  full.height = STAGE_H;
+  full.width = width;
+  full.height = height;
   const ctx = full.getContext("2d", { alpha: false })!;
   ctx.fillStyle = C.white;
-  ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+  ctx.fillRect(0, 0, width, height);
   if (slide) {
     await loadFonts();
     if (slide.kind === "page" || slide.kind === "image") await loadImage(slide.src).catch(() => undefined);
@@ -58,17 +58,18 @@ async function paintThumb(deck: Deck, slide: Slide | undefined): Promise<HTMLCan
     if (video) video.removeAttribute("src");
   }
   const small = document.createElement("canvas");
-  small.width = THUMB_W;
-  small.height = THUMB_H;
+  const thumb = thumbSize(deck, THUMB_W);
+  small.width = thumb.width;
+  small.height = thumb.height;
   const s = small.getContext("2d", { alpha: false })!;
   s.imageSmoothingQuality = "high";
-  s.drawImage(full, 0, 0, THUMB_W, THUMB_H);
+  s.drawImage(full, 0, 0, small.width, small.height);
   return small;
 }
 
 export function thumbnail(deck: Deck, group: number, index: number): Promise<HTMLCanvasElement> {
   const slide = deck.groups[group]?.slides[index];
-  const key = slide?.kind === "logo" ? JSON.stringify([slide, deck.title, deck.logo]) : JSON.stringify(slide ?? null);
+  const key = JSON.stringify([slide, deck.format, slide?.kind === "logo" ? [deck.title, deck.logo] : null]);
   let p = cache.get(key);
   if (!p) {
     p = paintThumb(deck, slide);

@@ -1,7 +1,7 @@
-// PDF pages to slides with pdf.js. Every page must be 16:9 before any is drawn.
+// PDF pages to slides with pdf.js. The first page sets the video frame; other page sizes fit inside it.
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { ratioError, SlideFileError, isWide, slideCanvas, SLIDE_H, SLIDE_W, toJpeg, type Rendering } from "./importSlides";
+import { documentFormat, SlideFileError, slideCanvas, toJpeg, type Rendering } from "./importSlides";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -20,18 +20,18 @@ export async function renderPdf(data: ArrayBuffer, r: Rendering): Promise<void> 
     const pages = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
-      const { width, height } = page.getViewport({ scale: 1 });
-      if (!isWide(width, height)) throw ratioError(width, height, pdf.numPages > 1 ? i : undefined);
       pages.push(page);
     }
+    const first = pages[0].getViewport({ scale: 1 });
+    const format = documentFormat(first.width, first.height);
+    r.onFormat(format);
     r.onCount(pages.length);
     for (const [i, page] of pages.entries()) {
       if (r.signal.aborted) return;
       const base = page.getViewport({ scale: 1 });
-      const viewport = page.getViewport({ scale: SLIDE_W / base.width });
-      const [canvas] = slideCanvas();
-      // Pages within 1% of 16:9 are stretched the last few pixels to fill 1080 exactly.
-      await page.render({ canvas, viewport, transform: [1, 0, 0, SLIDE_H / viewport.height, 0, 0], background: "#ffffff" }).promise;
+      const [canvas] = slideCanvas(format);
+      const viewport = page.getViewport({ scale: Math.min(canvas.width / base.width, canvas.height / base.height) });
+      await page.render({ canvas, viewport, transform: [1, 0, 0, 1, (canvas.width - viewport.width) / 2, (canvas.height - viewport.height) / 2], background: "#ffffff" }).promise;
       r.onSlide(i, await toJpeg(canvas));
       page.cleanup();
     }

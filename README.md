@@ -2,10 +2,10 @@
 
 Record a team demo video without anyone starting over.
 
-1. **Upload your slides.** Drop in a PDF or a PowerPoint. Slides must be 16:9.
-2. **Group and write the script.** Every slide is its own group. To record slides together, select them and choose **Group**. Drag slides to change their order, then type what's said on each slide.
-3. **Record your part.** Everyone opens the room link and turns on their camera. Each group is assigned to one person, who records it with only their own camera and mic. The others see the slide and the transcript live. Groups can be recorded in any order and retaken. Click your camera (or press C) to move it to a corner or the centre, wide or upright, small, medium, or large, also while recording. Each place remembers its last shape and size, on your own device. The arrow keys walk through every slide. Right-click a slide in the strip to split its group there, hover between two groups to join them, and hide a group you don't need from its menu (only on your device).
-4. **Make the video.** Lemo joins the groups into one 1080p video. It starts with your logo, project name and team, and ends with a logo card.
+1. **Upload your slides.** Drop in a PDF or PowerPoint. The video keeps the document's aspect ratio, including portrait pages. For PDFs with mixed page sizes, the first page sets the video frame and the other pages fit inside it without cropping.
+2. **Choose how to record.** **One take** records the whole deck continuously as you change pages. Choose **In parts** to record and retake separate slide groups. Drag slides to reorder them and optionally write what you'll say on each page. In Project, leave **Time limit (minutes)** blank to record until Stop, or enter your own limit. Scripts never set the recording length.
+3. **Record.** Everyone opens the room link and turns on their camera. One presenter records a take with their own camera and mic; the others see the slides and transcript live. Click your camera (or press C) to move it to a corner or the centre, wide or upright, small, medium, or large, also while recording. Each place remembers its last shape and size on your device. The arrow keys walk through the pages without interrupting the take. In parts mode, right-click a slide in the strip to split its group there, hover between groups to join them, or hide a group from its menu (only on your device).
+4. **Make the video.** Download a video with the slides, camera moves and sound from your take. Continuous takes have no added title cards. In parts mode, Lemo joins the groups and adds intro and outro cards. The output's longest edge is at most 1920 pixels; older decks keep their 1920×1080 frame.
 
 Keys while recording: `R` to record, `→` / `←` to change slides, `Enter` to stop, `Esc` to cancel.
 

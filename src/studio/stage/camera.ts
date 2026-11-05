@@ -1,7 +1,8 @@
-// Where the presenter's camera tile sits on the 1920×1080 stage: one of five places (four corners and the centre),
+// Where the presenter's camera tile sits: one of five places (four corners and the centre),
 // wide or upright, at one of three sizes. A corner's tile hugs its corner; the centre's is centred.
 
 import type { CameraShape, CameraSize, Cue, Deck, Place, Rect, Spot } from "../types";
+import { frameSize } from "../format.ts";
 
 const W = 1920, H = 1080;
 const INSET = 48;
@@ -28,15 +29,19 @@ export function spotParts(spot: Spot): { place: Place; shape: CameraShape; size:
   return { place, shape, size };
 }
 
-export function spotBox(spot: Spot): CameraBox {
+export function spotBox(spot: Spot, deck: Pick<Deck, "format"> = {}): CameraBox {
   const { place, shape, size } = spotParts(spot);
-  return shapeBox(place, shape, HEIGHT[size]);
+  const f = frameSize(deck);
+  return shapeBox(place, shape, HEIGHT[size] * Math.min(f.width / W, f.height / H), deck);
 }
 
-export function shapeBox(place: Place, shape: CameraShape, h: number): CameraBox {
+export function shapeBox(place: Place, shape: CameraShape, h: number, deck: Pick<Deck, "format"> = {}): CameraBox {
+  const f = frameSize(deck);
+  const scale = Math.min(f.width / W, f.height / H);
+  const inset = INSET * scale, r = RADIUS * scale;
   const w = shape === "h" ? (h * 16) / 9 : Math.round((h * 4) / 5);
-  if (place === "c") return { x: (W - w) / 2, y: (H - h) / 2, w, h, r: RADIUS, place };
-  return { x: place[1] === "l" ? INSET : W - INSET - w, y: place[0] === "t" ? INSET : H - INSET - h, w, h, r: RADIUS, place };
+  if (place === "c") return { x: (f.width - w) / 2, y: (f.height - h) / 2, w, h, r, place };
+  return { x: place[1] === "l" ? inset : f.width - inset - w, y: place[0] === "t" ? inset : f.height - inset - h, w, h, r, place };
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
@@ -44,14 +49,17 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), h
 /** Where takes recorded before spots existed put the camera: the deck's one placement, else the corner tile they had. */
 const OLD_CORNER: Rect = { x: W - INSET - 344, y: H - INSET - 430, w: 344, h: 430 };
 
-export function deckBox(deck: Pick<Deck, "camera">): CameraBox {
+export function deckBox(deck: Pick<Deck, "camera" | "format">): CameraBox {
+  const f = frameSize(deck);
+  const scale = Math.min(f.width / W, f.height / H);
+  if (!deck.camera && deck.format) return spotBox(DEFAULT_SPOT, deck);
   const r = deck.camera && [deck.camera.x, deck.camera.y, deck.camera.w, deck.camera.h].every(Number.isFinite) ? deck.camera : OLD_CORNER;
-  const w = clamp(r.w, MIN, W), h = clamp(r.h, MIN, H);
-  return { x: clamp(r.x, 0, W - w), y: clamp(r.y, 0, H - h), w, h, r: Math.min(RADIUS, Math.min(w, h) / 4) };
+  const w = clamp(r.w * scale, MIN * scale, f.width), h = clamp(r.h * scale, MIN * scale, f.height);
+  return { x: clamp(r.x * scale + (f.width - W * scale) / 2, 0, f.width - w), y: clamp(r.y * scale + (f.height - H * scale) / 2, 0, f.height - h), w, h, r: Math.min(RADIUS * scale, Math.min(w, h) / 4) };
 }
 
 /** Where a take's camera sits `ms` into it: its latest spot by then, or the deck's placement for a take without spots. */
-export function boxAt(cues: Cue[], ms: number, deck: Pick<Deck, "camera">): CameraBox {
+export function boxAt(cues: Cue[], ms: number, deck: Pick<Deck, "camera" | "format">): CameraBox {
   let spot: Spot | undefined;
   let at = -Infinity;
   for (const c of cues) {
@@ -60,7 +68,7 @@ export function boxAt(cues: Cue[], ms: number, deck: Pick<Deck, "camera">): Came
       at = c.atMs;
     }
   }
-  return spot ? spotBox(spot) : deckBox(deck);
+  return spot ? spotBox(spot, deck) : deckBox(deck);
 }
 
 export const sameBox = (a: CameraBox, b: CameraBox) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.r === b.r;

@@ -17,15 +17,16 @@ import { lostTakes, regroup, type Regroup } from "../setup/draft";
 import { CopyLink, editLink, firstName, initials, Menu, ProjectMark, roomLink, slug, StartButton, type Camera } from "./parts";
 import { startPlayback } from "./playback";
 import { usePeers } from "./peers";
-import { clock, targetMs } from "./timing";
-import { liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RecordedTake, type RoomState, type TakeInfo } from "./types";
+import { clock } from "./timing";
+import { limitOf, liveElapsed, liveLeft, newerLive, type Cue, type Deck, type Group, type HeardLive, type LiveState, type Person, type RecordedTake, type RoomState, type TakeInfo } from "./types";
 import { uploads, useRetainedTakes, useUploads } from "./uploads";
+import { frameRatio } from "./format";
 
 type Phase =
   | { k: "idle" }
   | { k: "countdown"; n: number }
-  /** `target` is the group's length when the take started: an edit elsewhere never moves a running clock. */
-  | { k: "recording"; startedAt: number; slide: number; target: number }
+  /** The optional manual limit when the take started; edits elsewhere never move a running clock. */
+  | { k: "recording"; startedAt: number; slide: number; target: number | null }
   | { k: "review"; media: RecordedTake };
 
 /** What the dock offers, from the take's phase, whose group this is, and this device's camera. With the camera off,
@@ -220,7 +221,7 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const away = busy(phase) || rendering;
 
   return (
-    <div className={`st-room${rendering ? " is-rendering" : ""}${busy(phase) ? " is-busy" : ""}`}>
+    <div className={`st-room${rendering ? " is-rendering" : ""}${busy(phase) ? " is-busy" : ""}`} style={{ "--stage-ratio": frameRatio(deck) } as React.CSSProperties}>
       <header className="st-top">
         <div className="st-where">
           {/* The project's own mark, as on its join screen and its video, and the way home. */}
@@ -427,7 +428,7 @@ function More({ code, locked, team, mutedAll, onMuteAll }: {
 /** The stage and the canvas it paints, which outlive the booth (it remounts for every group), so switching groups,
     or a followed take ending, never shows a blank frame. Painting stops while `on` is false (the render has its own). */
 function useStage(deck: Deck, on: boolean) {
-  const [canvas] = useState(() => Object.assign(document.createElement("canvas"), { width: 1920, height: 1080 }));
+  const [canvas] = useState(() => document.createElement("canvas"));
   const [stage, setStage] = useState<Stage | null>(null);
   // Rebuilt only when what it paints changes: a transcript edit leaves the stage (and the take on it) alone.
   const key = stageKey(deck);
@@ -509,9 +510,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
 }) {
   const group = deck.groups[index];
   const script = useScriptDraft(room.code, group, apply);
-  // The planned length follows the words as they are typed; a running take keeps the length it started with.
-  const planned = targetMs({ ...group, script: script.draft });
-  const target = phase.k === "recording" ? phase.target : planned;
+  // A running take keeps the optional manual limit it started with.
+  const target = phase.k === "recording" ? phase.target : limitOf(deck);
   const last = group.slides.length - 1;
   const [replaySlide, setReplaySlide] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -578,7 +578,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   const camPlaced = useRef(false);
   useEffect(() => {
     if (!stage || phase.k === "review") return;
-    stage.placeCamera(following ? (theirSpot ? spotBox(theirSpot) : deckBox(deck)) : spotBox(mySpot), { instant: !camPlaced.current });
+    stage.placeCamera(following ? (theirSpot ? spotBox(theirSpot, deck) : deckBox(deck)) : spotBox(mySpot, deck), { instant: !camPlaced.current });
     camPlaced.current = true;
   }, [stage, phase.k, following, theirSpot, mySpot, deck]);
   // A move mid-take is part of the take: the video glides there at the same moment.
@@ -601,7 +601,8 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     if (!r || p.k !== "recording") return;
     rec.current = null;
     clearTimers();
-    const durationMs = auto ? p.target : Math.min(p.target, Math.round(performance.now() - r.startedAt));
+    const ms = Math.round(performance.now() - r.startedAt);
+    const durationMs = p.target === null ? ms : auto ? p.target : Math.min(p.target, ms);
     const { blob, mime } = await r.stop();
     setPhase({ k: "review", media: { blob, mime, cues: cues.current, durationMs, slides: recordedSlides.current } });
   }, [setPhase]);
@@ -610,7 +611,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     if (!mine || following || !camera.on || !recordingReady(camera.stream) || !stage || last < 0 || (phaseRef.current.k !== "idle" && phaseRef.current.k !== "review")) return;
     const token = ++attempt.current;
     recordedSlides.current = group.slides.map((s) => s.id);
-    const length = planned;
+    const length = limitOf(deck);
     (document.activeElement as HTMLElement | null)?.blur?.();
     stage.setCamera(camera.live, initials(me.name));
     stage.show(index, 0, { instant: true });
@@ -628,11 +629,10 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
           cues.current = [{ slide: 0, atMs: 0, spot: spotRef.current }];
           stage.show(index, 0, { instant: true });
           setPhase({ k: "recording", startedAt: r.startedAt, slide: 0, target: length });
-          timers.current.push(window.setTimeout(() => void finish(true), length - (performance.now() - r.startedAt)));
         }, () => setPhase({ k: "idle" }));
       }, 3000),
     );
-  }, [camera.live, camera.on, camera.stream, finish, following, group.slides, index, last, me.name, mine, planned, setPhase, stage]);
+  }, [camera.live, camera.on, camera.stream, deck.limitMs, following, group.slides, index, last, me.name, mine, setPhase, stage]);
 
   const cancel = useCallback(() => {
     attempt.current++;
@@ -677,13 +677,14 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     const tick = () => {
       const ms = performance.now() - phase.startedAt;
       setElapsed(ms);
+      if (phase.target !== null && ms >= phase.target) { void finish(true); return; }
       sent.current = true;
-      send.current({ presenterId: me.id, groupId: group.id, slide: phase.slide, spot: spotRef.current, recording: true, remainingMs: Math.max(0, Math.round(target - ms)), targetMs: target, at: Date.now() });
+      send.current({ presenterId: me.id, groupId: group.id, slide: phase.slide, spot: spotRef.current, recording: true, remainingMs: phase.target === null ? 0 : Math.max(0, Math.round(phase.target - ms)), targetMs: phase.target ?? 0, elapsedMs: Math.round(ms), at: Date.now() });
     };
     tick();
     const t = window.setInterval(tick, 250);
     return () => window.clearInterval(t);
-  }, [phase, group.id, me.id, target]);
+  }, [phase, group.id, me.id, finish]);
 
   // Review: the take is the camera and its cues drive the slides.
   const media = phase.k === "review" ? phase.media : null;
@@ -818,7 +819,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   const onStage = current ?? preview;
   useEffect(() => onShown(onStage), [onStage, onShown]);
 
-  // The left column's clock: my take, the teammate's take, or the group's planned length.
+  // The clock shows elapsed recording time, or counts down from an explicit manual limit.
   // A followed take's samples can be a second apart, so the clock ticks on its own in between.
   const [, tickFollow] = useState(0);
   useEffect(() => {
@@ -827,10 +828,11 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     return () => window.clearInterval(t);
   }, [following]);
   const followLeft = follow ? liveLeft(follow) : 0;
-  const left = phase.k === "recording" ? Math.max(0, target - elapsed) : follow ? followLeft : target;
-  const span = follow ? follow.targetMs || target : target;
+  const unlimited = follow ? follow.targetMs === 0 : target === null;
+  const left = phase.k === "recording" ? Math.max(0, (target ?? 0) - elapsed) : follow ? followLeft : target ?? 0;
+  const span = follow ? follow.targetMs : target ?? 0;
   const live = phase.k === "recording" || !!follow;
-  const fill = phase.k === "review" ? elapsed / phase.media.durationMs : live ? 1 - left / span : 0;
+  const fill = phase.k === "review" ? elapsed / phase.media.durationMs : live && span ? 1 - left / span : 0;
 
   // The transcript can be edited only while nothing is being recorded here or followed from a teammate.
   const canEdit = phase.k === "idle" && !follow;
@@ -869,25 +871,27 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       </button>
     </div>
   );
-  // A recorded group shows its take's length; one still to record, its planned length. The check waits until the
+  // A recorded group shows its take's length; one still to record shows its optional limit. The check waits until the
   // room has the take, as the strip's Saving… does.
   const taken = phase.k === "idle" && !follow && recordedMs !== null;
+  const runningMs = follow ? liveElapsed(follow) : elapsed;
+  const clockMs = taken ? recordedMs : unlimited ? live ? runningMs : 0 : left;
   const done = taken && !arriving;
   const sending = taken && arriving;
   const label = dock === "camera-error" ? camera.error
     : dock === "review" && keepFailed ? "Not saved"
     : dock === "review" ? null
-    : live ? "left"
+    : live ? unlimited ? "recording" : "left"
     : sending ? "saving…"
     : done ? "recorded"
-    : "planned";
+    : unlimited ? "No limit" : "limit";
   const alert = dock === "camera-error" || (dock === "review" && keepFailed);
 
   const dockEl = (
     <div className={`st-dock is-${dock}`} role="group" aria-label="Recording">
       <div className="st-dock-time">
         <span className={`st-clock${live ? " is-live" : ""}`} aria-live="off">
-          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(taken ? recordedMs : left)}
+          {phase.k === "review" ? <>{clock(elapsed)}<small>/ {clock(phase.media.durationMs)}</small></> : clock(clockMs)}
         </span>
         {label && (
           <span className={alert ? "st-error" : `st-clock-label${done ? " is-done" : sending ? " is-saving" : ""}`} role={alert ? "alert" : undefined}>
@@ -909,9 +913,9 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
           )}
         </div>
       ) : dock !== "countdown" && dock !== "watching" && nav}
-      <div className={`st-track${phase.k === "review" ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
+      {(!unlimited || phase.k === "review") && <div className={`st-track${phase.k === "review" ? " is-review" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, fill) * 100)}>
         <span style={{ transform: `scaleX(${Math.min(1, Math.max(0, fill))})` }} />
-      </div>
+      </div>}
       <div className="st-dock-acts">
         {makeInDock && (
           <button
@@ -987,7 +991,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
       <div className="st-desk">
         <div className="st-stage-cell">
           <StageCanvas canvas={canvas}>
-            {canMove && <CameraSpots open={spotsOpen} onOpen={setSpotsOpen} />}
+            {canMove && <CameraSpots format={deck.format} open={spotsOpen} onOpen={setSpotsOpen} />}
             {phase.k === "countdown" && <div className="st-count" aria-live="assertive"><span key={phase.n}>{phase.n}</span></div>}
             {refused && <StartButton onStart={again} />}
           </StageCanvas>

@@ -2,24 +2,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { ProjectMark } from "../studio/parts";
-import { clock } from "../studio/timing";
-import { limitOf } from "../studio/types";
-import { removeMember, type Draft, type Pic } from "./draft";
+import { limitInvalid, removeMember, type Draft, type Pic } from "./draft";
 import { squareLogo } from "./logo";
 
 /** The logo's side, in px: the height of the project's label and name beside it. */
 const LOGO = 76;
-/** Length limits to pick from, in seconds; hackathons and demo days mostly ask for one of these. */
-const LIMITS = [60, 90, 120, 180, 240, 300, 420, 600, 900];
-
 export function Project({ draft, setDraft, show, makeUrl }: {
   draft: Draft;
   setDraft(update: (d: Draft) => Draft): void;
   /** Problems to show, after a Next that could not go on. */
-  show: { title: boolean; team: boolean };
+  show: { title: boolean; team: boolean; limit: boolean };
   makeUrl(blob: Blob): string;
 }) {
   const logoInput = useRef<HTMLInputElement>(null);
+  const limitInput = useRef<HTMLInputElement>(null);
+  const [limitText, setLimitText] = useState(() => draft.limitMs == null ? "" : String(draft.limitMs / 60_000));
   const [logoError, setLogoError] = useState<string | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const names = useRef<(HTMLInputElement | null)[]>([]);
@@ -34,6 +31,7 @@ export function Project({ draft, setDraft, show, makeUrl }: {
   useEffect(() => {
     if (show.title) titleRef.current?.focus();
     else if (show.team) names.current[0]?.focus();
+    else if (show.limit) limitInput.current?.focus();
   }, [show]);
 
   const named = !!draft.title.trim();
@@ -154,19 +152,23 @@ export function Project({ draft, setDraft, show, makeUrl }: {
       </fieldset>
 
       <label className="su-field">
-        <span>Length limit</span>
-        <select
-          value={String(limitOf(draft) ?? "none")}
+        <span>Time limit (minutes)</span>
+        <input
+          ref={limitInput}
+          inputMode="decimal"
+          aria-label="Time limit in minutes"
+          aria-invalid={show.limit && limitInvalid(draft)}
+          aria-describedby={show.limit && limitInvalid(draft) ? "su-limit-error" : undefined}
+          placeholder="No limit"
+          value={limitText}
           onChange={(e) => {
             const v = e.currentTarget.value;
-            setDraft((d) => ({ ...d, limitMs: v === "none" ? null : Number(v) }));
+            setLimitText(v);
+            const ms = Math.round(Number(v) * 60_000);
+            setDraft((d) => ({ ...d, limitMs: !v.trim() ? null : Number.isSafeInteger(ms) && ms >= 1000 ? ms : 0 }));
           }}
-        >
-          {LIMITS.map((s) => (
-            <option key={s} value={s * 1000}>{clock(s * 1000)}</option>
-          ))}
-          <option value="none">No limit</option>
-        </select>
+        />
+        {show.limit && limitInvalid(draft) && <em id="su-limit-error" className="su-error" role="alert">Enter at least one second, or leave blank</em>}
       </label>
     </div>
   );

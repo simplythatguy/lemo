@@ -325,7 +325,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  width: min(1120px, 100%, calc((100dvh - 64px - 112px) * 16 / 9));
+  width: min(1120px, 100%, calc((100dvh - 64px - 112px) * var(--stage-ratio, 1.777777778)));
   padding: var(--space-8);
   border-radius: var(--radius-sheet);
   background: var(--surface);
@@ -384,6 +384,6 @@
     padding: var(--space-8);
   }
   .st-play-box {
-    width: min(100%, calc((100dvh - 16px - 112px) * 16 / 9));
+    width: min(100%, calc((100dvh - 16px - 112px) * var(--stage-ratio, 1.777777778)));
   }
 }

@@ -1,4 +1,4 @@
-// Real-time render of the finished video: intro card, each recorded group, outro card.
+// Real-time render of the recorded takes, with title cards for presentations recorded in parts.
 // The take's own <video> drives the timeline, so slide changes land on the words they were cued to.
 
 import { INTRO_MS, OUTRO_MS } from "../timing";
@@ -32,8 +32,9 @@ export async function exportVideo(opts: {
   monitor?: boolean;
 }): Promise<{ blob: Blob; mime: string }> {
   const { deck, takes, onProgress, signal } = opts;
-  const intro = opts.cards === false ? 0 : INTRO_MS;
-  const outro = opts.cards === false ? 0 : OUTRO_MS;
+  const cards = opts.cards ?? (deck.recording !== "continuous");
+  const intro = cards ? INTRO_MS : 0;
+  const outro = cards ? OUTRO_MS : 0;
   if (signal?.aborted) throw aborted();
   const parts = deck.groups.flatMap((group, index) => (takes[group.id] ? [{ group, index, take: takes[group.id] }] : []));
   if (!parts.length) throw new Error("No recorded groups to export.");
@@ -102,6 +103,18 @@ export async function exportVideo(opts: {
     });
     cleanup.push(() => stage.destroy());
 
+    if (intro) stage.showCard("intro");
+    else {
+      const first = parts[0];
+      const cues = [...first.take.cues].sort((a, b) => a.atMs - b.atMs);
+      const initial = cues.filter((c) => c.atMs <= 0).at(-1);
+      stage.setCamera(videos[0]);
+      stage.show(first.index, initial?.slide ?? 0, { instant: true });
+      stage.placeCamera(boxAt(cues, 0, deck), { instant: true });
+    }
+    // Paint before captureStream creates its first frame, so a full take starts on the slide and camera.
+    await race(new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
     const mime = pickMime();
     const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
     cleanup.push(() => stream.getTracks().forEach((t) => t.stop()));
@@ -113,7 +126,6 @@ export async function exportVideo(opts: {
     const stopped = new Promise<void>((r) => (rec.onstop = () => r()));
     cleanup.push(() => rec.state !== "inactive" && rec.stop());
 
-    if (intro) stage.showCard("intro");
     rec.start(1000);
     await sleep(intro);
     doneMs += intro;

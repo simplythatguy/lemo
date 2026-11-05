@@ -143,7 +143,7 @@ a.hm-card:active .hm-cover {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   animation: hm-fade var(--dur-control) var(--ease);
 }
 

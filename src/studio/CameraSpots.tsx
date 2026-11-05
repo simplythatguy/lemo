@@ -1,26 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./cameraSpots.css";
-import { STAGE_H, STAGE_W } from "./stage";
+import { frameSize, type FrameSize } from "./format";
 import { GLIDE_MS, observeCameraFrame, PLACES, SHAPES, shapeBox, SIZES, spotBox, type CameraBox } from "./stage/camera";
 import { spotOf, toPlace, useSpotPref } from "./spot";
-import type { CameraShape, CameraSize, Place } from "./types";
+import type { CameraShape, CameraSize, Deck, Place } from "./types";
 
 const PLACE_NAME: Record<Place, string> = { tl: "Top left", tr: "Top right", c: "Centre", bl: "Bottom left", br: "Bottom right" };
 const SIZE_NAME: Record<CameraSize, string> = { s: "Small", m: "Medium", l: "Large" };
 const SHAPE_NAME: Record<CameraShape, string> = { h: "wide", v: "upright" };
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
-const place = (b: CameraBox): React.CSSProperties => ({
-  left: pct(b.x, STAGE_W),
-  top: pct(b.y, STAGE_H),
-  width: pct(b.w, STAGE_W),
-  height: pct(b.h, STAGE_H),
+const place = (b: CameraBox, frame: FrameSize): React.CSSProperties => ({
+  left: pct(b.x, frame.width),
+  top: pct(b.y, frame.height),
+  width: pct(b.w, frame.width),
+  height: pct(b.h, frame.height),
   borderRadius: `${pct(b.r, b.w)} / ${pct(b.r, b.h)}`,
 });
 
 /** The place an arrow key leads to from `from`: the nearest one that way, if any. */
-function neighbour(from: Place, key: string): Place | null {
-  const at = (p: Place) => spotBox(`${p}-h-l`);
+function neighbour(from: Place, key: string, format: Deck["format"]): Place | null {
+  const at = (p: Place) => spotBox(`${p}-h-l`, { format });
   const a = at(from);
   const [dx, dy] = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[key] ?? [0, 0];
   let best: Place | null = null;
@@ -49,14 +49,14 @@ function rowAt(p: Place, wide: CameraBox): { x: number; y: number; side: string 
 interface SizeTarget { size: CameraSize; rect: DOMRect }
 interface SizeGesture { p: Place; until: number; origin: SizeTarget[]; latest: SizeTarget[] }
 
-function Sizes({ p, wide, size, current, kept, onPick }: { p: Place; wide: CameraBox; size: CameraSize; current: boolean; kept: boolean; onPick(row: HTMLElement): void }) {
+function Sizes({ p, wide, size, current, kept, onPick, frame }: { p: Place; wide: CameraBox; size: CameraSize; current: boolean; kept: boolean; onPick(row: HTMLElement): void; frame: FrameSize }) {
   const at = rowAt(p, wide);
   const row = useRef<HTMLDivElement>(null);
   return (
     <div
       ref={row}
       className={`st-spot-size ${at.side}${kept ? " is-kept" : ""}${current ? " is-here" : ""}`}
-      style={{ left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) }}
+      style={{ left: pct(at.x, frame.width), top: pct(at.y, frame.height) }}
       role="radiogroup"
       aria-label={`${PLACE_NAME[p]} size`}
     >
@@ -81,13 +81,14 @@ function Sizes({ p, wide, size, current, kept, onPick }: { p: Place; wide: Camer
   );
 }
 
-export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: boolean): void }) {
+export function CameraSpots({ open, onOpen, format }: { open: boolean; onOpen(open: boolean): void; format?: Deck["format"] }) {
+  const frame = frameSize({ format });
   const pref = useSpotPref();
   // The place pointed at or focused last; a small stage keeps its sizes instead of the current place's.
   const [aim, setAim] = useState<Place | null>(null);
   if (!open && aim) setAim(null);
   useLayoutEffect(() => { setAim(null); }, [pref.place]);
-  const here = spotBox(spotOf(pref));
+  const here = spotBox(spotOf(pref), { format });
   const gesture = useRef<SizeGesture | null>(null);
   if (!open) gesture.current = null;
   const swallow = useRef(false);
@@ -123,22 +124,22 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
     const hole = layer.current?.querySelector<HTMLElement>(".st-spots-dim-hole");
     const groups = layer.current?.querySelectorAll<HTMLElement>(".st-spot-place");
     return observeCameraFrame(canvas, (box) => {
-      if (handle.current) Object.assign(handle.current.style, place(box));
-      if (hole) Object.assign(hole.style, place(box));
+      if (handle.current) Object.assign(handle.current.style, place(box, frame));
+      if (hole) Object.assign(hole.style, place(box, frame));
       groups?.forEach((group, i) => {
         const p = PLACES[i];
-        const h = box.place === p ? box.h : spotBox(`${p}-h-${pref.sizes[p]}`).h;
+        const h = box.place === p ? box.h : spotBox(`${p}-h-${pref.sizes[p]}`, { format }).h;
         for (const k of SHAPES) {
           const outline = group.querySelector<HTMLElement>(`.is-${k}`);
-          const b = box.place === p && pref.shapes[p] === k ? box : shapeBox(p, k, h);
-          if (outline) Object.assign(outline.style, place(b));
+          const b = box.place === p && pref.shapes[p] === k ? box : shapeBox(p, k, h, { format });
+          if (outline) Object.assign(outline.style, place(b, frame));
         }
         const row = group.querySelector<HTMLElement>(".st-spot-size");
-        const at = rowAt(p, shapeBox(p, "h", h));
-        if (row) Object.assign(row.style, { left: pct(at.x, STAGE_W), top: pct(at.y, STAGE_H) });
+        const at = rowAt(p, shapeBox(p, "h", h, { format }));
+        if (row) Object.assign(row.style, { left: pct(at.x, frame.width), top: pct(at.y, frame.height) });
       });
     });
-  }, [open, pref]);
+  }, [open, pref, format, frame.width, frame.height]);
 
   useEffect(() => { if (open) focusHere(); }, [open]);
 
@@ -170,7 +171,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
       if (k === "escape" || k === "enter" || k === "c") close();
       else if (k === "1" || k === "2" || k === "3") toPlace(now, { size: SIZES[Number(k) - 1] });
       else if (k.startsWith("arrow")) {
-        const next = neighbour(now, k);
+        const next = neighbour(now, k, format);
         if (next) toPlace(next);
         requestAnimationFrame(focusHere);
       } else return;
@@ -180,7 +181,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
     };
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
-  }, [open, onOpen, pref]);
+  }, [open, onOpen, pref, format]);
 
   return (
     <>
@@ -188,7 +189,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
         ref={handle}
         type="button"
         className="st-spots-handle"
-        style={place(here)}
+        style={place(here, frame)}
         onClick={() => onOpen(!open)}
         aria-expanded={open}
         aria-keyshortcuts="C"
@@ -210,7 +211,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
           }}
         >
           <div className="st-spots-dim" onPointerDown={() => onOpen(false)} />
-          <div className="st-spots-dim-hole" style={place(here)} />
+          <div className="st-spots-dim-hole" style={place(here, frame)} />
           {PLACES.map((p) => {
             const size = pref.sizes[p];
             return (
@@ -220,7 +221,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
                     key={k}
                     type="button"
                     className={`st-spot is-${k}`}
-                    style={place(spotBox(`${p}-${k}-${size}`))}
+                    style={place(spotBox(`${p}-${k}-${size}`, { format }), frame)}
                     aria-pressed={pref.place === p && pref.shapes[p] === k}
                     aria-label={`${PLACE_NAME[p]}, ${SHAPE_NAME[k]}`}
                     onClick={() => {
@@ -229,7 +230,7 @@ export function CameraSpots({ open, onOpen }: { open: boolean; onOpen(open: bool
                     }}
                   />
                 ))}
-                <Sizes p={p} wide={spotBox(`${p}-h-${size}`)} size={size} current={pref.place === p} kept={p === (aim ?? pref.place)} onPick={(row) => remember(p, row)} />
+                <Sizes p={p} wide={spotBox(`${p}-h-${size}`, { format })} size={size} current={pref.place === p} kept={p === (aim ?? pref.place)} onPick={(row) => remember(p, row)} frame={frame} />
               </div>
             );
           })}

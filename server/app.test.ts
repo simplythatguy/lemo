@@ -276,12 +276,36 @@ test("a take's cues and the live state carry where the presenter's camera sits",
   assert.equal(await status(call("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: liveBody(ana.id, { spot: "full" }) })), 400);
 });
 
-test("a deck's length limit is a whole number of ms from 1 s to an hour, or null for none", async (t) => {
+test("a deck's time limit is optional and manually chosen, without a default or an hour cap", async (t) => {
   const { ok, call, room } = await setup(t);
   const { code } = await room();
   const put = (limitMs: unknown) => call("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, limitMs } });
-  for (const limitMs of [90_000, null]) assert.equal((await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, limitMs } })).deck.limitMs, limitMs);
-  for (const limitMs of [0, 500, "5:00", 1.5e7]) assert.equal(await status(put(limitMs)), 400, String(limitMs));
+  for (const limitMs of [90_000, null, 1.5e7]) assert.equal((await ok("PUT", `/api/rooms/${code}/deck`, { json: { ...deck, limitMs } })).deck.limitMs, limitMs);
+  for (const limitMs of [0, 500, "5:00", 1.5, -1, Number.MAX_VALUE]) assert.equal(await status(put(limitMs)), 400, String(limitMs));
+});
+
+test("document format and one-take settings round-trip; invalid formats leave the deck intact", async (t) => {
+  const { ok, call, room } = await setup(t);
+  const { code } = await room();
+  const value = { ...deck, groups: [deck.groups[0]], recording: "continuous", format: { width: 612, height: 792 } };
+  assert.deepEqual((await ok("PUT", `/api/rooms/${code}/deck`, { json: value })).deck, value);
+  for (const format of [null, {}, { width: 0, height: 792 }, { width: -612, height: 792 }, { width: "612", height: 792 }, { width: 1, height: 10000 }]) {
+    assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: { ...value, format } })), 400);
+    assert.deepEqual((await ok("GET", `/api/rooms/${code}`)).deck, value);
+  }
+  assert.equal(await status(call("PUT", `/api/rooms/${code}/deck`, { json: { ...value, recording: "other" } })), 400);
+});
+
+test("an unlimited recording's elapsed clock follows server time", async (t) => {
+  const { ok, room, person, clock } = await setup(t);
+  const { code } = await room();
+  const ana = await person(code, "Ana");
+  const value = { presenterId: ana.id, groupId: "intro", slide: 0, recording: true, targetMs: 0, remainingMs: 0, elapsedMs: 8000, at: Date.now() };
+  await ok("PUT", `/api/rooms/${code}/live?person=${ana.id}`, { json: value });
+  clock(1500);
+  const { live } = await ok("GET", `/api/rooms/${code}`);
+  assert.equal(live.remainingMs, 0);
+  assert.ok(live.elapsedMs >= 9500 && live.elapsedMs < 10_000);
 });
 
 test("an expired room is gone", async (t) => {

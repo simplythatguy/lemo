@@ -46,7 +46,7 @@ export const LIVE_MS = 10_000;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 export interface Cue { slide: number; atMs: number; spot?: string }
 export interface Person { id: string; name: string }
-export interface LiveState { presenterId: string; groupId: string; slide: number; spot?: string; recording: boolean; remainingMs: number; targetMs: number; at: number }
+export interface LiveState { presenterId: string; groupId: string; slide: number; spot?: string; recording: boolean; remainingMs: number; targetMs: number; elapsedMs?: number; at: number }
 export interface TakeInfo {
   id: string; groupId: string; personId: string; durationMs: number; cues: Cue[];
   mime: string; size: number; chunks: number; received: number; createdAt: number;
@@ -233,6 +233,7 @@ export class Store {
     if (!row || age > LIVE_MS) return null;
     const live = JSON.parse(String(row.data)) as LiveState;
     live.remainingMs = Math.max(0, live.remainingMs - Math.max(0, age));
+    if (live.elapsedMs !== undefined) live.elapsedMs += Math.max(0, age);
     return live;
   }
 

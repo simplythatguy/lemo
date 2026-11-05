@@ -2,11 +2,12 @@
 // no longer has drops out.
 import { useEffect, useRef, useState } from "react";
 import { forgetRoom, knownRooms, RoomError, roomApi, validCode } from "../studio/room";
-import { clock, deckMs } from "../studio/timing";
+import { clock } from "../studio/timing";
 import type { Deck, RoomState, TakeInfo } from "../studio/types";
 import { Icon } from "../icons";
 import { navigate } from "../route";
 import { ProjectMark } from "../studio/parts";
+import { thumbSize } from "../studio/format";
 import "./home.css";
 
 type Row = { code: string } & ({ state: "loading" } | { state: "offline" } | { state: "ready"; room: RoomState });
@@ -97,7 +98,9 @@ function meta(room: RoomState): string {
   const deck = room.deck;
   const slides = deck ? deck.groups.reduce((n, g) => n + g.slides.length, 0) : 0;
   if (!deck || !slides) return "No slides yet";
-  const parts = [`${slides} ${slides === 1 ? "slide" : "slides"}`, clock(deckMs(deck))];
+  const duration = deck.groups.reduce((n, g) => n + (complete(room.takes[g.id]) ? room.takes[g.id].durationMs : 0), 0);
+  const parts = [`${slides} ${slides === 1 ? "slide" : "slides"}`];
+  if (duration) parts.push(`${clock(duration)} recorded`);
   const recorded = deck.groups.filter((g) => complete(room.takes[g.id])).length;
   if (recorded === deck.groups.length) parts.push("All recorded");
   else if (recorded) parts.push(`${recorded} of ${deck.groups.length} recorded`);
@@ -147,8 +150,9 @@ function Cover({ deck }: { deck: Deck }) {
   useEffect(() => {
     const c = canvas.current;
     if (!c) return;
-    c.width = 640;
-    c.height = 360;
+    const size = thumbSize(deck, 640);
+    c.width = size.width;
+    c.height = size.height;
     void import("../studio/stage").then((m) => m.renderThumb(c, deck, 0, 0)).catch(() => undefined);
   }, [deck]);
   if (first.kind === "page") return <img src={first.src} alt="" loading="lazy" decoding="async" />;

@@ -12,17 +12,20 @@ import { usePress } from "../studio/Filmstrip";
 import { Menu } from "../studio/parts";
 // The slide menu is the room's menu, styled with the room.
 import "../studio/studio.css";
+import type { Deck } from "../studio/types";
+import type { FrameSize } from "../studio/format";
 
 export const ACCEPT = ".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 /** A file being rendered: its slides so far, out of `total` once known. */
 export interface Importing {
+  format?: FrameSize;
   name: string;
   total: number | null;
   done: string[];
 }
 
-export function Slides({ draft, importing, error, fileOver, onFile, onRemove, onMove, onGroup, onUngroup, onJoin, onSplit }: {
+export function Slides({ draft, importing, error, fileOver, onFile, onRemove, onMove, onGroup, onUngroup, onJoin, onSplit, onMode }: {
   draft: Draft;
   importing: Importing | null;
   error: string | null;
@@ -35,6 +38,7 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
   onUngroup(ids: string[]): void;
   onJoin(group: string): void;
   onSplit(slide: string): void;
+  onMode(mode: NonNullable<Deck["recording"]>): void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const ids = order(draft);
@@ -107,7 +111,7 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
         <button type="button" className="btn is-primary is-lg" onClick={pick} aria-busy={reading || undefined}>
           <Icon name="upload" size={16} />Choose a file
         </button>
-        {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">16:9 PDF or PowerPoint</p>}
+        {error ? <p className="su-error" role="alert">{error}</p> : <p className="su-quiet">PDF or PowerPoint</p>}
         <Drop label="Drop to add" on={fileOver} />
       </div>
     );
@@ -161,6 +165,12 @@ export function Slides({ draft, importing, error, fileOver, onFile, onRemove, on
             )}
           </span>
           <span className="su-grow" />
+          <label className="su-recording-mode">
+            <select className="btn is-quiet is-sm" aria-label="Recording mode" value={draft.recording ?? "groups"} disabled={!!shown} onChange={(e) => { if (e.target.value === "continuous" || e.target.value === "groups") onMode(e.target.value); }}>
+              <option value="continuous">One take</option>
+              <option value="groups">In parts</option>
+            </select>
+          </label>
           <button type="button" className="btn is-quiet is-sm" onClick={pick} disabled={!!shown} aria-busy={reading || undefined}>
             <Icon name="upload" size={16} />Replace
           </button>
@@ -330,7 +340,7 @@ function Grid({ draft, ids, picked, setPicked, onMove, onJoin, onSplit, onRemove
         aria-keyshortcuts="Space Alt+ArrowLeft Alt+ArrowRight Delete Shift+F10"
       >
         <div className="su-thumb">
-          <Thumb slide={draft.slides[id]} />
+          <Thumb slide={draft.slides[id]} format={draft.format} />
         </div>
         <span className="su-band" aria-hidden="true" />
         <span className="su-n" aria-hidden="true">{p.head ? label : ""}</span>

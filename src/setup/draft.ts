@@ -1,5 +1,5 @@
-// The presentation while it is being set up: slides in order, in groups, a script line per slide. Every slide is its own
-// group until someone groups slides together.
+// The presentation while it is being set up: slides in order, in groups, a script line per slide. A continuous take
+// uses one group; parts mode starts with one group per slide.
 // Groups own their slide ids, so the flat order is the groups read in turn. Group ids survive edits
 // wherever a group survives, because recorded takes are keyed by group id.
 import type { Deck, Group, Rect, Slide } from "../studio/types";
@@ -23,6 +23,8 @@ export interface DraftGroup {
 }
 
 export interface Draft {
+  format?: Deck["format"];
+  recording?: Deck["recording"];
   title: string;
   team: string[];
   logo: Pic | null;
@@ -34,11 +36,11 @@ export interface Draft {
   file?: string;
   /** Where the room put the camera tile; setup leaves it alone. */
   camera?: Rect;
-  /** The video's length limit, as on the deck. */
+  /** An optional manual take limit, as on the deck. */
   limitMs?: number | null;
 }
 
-export const emptyDraft = (): Draft => ({ title: "", team: [""], logo: null, slides: {}, groups: [], script: {} });
+export const emptyDraft = (): Draft => ({ title: "", team: [""], logo: null, slides: {}, groups: [], script: {}, recording: "continuous" });
 
 const rand = (n: number) => {
   const a = new Uint8Array(n);
@@ -75,13 +77,29 @@ export function replaceSlides(d: Draft, pics: Pic[], file?: string): Draft {
     if (said) script[id] = said;
   });
   let groups: DraftGroup[];
-  if (before.length === ids.length && d.groups.length) {
+  if (d.recording === "continuous") {
+    groups = ids.length ? [{ id: d.groups[0]?.id ?? newGroupId(), slides: ids }] : [];
+  } else if (before.length === ids.length && d.groups.length) {
     let i = 0;
     groups = d.groups.map((g) => ({ ...g, slides: g.slides.map(() => ids[i++]) }));
   } else {
     groups = singles(ids, d.groups.map((g) => g.id));
   }
   return { ...d, slides, script, groups, file };
+}
+
+/** A full take is one actual group, so its camera stream and cue timeline never restart at page boundaries. */
+export function recordingMode(d: Draft, recording: NonNullable<Deck["recording"]>): Draft {
+  if ((d.recording ?? "groups") === recording) return d;
+  const ids = order(d);
+  const groups = ids.length < 2 ? d.groups : recording === "continuous"
+    ? [{ id: d.groups.length === 1 ? d.groups[0].id : newGroupId(), slides: ids }]
+    : singles(ids);
+  return { ...d, recording, groups };
+}
+
+function grouped(d: Draft, groups: DraftGroup[]): Draft {
+  return { ...d, groups, recording: d.recording === "continuous" && groups.length > 1 ? "groups" : d.recording };
 }
 
 /** Puts the slides `ids` together, in deck order, as one group where the first of them is. Groups they leave keep their
@@ -101,7 +119,7 @@ export function groupSlides(d: Draft, ids: Iterable<string>, taken: ReadonlySet<
     if (at >= 0) groups.push({ id, slides });
     if (after.length) groups.push({ id: before.length ? newGroupId() : g.id, slides: after });
   }
-  return { ...d, groups };
+  return grouped(d, groups);
 }
 
 /** Splits every group holding one of `ids` back into one group per slide. The first slide keeps the group's id. */
@@ -110,7 +128,7 @@ export function ungroupSlides(d: Draft, ids: Iterable<string>): Draft {
   const groups = d.groups.flatMap((g) =>
     g.slides.length > 1 && g.slides.some((s) => pick.has(s)) ? g.slides.map((s, k) => ({ id: k ? newGroupId() : g.id, slides: [s] })) : [g],
   );
-  return { ...d, groups };
+  return grouped(d, groups);
 }
 
 /** Splits the group holding `id` so that `id` and the slides after it make a group of their own. The first part keeps
@@ -120,7 +138,7 @@ export function splitBefore(d: Draft, id: string): Draft {
     const k = g.slides.indexOf(id);
     return k > 0 ? [{ id: g.id, slides: g.slides.slice(0, k) }, { id: newGroupId(), slides: g.slides.slice(k) }] : [g];
   });
-  return groups.length === d.groups.length ? d : { ...d, groups };
+  return groups.length === d.groups.length ? d : grouped(d, groups);
 }
 
 /** Joins group `group` with the group after it, keeping the id `groupSlides` would. */
@@ -240,6 +258,8 @@ export function toDeck(d: Draft, src: (s: DraftSlide) => string = (s) => s.src, 
   });
   const team = d.team.map((t) => t.trim()).filter(Boolean);
   const deck: Deck = { title: d.title.trim(), team, groups };
+  if (d.format) deck.format = d.format;
+  if (d.recording) deck.recording = d.recording;
   if (logo) deck.logo = logo;
   if (d.camera) deck.camera = d.camera;
   if (d.limitMs !== undefined) deck.limitMs = d.limitMs;
@@ -276,6 +296,8 @@ export function fromDeck(deck: Deck): Draft {
     script,
   };
   if (deck.camera) draft.camera = deck.camera;
+  if (deck.format) draft.format = deck.format;
+  if (deck.recording) draft.recording = deck.recording;
   if (deck.limitMs !== undefined) draft.limitMs = deck.limitMs;
   return draft;
 }
@@ -284,3 +306,4 @@ export function fromDeck(deck: Deck): Draft {
 export const slidesMissing = (d: Draft) => d.groups.length === 0;
 export const titleMissing = (d: Draft) => !d.title.trim();
 export const teamMissing = (d: Draft) => !d.team.some((t) => t.trim());
+export const limitInvalid = (d: Draft) => d.limitMs != null && (!Number.isSafeInteger(d.limitMs) || d.limitMs < 1000);

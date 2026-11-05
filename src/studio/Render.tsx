@@ -1,4 +1,4 @@
-// Make the video: fetch every take this device lacks, then render intro + takes + outro in real time.
+// Make the video: fetch every take this device lacks, then render them in real time at the document's ratio.
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { slug, StartButton } from "./parts";
@@ -36,7 +36,7 @@ export async function takeMedia(room: string, info: TakeInfo, onBytes: (n: numbe
   return { blob, mime: info.mime, cues: info.cues, durationMs: info.durationMs };
 }
 
-/** The video's length, and a still from its logo intro for the player (frame zero is a blank page). */
+/** The video's actual length and a still for the player. */
 const inspect = (url: string) =>
   new Promise<{ ms: number; poster: string }>((resolve) => {
     const v = document.createElement("video");
@@ -46,8 +46,9 @@ const inspect = (url: string) =>
     const still = () => {
       v.onseeked = () => {
         const c = document.createElement("canvas");
-        c.width = 960;
-        c.height = 540;
+        const scale = Math.min(960 / v.videoWidth, 960 / v.videoHeight);
+        c.width = Math.round(v.videoWidth * scale);
+        c.height = Math.round(v.videoHeight * scale);
         let poster = "";
         try {
           c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
@@ -110,7 +111,7 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
         }
         await preload(deck, (f) => setState({ k: "working", label: "Loading slides", fraction: f }));
         // It renders in real time: what is left of the video is how long until Download.
-        const totalMs = INTRO_MS + infos.reduce((s, t) => s + t.durationMs, 0) + OUTRO_MS;
+        const totalMs = (deck.recording === "continuous" ? 0 : INTRO_MS + OUTRO_MS) + infos.reduce((s, t) => s + t.durationMs, 0);
         dropStill();
         const opts: Parameters<typeof exportVideo>[0] = {
           deck,
@@ -144,7 +145,7 @@ export function Render({ deck, room, onClose }: { deck: Deck; room: RoomState; o
       ) : (
         <>
           <div className={`st-stage is-export${state.k === "failed" ? " is-failed" : ""}`}>
-            <canvas ref={canvas} width={1920} height={1080} />
+            <canvas ref={canvas} />
           </div>
           {state.k === "working" ? (
             <div className="st-work">

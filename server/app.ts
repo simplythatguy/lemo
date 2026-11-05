@@ -1,5 +1,6 @@
 // The room API (docs/api.md) as one web-standard handler: server/dev.ts serves it locally, api/[...path].ts on Vercel.
 import { defaultTarget } from "./db.ts";
+import { validFormat } from "../src/studio/format.ts";
 import {
   CHUNK_BYTES, DECK_MAX_BYTES, FILE_MAX_BYTES, HttpError, SIGNAL_DATA_BYTES, SIGNAL_KINDS, Store, TAKE_MAX_BYTES,
   type LiveState, type SignalKind,
@@ -13,7 +14,6 @@ const FILE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const GROUP_ID = /^[a-z0-9-]{1,40}$/;
 const SPOT = /^(tl|tr|c|bl|br)-[hv]-[sml]$/;
 const MIME = /^video\/[\w.+-]+(;[\w=.,\s"+-]*)?$/;
-const HOUR_MS = 60 * 60 * 1000;
 
 // ---------------------------------------------------------------- validation
 
@@ -75,7 +75,7 @@ const cue = shape({ slide: required(int(0, 1000)), atMs: required(int(0)), spot 
 const newTake = shape({
   groupId: required(str(1, 40, GROUP_ID)),
   personId,
-  durationMs: required(int(0, HOUR_MS)),
+  durationMs: required(int(0)),
   cues: required(list(cue, 1000)),
   mime: required(str(1, 120, MIME)),
   size: required(int(1, TAKE_MAX_BYTES)),
@@ -88,8 +88,9 @@ const liveState: Check<LiveState> = shape({
   slide: required(int(0, 1000)),
   spot,
   recording: required(bool),
-  remainingMs: required(int(0, HOUR_MS)),
-  targetMs: required(int(0, HOUR_MS)),
+  remainingMs: required(int(0)),
+  targetMs: required(int(0)),
+  elapsedMs: optional(int(0), undefined),
   at: required(int(0)),
 });
 const kind: Check<SignalKind> = (v, name) => {
@@ -119,11 +120,18 @@ const deck = (v: unknown) => {
   list(text, DECK_MAX_BYTES)(v.team, "deck.team");
   list(group, DECK_MAX_BYTES)(v.groups, "deck.groups");
   if (v.logo !== undefined) text(v.logo, "deck.logo");
+  if (v.recording !== undefined && v.recording !== "continuous" && v.recording !== "groups") throw bad("deck.recording must be continuous or groups");
+  if (v.recording === "continuous" && Array.isArray(v.groups) && v.groups.length > 1) throw bad("A continuous recording has one group");
+  if (v.format !== undefined) {
+    if (!isObject(v.format)) throw bad("deck.format must be an object");
+    const width = finite(v.format.width, "deck.format.width"), height = finite(v.format.height, "deck.format.height");
+    if (!validFormat({ width, height })) throw bad("deck.format must have positive dimensions with a renderable aspect ratio");
+  }
   if (v.camera !== undefined) {
     if (!isObject(v.camera)) throw bad("deck.camera must be an object");
     for (const key of ["x", "y", "w", "h"]) finite(v.camera[key], `deck.camera.${key}`);
   }
-  if (v.limitMs !== undefined && v.limitMs !== null) int(1000, HOUR_MS)(v.limitMs, "deck.limitMs");
+  if (v.limitMs !== undefined && v.limitMs !== null) int(1000)(v.limitMs, "deck.limitMs");
   return v;
 };
 

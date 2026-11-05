@@ -12,6 +12,7 @@ import { Transport } from "./Transport";
 import { useRetainedTakes } from "./uploads";
 import type { Cue, Deck, RoomState, TakeInfo, TakeMedia } from "./types";
 import "./savedVideos.css";
+import { frameRatio } from "./format";
 
 const complete = (t: TakeInfo | undefined) => !!t && t.received >= t.chunks;
 
@@ -133,12 +134,12 @@ export function SavedVideos({ deck, room, upload }: {
     void download(deck, room.code, [take], `${slug(deck.title)}-${slug(group?.name ?? take.groupId)}`, false, set).catch(() => undefined).finally(() => set(null));
   };
 
-  // Every saved group joined in deck order, with the intro and outro: the video so far, sound included.
+  // The video so far, with title cards only when it was recorded in parts.
   const [all, setAll] = useState<number | null>(null);
   const saveAll = () => {
     if (all !== null || !saved.length) return;
     setAll(0);
-    void download(deck, room.code, saved.map((g) => room.takes[g.id]), `${slug(deck.title)}-demo`, true, setAll)
+    void download(deck, room.code, saved.map((g) => room.takes[g.id]), `${slug(deck.title)}-demo`, deck.recording !== "continuous", setAll)
       .catch(() => undefined).finally(() => setAll(null));
   };
 
@@ -423,6 +424,7 @@ function Player({ root, leaving, deck, room, index, take, saving, onSave, onClos
     <div
       ref={root}
       className={`st-play${leaving ? " is-leaving" : ""}`}
+      style={{ "--stage-ratio": frameRatio(deck) } as React.CSSProperties}
       role="dialog"
       aria-modal="true"
       aria-label={group.name}
