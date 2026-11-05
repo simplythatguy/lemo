@@ -1012,7 +1012,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
             {phase.k === "countdown" && <div className="st-count" aria-live="assertive"><span key={phase.n}>{phase.n}</span></div>}
             {refused && <StartButton onStart={again} />}
           </StageCanvas>
-          {slideView.full && <div className="st-focus-controls" role="group" aria-label="Slide controls" onFocus={slideView.wake}>
+          {slideView.full && !spotsOpen && <div className="st-focus-controls" role="group" aria-label="Slide controls" onFocus={slideView.wake}>
             <button type="button" className="icon-btn" onClick={slideView.leave} aria-label="Exit full screen" data-tip="Exit full screen (Esc)"><Icon name="x" size={16} /></button>
             {(phase.k === "idle" || phase.k === "recording") && !follow && nav}
             {(dock === "record" || dock === "retake") && <button type="button" className="btn is-primary" onClick={() => settled() && record()} disabled={!canRecord}><span className="st-dot" />{dock === "retake" ? "Retake" : "Record"}</button>}

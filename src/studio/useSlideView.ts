@@ -5,9 +5,13 @@ export function useSlideView() {
   const host = useRef<HTMLDivElement>(null);
   const native = useRef(false);
   const wanted = useRef(false);
+  const launcher = useRef<HTMLElement | null>(null);
   const timer = useRef<number | null>(null);
   const [full, setFull] = useState(false);
   const [awake, setAwake] = useState(true);
+  const restoreFocus = useCallback(() => {
+    if (!wanted.current && launcher.current?.isConnected) launcher.current.focus({ preventScroll: true });
+  }, []);
 
   const wake = useCallback(() => {
     setAwake(true);
@@ -18,6 +22,8 @@ export function useSlideView() {
   const enter = () => {
     const el = host.current;
     if (!el) return;
+    launcher.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    native.current = document.fullscreenElement === el;
     wanted.current = true;
     setFull(true);
     // The viewport view remains usable when the browser cannot grant native fullscreen.
@@ -27,14 +33,13 @@ export function useSlideView() {
     wanted.current = false;
     native.current = false;
     setFull(false);
-    if (document.fullscreenElement === host.current) void document.exitFullscreen().catch(() => undefined);
   }, []);
 
   useEffect(() => {
     const changed = () => {
       if (host.current && document.fullscreenElement === host.current) {
         if (wanted.current) native.current = true;
-        else void document.exitFullscreen().catch(() => undefined);
+        else void document.exitFullscreen().catch(() => undefined).then(restoreFocus);
       }
       else if (native.current) {
         native.current = false;
@@ -44,12 +49,11 @@ export function useSlideView() {
     };
     document.addEventListener("fullscreenchange", changed);
     return () => document.removeEventListener("fullscreenchange", changed);
-  }, []);
+  }, [restoreFocus]);
 
   useLayoutEffect(() => {
     const el = host.current;
     if (!full || !el) return;
-    const before = document.activeElement;
     const outside: { el: HTMLElement; inert: boolean }[] = [];
     for (let node: HTMLElement | null = el; node && node !== document.body; node = node.parentElement) {
       for (const sibling of node.parentElement?.children ?? []) {
@@ -84,10 +88,10 @@ export function useSlideView() {
       window.removeEventListener("keydown", keys, true);
       if (timer.current !== null) window.clearTimeout(timer.current);
       for (const item of outside) item.el.inert = item.inert;
-      if (document.fullscreenElement === el) void document.exitFullscreen().catch(() => undefined);
-      if (before instanceof HTMLElement && before.isConnected) before.focus({ preventScroll: true });
+      if (document.fullscreenElement === el) void document.exitFullscreen().catch(() => undefined).then(restoreFocus);
+      else restoreFocus();
     };
-  }, [full, leave, wake]);
+  }, [full, leave, restoreFocus, wake]);
 
   return { host, full, awake, enter, leave, wake };
 }

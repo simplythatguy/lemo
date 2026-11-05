@@ -437,7 +437,7 @@
 
 .st-stage-cell .st-stage {
   width: 100%;
-  container: stage / inline-size;
+  container: stage / size;
 }
 
 .st-stage canvas {

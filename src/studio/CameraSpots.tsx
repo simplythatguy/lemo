@@ -52,8 +52,8 @@ interface SizeGesture { p: Place; until: number; origin: SizeTarget[]; latest: S
 function Sizes({ p, wide, size, shape, current, kept, onPick, onClose, frame }: { p: Place; wide: CameraBox; size: CameraSize; shape: CameraShape; current: boolean; kept: boolean; onPick(row: HTMLElement): void; onClose(): void; frame: FrameSize }) {
   const at = rowAt(p, wide);
   const row = useRef<HTMLDivElement>(null);
-  const style: React.CSSProperties & { "--camera-left": string; "--camera-top": string; "--camera-height": string } = {
-    "--camera-left": pct(at.x, frame.width), "--camera-top": pct(at.y, frame.height), "--camera-height": `${100 * wide.h / frame.width}cqw`,
+  const style: React.CSSProperties & { "--camera-left": string; "--camera-top": string } = {
+    "--camera-left": pct(at.x, frame.width), "--camera-top": pct(at.y, frame.height),
   };
   return (
     <div
@@ -155,7 +155,6 @@ export function CameraSpots({ open, onOpen, format }: { open: boolean; onOpen(op
         if (row) {
           row.style.setProperty("--camera-left", pct(at.x, frame.width));
           row.style.setProperty("--camera-top", pct(at.y, frame.height));
-          row.style.setProperty("--camera-height", `${100 * h / frame.width}cqw`);
         }
       });
     });
