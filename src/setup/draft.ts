@@ -93,7 +93,7 @@ export function recordingMode(d: Draft, recording: NonNullable<Deck["recording"]
   if ((d.recording ?? "groups") === recording) return d;
   const ids = order(d);
   const groups = ids.length < 2 ? d.groups : recording === "continuous"
-    ? [{ id: d.groups.length === 1 ? d.groups[0].id : newGroupId(), slides: ids }]
+    ? [{ id: newGroupId(), slides: ids }]
     : singles(ids);
   return { ...d, recording, groups };
 }

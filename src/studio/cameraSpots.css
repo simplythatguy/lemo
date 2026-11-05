@@ -102,6 +102,12 @@
   .st-spot-size button { width: var(--control-sm); height: var(--control-sm); font-size: var(--text-13); }
 }
 
+/* A tall page on a short phone has room for the three sizes vertically. */
+@container stage (max-width: 128px) {
+  .st-spot-size { flex-direction: column; gap: var(--space-4); }
+  .st-spot-size.is-mid { translate: -50% -50%; }
+}
+
 /* On touch each ring takes its share of the row and 44px of height, grown away from its place's shape (from the
    ring's outer edge, past its 1.5px border), so the gaps between rings tap too and the shape keeps all of its own. */
 @media (pointer: coarse) {

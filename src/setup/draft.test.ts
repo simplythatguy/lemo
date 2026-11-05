@@ -37,6 +37,18 @@ test("splitting a continuous take explicitly returns to recording in parts", () 
   assert.deepEqual(next.groups.map((g) => g.slides.length), [2, 2]);
 });
 
+test("entering one-take mode invalidates a partial take retained by an earlier group join", () => {
+  const parts = toDeck(replaceSlides(partsDraft(), pics(2)));
+  const recorded = parts.groups[0].id;
+  const joined = regroup(parts, { kind: "join", group: recorded }, new Set([recorded]));
+  assert.equal(joined.groups[0].id, recorded, "parts mode retains the existing prefix take when joining");
+  const loaded = fromDeck(joined);
+  const next = toDeck(renewChangedGroups(recordingMode(loaded, "continuous"), loaded));
+  assert.equal(next.recording, "continuous");
+  assert.equal(next.groups[0].slides.length, 2);
+  assert.deepEqual(lostTakes(joined, next, new Set([recorded])).map((g) => g.id), [recorded], "the editor must ask before removing the older partial take");
+});
+
 test("every new slide is its own group", () => {
   const d = replaceSlides(partsDraft(), pics(4));
   assert.deepEqual(sizes(d), [1, 1, 1, 1]);

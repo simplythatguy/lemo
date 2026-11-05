@@ -927,7 +927,7 @@
   display: grid;
   place-items: center;
   min-width: var(--control-lg);
-  height: calc(clamp(112px, 8vw, 144px) / var(--stage-ratio, 1.777777778));
+  height: calc(var(--thumb-edge) / max(1, var(--stage-ratio, 1.777777778)));
   padding: 0;
   border: 0;
   border-radius: var(--radius-control);
@@ -950,7 +950,7 @@
 .st-strip-join {
   position: absolute;
   right: calc(var(--space-32) / -2);
-  bottom: calc(clamp(112px, 8vw, 144px) / var(--stage-ratio, 1.777777778) / 2);
+  bottom: calc(var(--thumb-edge) / max(1, var(--stage-ratio, 1.777777778)) / 2);
   translate: 50% 50%;
   z-index: 1;
   display: grid;
@@ -1036,7 +1036,7 @@
   flex-shrink: 0;
   -webkit-touch-callout: none;
   user-select: none;
-  width: clamp(112px, 8vw, 144px);
+  width: calc(var(--thumb-edge) * min(1, var(--stage-ratio, 1.777777778)));
   aspect-ratio: var(--stage-ratio, 1.777777778);
   padding: 0;
   border: 0;
@@ -1256,6 +1256,7 @@
   }
   /* One column, at most a phone-and-a-bit wide and centred; the bars that span the page keep their contents on it. */
   .st-room {
+    --thumb-edge: 80px;
     grid-template-columns: minmax(0, 1fr) minmax(0, var(--column)) minmax(0, 1fr);
     grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
     grid-template-areas: "top top top" ". stage ." "strip strip strip" ". head ." ". script ." "dock dock dock";
@@ -1336,7 +1337,6 @@
     display: none;
   }
   .st-thumb {
-    width: 80px;
     border-radius: var(--radius-control);
   }
   .st-strip-slides {
@@ -1345,12 +1345,8 @@
   .st-strip-g {
     gap: var(--space-8);
   }
-  .st-strip-folded {
-    height: calc(80px / var(--stage-ratio, 1.777777778));
-  }
   .st-strip-join {
     right: calc(var(--space-24) / -2);
-    bottom: calc(80px / var(--stage-ratio, 1.777777778) / 2);
   }
   .st-dock {
     grid-area: dock;
@@ -1368,21 +1364,23 @@
 
 /* A short phone (320x640) gives the words its spare height: a smaller strip and a tighter dock. */
 @media (max-width: 719px) and (max-height: 700px) {
+  .st-room {
+    --thumb-edge: 64px;
+    grid-template-rows: auto auto auto auto minmax(var(--space-64), 1fr) auto;
+  }
   /* Keep a whole strip and readable transcript above the dock, including square and portrait documents. */
   .st-stage-cell .st-stage {
-    width: min(100%, calc(30dvh * var(--stage-ratio, 1.777777778)));
+    width: min(100%, calc(27dvh * var(--stage-ratio, 1.777777778)));
   }
   .st-strip {
     padding-top: var(--space-8);
   }
-  .st-thumb {
-    width: 64px;
+  .st-script {
+    padding-bottom: var(--space-8);
+    mask-image: linear-gradient(black calc(100% - var(--space-8)), transparent);
   }
-  .st-strip-folded {
-    height: calc(64px / var(--stage-ratio, 1.777777778));
-  }
-  .st-strip-join {
-    bottom: calc(64px / var(--stage-ratio, 1.777777778) / 2);
+  .st-script.is-following {
+    mask-image: linear-gradient(transparent, black var(--space-8), black calc(100% - var(--space-8)), transparent);
   }
   .st-dock {
     row-gap: var(--space-8);
