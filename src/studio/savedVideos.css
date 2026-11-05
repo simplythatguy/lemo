@@ -333,7 +333,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  width: min(1120px, 100%, calc((100dvh - 64px - 112px) * var(--stage-ratio, 1.777777778)));
+  width: min(1120px, 100%, max(320px, calc((100dvh - 64px - 112px) * var(--stage-ratio, 1.777777778))));
   padding: var(--space-8);
   border-radius: var(--radius-sheet);
   background: var(--surface);
@@ -342,6 +342,8 @@
 
 /* The picture sits in the box with concentric corners and no hairline of its own: one surface, not a box in a box. */
 .st-play-box .st-stage {
+  align-self: center;
+  width: min(100%, calc((100dvh - 64px - 112px) * var(--stage-ratio, 1.777777778)));
   border: 0;
   border-radius: calc(var(--radius-sheet) - var(--space-8));
 }
@@ -392,6 +394,9 @@
     padding: var(--space-8);
   }
   .st-play-box {
+    width: min(100%, max(320px, calc((100dvh - 16px - 112px) * var(--stage-ratio, 1.777777778))));
+  }
+  .st-play-box .st-stage {
     width: min(100%, calc((100dvh - 16px - 112px) * var(--stage-ratio, 1.777777778)));
   }
 }

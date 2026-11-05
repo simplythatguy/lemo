@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import "./slideView.css";
 
 export function useSlideView() {
+  // The room survives group changes; the keyed booth and its camera controls do not.
   const host = useRef<HTMLDivElement>(null);
   const native = useRef(false);
   const wanted = useRef(false);
@@ -73,7 +74,7 @@ export function useSlideView() {
         leave();
       } else if (e.key === "Tab") {
         wake();
-        const buttons = [...el.querySelectorAll<HTMLElement>("button:not(:disabled), a[href], [tabindex='0']")].filter((b) => b.getClientRects().length);
+        const buttons = [...el.querySelectorAll<HTMLElement>("button:not(:disabled), a[href], [tabindex='0']")].filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== "hidden");
         const first = buttons[0], last = buttons.at(-1);
         if (!el.contains(document.activeElement) || document.activeElement === el || (e.shiftKey ? document.activeElement === first : document.activeElement === last)) {
           e.preventDefault();

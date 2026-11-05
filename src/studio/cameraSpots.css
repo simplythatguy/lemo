@@ -151,6 +151,12 @@
     color: var(--ink);
     border-color: var(--ink);
   }
+  @media (hover: hover) {
+    .st-spot-size button:hover {
+      color: var(--ink);
+      border-color: var(--ink);
+    }
+  }
 }
 
 /* On touch each ring takes its share of the row and 44px of height, grown away from its place's shape (from the

@@ -223,7 +223,17 @@ export function Room({ deck, room, serverLive, me, camera, apply, onLeave }: {
   const away = busy(phase) || rendering;
 
   return (
-    <div className={`st-room${rendering ? " is-rendering" : ""}${busy(phase) ? " is-busy" : ""}`} style={{ "--stage-ratio": frameRatio(deck) } as React.CSSProperties}>
+    <div
+      ref={slideView.host}
+      className={`st-room${rendering ? " is-rendering" : ""}${busy(phase) ? " is-busy" : ""}`}
+      style={{ "--stage-ratio": frameRatio(deck) } as React.CSSProperties}
+      role={slideView.full ? "region" : undefined}
+      aria-label={slideView.full ? "Full screen slides" : undefined}
+      tabIndex={slideView.full ? -1 : undefined}
+      onPointerMove={slideView.full ? slideView.wake : undefined}
+      onPointerDown={slideView.full ? slideView.wake : undefined}
+      onClick={(e) => { if (slideView.full && e.detail && e.target instanceof Element && e.target.closest(".st-focus-controls")) slideView.host.current?.focus({ preventScroll: true }); }}
+    >
       <header className="st-top">
         <div className="st-where">
           {/* The project's own mark, as on its join screen and its video, and the way home. */}
@@ -654,7 +664,6 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     if (p.k === "idle" && !following) {
       const to = preview + d;
       if (to >= 0 && to <= last) return setPreview(to);
-      if (slideView.full) return;
       const gi = d > 0 ? around.next : around.prev;
       if (gi !== null) onPick(gi, d > 0 ? 0 : Math.max(0, deck.groups[gi].slides.length - 1));
       return;
@@ -665,7 +674,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     cues.current = [...cues.current, { slide, atMs: Math.round(performance.now() - p.startedAt), spot: spotRef.current }];
     stage.show(index, slide);
     setPhase({ ...p, slide });
-  }, [around.next, around.prev, deck.groups, following, last, onPick, preview, setPhase, setPreview, slideView.full, stage]);
+  }, [around.next, around.prev, deck.groups, following, last, onPick, preview, setPhase, setPreview, stage]);
 
   // Leaving the group mid-take (or unmounting) never leaves a recorder running, or the team following a take that ended.
   useEffect(() => () => {
@@ -865,7 +874,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
   const settled = () => leadAt.current.at === null || performance.now() - leadAt.current.at > SETTLE_MS;
   const recordKey = <kbd className="kbd">R</kbd>;
   /** Idle and not following: the arrows walk on into the next or previous group. */
-  const walk = phase.k === "idle" && !follow && !slideView.full;
+  const walk = phase.k === "idle" && !follow;
   const firstSlide = onStage === 0 && !(walk && around.prev !== null);
   const lastSlide = onStage === last && !(walk && around.next !== null);
   const nav = (
@@ -998,14 +1007,7 @@ function Booth({ deck, index, room, me, camera, canvas, stage, dock, phase, setP
     <main className="st-body">
       <div className="st-desk">
         <div
-          ref={slideView.host}
           className={`st-stage-cell${slideView.full ? ` is-full${slideView.awake || alert ? " is-awake" : ""}` : ""}`}
-          role={slideView.full ? "region" : undefined}
-          aria-label={slideView.full ? "Full screen slides" : undefined}
-          tabIndex={slideView.full ? -1 : undefined}
-          onPointerMove={slideView.full ? slideView.wake : undefined}
-          onPointerDown={slideView.full ? slideView.wake : undefined}
-          onClick={(e) => { if (slideView.full && e.detail && e.target instanceof Element && e.target.closest(".st-focus-controls")) slideView.host.current?.focus({ preventScroll: true }); }}
         >
           <StageCanvas canvas={canvas}>
             {canMove && <CameraSpots format={deck.format} open={spotsOpen} onOpen={setSpotsOpen} />}
