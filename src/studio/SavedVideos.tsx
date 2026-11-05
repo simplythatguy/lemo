@@ -169,8 +169,10 @@ export function SavedVideos({ deck, room, upload }: {
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label={`Saved videos, ${saved.length} of ${deck.groups.length}${retained.length ? `, ${retained.length} on this device` : ""}`}
+          data-tip="Saved videos"
         >
-          <span>Saved</span>
+          <Icon name="saved" size={16} />
+          <span className="st-saved-label">Saved</span>
           {saved.length > 0 && <span className="st-saved-n">{saved.length}<span>/{deck.groups.length}</span></span>}
         </button>
       )}

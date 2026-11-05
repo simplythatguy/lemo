@@ -21,6 +21,14 @@
   color: var(--ink-4);
 }
 
+.st-saved-btn > svg { display: none; }
+
+@media (max-width: 719px) {
+  .st-saved-btn { width: var(--control); justify-content: center; padding: 0; }
+  .st-saved-btn > svg { display: block; }
+  .st-saved-btn > :is(.st-saved-label, .st-saved-n) { display: none; }
+}
+
 /* Open: ink, not a fill. */
 .st-saved-btn.is-open {
   color: var(--ink);

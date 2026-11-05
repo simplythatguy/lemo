@@ -1273,7 +1273,7 @@
   }
   /* The title keeps a few letters (then an ellipsis) before the cameras start to scroll. */
   .st-top {
-    grid-template-columns: minmax(96px, 1fr) minmax(0, max-content) max-content;
+    grid-template-columns: minmax(80px, 1fr) minmax(0, max-content) max-content;
     column-gap: var(--space-8);
     height: 56px;
     padding: 0 calc(max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16)) - var(--space-8)) 0 max(var(--space-16), (100% - var(--column)) / 2 + var(--space-16));
@@ -1302,7 +1302,7 @@
     display: none;
   }
   .st-corner {
-    gap: var(--space-4);
+    gap: var(--space-8);
   }
   .st-stage-cell {
     grid-area: stage;
